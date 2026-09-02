@@ -1,0 +1,7 @@
+Options -Indexes
+RewriteEngine On
+
+RewriteRule ^(?:src|migrations|seeds|bin|storage)(?:/|$) - [F,L,NC]
+RewriteRule ^(?:\.env(?:\..*)?|composer\.(?:json|lock)|README\.md)$ - [F,L,NC]
+RewriteRule ^public(?:/|$) - [L,NC]
+RewriteRule ^ - [F,L]

@@ -1,0 +1,7 @@
+.env
+.env.*
+!.env.example
+storage/*.log
+storage/*.lock
+storage/*.sqlite*
+storage/answer-media/

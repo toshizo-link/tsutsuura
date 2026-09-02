@@ -1,32 +1,23 @@
-//
-//  tsutsuuraApp.swift
-//  tsutsuura
-//
-//  Created by Takami Marsh on 3/23/26.
-//
-
 import SwiftUI
-import SwiftData
 
 @main
+@MainActor
 struct tsutsuuraApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+    @StateObject private var store: AppStore
 
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
+    #if canImport(UIKit)
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    #endif
+
+    init() {
+        _store = StateObject(
+            wrappedValue: AppStoreLaunchFactory.make()
+        )
+    }
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(store: store)
         }
-        .modelContainer(sharedModelContainer)
     }
 }

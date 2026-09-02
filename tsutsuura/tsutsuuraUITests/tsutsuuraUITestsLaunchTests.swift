@@ -1,14 +1,6 @@
-//
-//  tsutsuuraUITestsLaunchTests.swift
-//  tsutsuuraUITests
-//
-//  Created by Takami Marsh on 3/23/26.
-//
-
 import XCTest
 
 final class tsutsuuraUITestsLaunchTests: XCTestCase {
-
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true
     }
@@ -20,13 +12,16 @@ final class tsutsuuraUITestsLaunchTests: XCTestCase {
     @MainActor
     func testLaunch() throws {
         let app = XCUIApplication()
+        app.launchEnvironment["UI_TESTING"] = "1"
+        app.launchEnvironment["TSUTSUURA_DEMO_MODE"] = "signedOut"
         app.launch()
 
-        // Insert steps here to perform after app launch but before taking a screenshot,
-        // such as logging into a test account or navigating somewhere in the app
+        XCTAssertTrue(app.buttons["create-family-button"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["setup-this-iphone-button"].exists)
+        XCTAssertTrue(app.buttons["returning-user-login-button"].exists)
 
         let attachment = XCTAttachment(screenshot: app.screenshot())
-        attachment.name = "Launch Screen"
+        attachment.name = "Family Welcome"
         attachment.lifetime = .keepAlways
         add(attachment)
     }

@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "34NS8XN5F9.toshizo.link.tsutsuura"
+        ],
+        "components": [
+          {
+            "/": "/tsutsuura-api/api/invite/*",
+            "comment": "One-time family device pairing links"
+          }
+        ]
+      }
+    ]
+  }
+}
