@@ -7,38 +7,39 @@ import UIKit
 enum TsutsuuraTheme {
     static let canvas = CGSize(width: 440, height: 956)
     static let fontName = "Kaisotai-Next-UP-B"
-    private static let displayFontMinimumSize: CGFloat = 34
 
     static let ink = Color(hex: 0x2B2B2B)
     static let dot = Color(hex: 0x414141)
-    // White text on every interactive fill below clears WCAG AA's 4.5:1
-    // contrast threshold. The regular tokens are already suitable when the
-    // system's Increase Contrast setting is enabled, so controls do not need
-    // a separate color branch that could drift out of sync.
-    static let cyan = Color(hex: 0x1F718D)
-    static let cyanDark = Color(hex: 0x154B5D)
-    static let cyanMuted = Color(hex: 0x466B76)
+    // Brand fills and button shadows sampled from the Figma screens.
+    // White labels retain the reference palette by default; Increase Contrast
+    // uses the matching dark brand color through actionFill below.
+    static let cyan = Color(hex: 0x2FADD7)
+    static let cyanDark = Color(hex: 0x1D5D73)
+    static let batteryEmpty = Color(hex: 0x2C525F)
     static let sky = Color(hex: 0xD7F0F7)
     static let skyInk = Color(hex: 0x3E4E50)
     static let skyMuted = Color(hex: 0x52666A)
-    static let green = Color(hex: 0x34752F)
-    static let greenDark = Color(hex: 0x24571F)
-    static let orange = Color(hex: 0xA94F14)
+    static let green = Color(hex: 0x4FC446)
+    static let greenDark = Color(hex: 0x3A7A35)
+    static let orange = Color(hex: 0xC04700)
     static let orangeDark = Color(hex: 0x71340A)
     static let coral = Color(hex: 0xB34B54)
     static let blueAvatar = Color(hex: 0x386EA7)
     static let white = Color.white
 
-    static func font(_ size: CGFloat) -> Font {
-        if size < displayFontMinimumSize {
-            return bodyFont(size)
-        }
-
-        return displayFont(size)
+    static func actionFill(_ fill: Color, contrast: ColorSchemeContrast) -> Color {
+        guard contrast == .increased else { return fill }
+        if fill == cyan { return cyanDark }
+        if fill == green { return greenDark }
+        return fill
     }
 
-    /// Kaisotai is intentionally limited to large display type. Body copy,
-    /// metadata, form labels, and controls use the system Japanese face.
+    static func font(_ size: CGFloat) -> Font {
+        bodyFont(size)
+    }
+
+    /// Kaisotai carries the app identity in headings, names, dates, feed text,
+    /// and short actions/statuses. Inputs and detailed guidance use bodyFont.
     static func displayFont(_ size: CGFloat) -> Font {
         .custom(
             fontName,
@@ -85,12 +86,28 @@ enum TsutsuuraTheme {
     }
 }
 
+struct TsutsuuraWordmark: View {
+    var size: CGFloat = 110
+
+    var body: some View {
+        Text("つつうら")
+            .font(TsutsuuraTheme.displayFont(size))
+            .foregroundStyle(TsutsuuraTheme.cyan)
+            .shadow(color: TsutsuuraTheme.cyan.opacity(0.5), radius: 0, y: 5)
+            .lineLimit(1)
+            .minimumScaleFactor(0.1)
+            .frame(maxWidth: .infinity)
+            .accessibilityLabel("つつうら")
+    }
+}
+
 enum TsutsuuraMotion {
     /// Fast state changes such as keyboard clearance and compact controls.
     static let quickSpring = Animation.spring(duration: 0.22, bounce: 0.28)
 
-    /// The default navigation and presentation rhythm.
-    static let spring = Animation.spring(duration: 0.30, bounce: 0.32)
+    /// Every page, tab, and back gesture uses the same visible spring.
+    static let navigation = Animation.spring(duration: 0.42, bounce: 0.26)
+    static let spring = navigation
 
     /// A slightly larger arrival used for celebratory or full-card reveals.
     static let emphasizedSpring = Animation.spring(duration: 0.38, bounce: 0.38)
@@ -128,9 +145,19 @@ extension Color {
     }
 }
 
+struct TsutsuuraTopBackdropTintKey: PreferenceKey {
+    static let defaultValue: Color? = nil
+
+    static func reduce(value: inout Color?, nextValue: () -> Color?) {
+        value = nextValue() ?? value
+    }
+}
+
 struct TsutsuuraCanvas<Content: View>: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var keepsFullScaleWithKeyboard = false
     @ViewBuilder let content: () -> Content
+    @State private var topBackdropTint: Color?
 
     var body: some View {
         GeometryReader { proxy in
@@ -146,18 +173,18 @@ struct TsutsuuraCanvas<Content: View>: View {
                 && proxy.size.height > 0
                 ? proxy.size.height
                 : TsutsuuraTheme.canvas.height
-            // Never shrink text or touch targets to make the original 440pt
-            // artboard fit. Compact iPhones center-crop the small decorative
-            // gutters (the authored content begins at 34pt) while controls
-            // retain their real Dynamic Type size and 44pt minimum target.
-            // Taller/shorter devices receive their actual safe-area height.
+            // Lay out within the real safe-area width instead of cropping a
+            // 440pt artboard. Text and touch targets retain their point sizes;
+            // compact screens wrap content and all screens fill the available width.
             let canvasHeight = availableHeight
 
-            ZStack {
-                TsutsuuraTheme.ink
+            ZStack(alignment: .top) {
+                DottedBackdrop()
+                    .ignoresSafeArea()
                 content()
+                    .environment(\.hasStationaryBackdrop, true)
                     .frame(
-                        width: TsutsuuraTheme.canvas.width,
+                        width: availableWidth,
                         height: canvasHeight
                     )
                     .frame(
@@ -165,12 +192,29 @@ struct TsutsuuraCanvas<Content: View>: View {
                         height: availableHeight
                     )
                     .clipped()
+
+                // Fade the status-bar tint with the question banner while the
+                // underlying dots remain anchored to the screen.
+                Rectangle()
+                    .fill(topBackdropTint ?? .clear)
+                    .opacity(0.5)
+                    .frame(height: proxy.safeAreaInsets.top)
+                    .offset(y: -proxy.safeAreaInsets.top)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                    .animation(
+                        TsutsuuraMotion.respectingReduceMotion(reduceMotion, TsutsuuraMotion.navigation),
+                        value: topBackdropTint
+                    )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         // Only the backdrop extends under system chrome. Interactive content
         // remains inside the status-bar and home-indicator safe areas.
-        .background(TsutsuuraTheme.ink.ignoresSafeArea())
+        .background { DottedBackdrop().ignoresSafeArea() }
+        .onPreferenceChange(TsutsuuraTopBackdropTintKey.self) {
+            topBackdropTint = $0
+        }
         .ignoresSafeArea(
             keepsFullScaleWithKeyboard ? .keyboard : [],
             edges: .bottom
@@ -178,7 +222,19 @@ struct TsutsuuraCanvas<Content: View>: View {
     }
 }
 
+private struct StationaryBackdropKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var hasStationaryBackdrop: Bool {
+        get { self[StationaryBackdropKey.self] }
+        set { self[StationaryBackdropKey.self] = newValue }
+    }
+}
+
 struct DottedBackdrop: View {
+    @Environment(\.hasStationaryBackdrop) private var hasStationaryBackdrop
     var background = TsutsuuraTheme.ink
     var dot = TsutsuuraTheme.dot
     var spacing: CGFloat = 24
@@ -187,6 +243,7 @@ struct DottedBackdrop: View {
 
     var body: some View {
         Canvas { context, size in
+            guard !hasStationaryBackdrop else { return }
             context.fill(
                 Path(CGRect(origin: .zero, size: size)),
                 with: .color(background)
@@ -198,7 +255,7 @@ struct DottedBackdrop: View {
                 while x < size.width {
                     context.fill(
                         Path(
-                            ellipseIn: CGRect(
+                            CGRect(
                                 x: x,
                                 y: y,
                                 width: diameter,
@@ -218,7 +275,7 @@ struct DottedBackdrop: View {
 
 struct PaperPanel<Content: View>: View {
     var fill = TsutsuuraTheme.sky
-    var border = TsutsuuraTheme.skyInk.opacity(0.55)
+    var border = TsutsuuraTheme.skyInk.opacity(0.5)
     @ViewBuilder let content: () -> Content
 
     var body: some View {
@@ -240,7 +297,7 @@ struct PaperPanel<Content: View>: View {
     }
 }
 
-private struct UnevenPaperHighlight: Shape {
+struct UnevenPaperHighlight: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         path.move(to: CGPoint(x: 0, y: 0))
@@ -318,12 +375,14 @@ struct RaisedButton<Label: View>: View {
 }
 
 struct TextRaisedButton: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let title: String
     var icon: String?
     var fill = TsutsuuraTheme.cyan
     var shadow = TsutsuuraTheme.cyanDark
     var height: CGFloat = 68
     var fontSize: CGFloat = 31
+    var usesDisplayFont = true
     var haptic: TsutsuuraHaptic = .selection
     var isSelected = false
     let action: () -> Void
@@ -337,14 +396,19 @@ struct TextRaisedButton: View {
             isSelected: isSelected,
             action: action
         ) {
-            HStack(spacing: 12) {
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(spacing: 8))
+                : AnyLayout(HStackLayout(spacing: 12))
+            layout {
                 if let icon {
                     Image(systemName: icon)
                         .font(.system(size: fontSize * 0.78, weight: .bold))
                         .accessibilityHidden(true)
                 }
                 Text(title)
-                    .font(TsutsuuraTheme.bodyFont(fontSize))
+                    .font(usesDisplayFont
+                        ? TsutsuuraTheme.displayFont(fontSize)
+                        : TsutsuuraTheme.bodyFont(fontSize))
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -379,7 +443,7 @@ struct IconTextRaisedButton: View {
                     .accessibilityHidden(true)
 
                 Text(title)
-                    .font(TsutsuuraTheme.bodyFont(36))
+                    .font(TsutsuuraTheme.displayFont(36))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -419,6 +483,7 @@ private struct ButtonInsetHighlight: Shape {
 
 private struct RaisedButtonStyle: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.isEnabled) private var isEnabled
     let fill: Color
     let shadow: Color
@@ -440,7 +505,9 @@ private struct RaisedButtonStyle: ButtonStyle {
 
             ZStack {
                 Rectangle()
-                    .fill(isEnabled ? fill : Color(hex: 0x566366))
+                    .fill(isEnabled
+                        ? TsutsuuraTheme.actionFill(fill, contrast: contrast)
+                        : Color(hex: 0x566366))
 
                 ButtonInsetHighlight()
                     .fill(borderHighlight)
@@ -492,39 +559,56 @@ enum HapticPlayer {
     }
 }
 
+enum PersonalMark {
+    static let side = 16
+    static func isValid(_ value: String) -> Bool {
+        value.utf8.count == side * side && value.utf8.allSatisfy { $0 == 48 || $0 == 49 }
+    }
+}
+
+struct PersonalMarkBadge: View {
+    let name: String
+    var mark: String? = nil
+    var tint = TsutsuuraTheme.cyanDark
+    var size: CGFloat = 48
+
+    var body: some View {
+        ZStack {
+            Rectangle().fill(tint)
+            if let mark, PersonalMark.isValid(mark), mark.contains("1") {
+                Canvas { context, canvas in
+                    let cells = Array(mark.utf8)
+                    let step = canvas.width / 16
+                    for index in cells.indices where cells[index] == 49 {
+                        let rect = CGRect(x: CGFloat(index % 16) * step,
+                                          y: CGFloat(index / 16) * step,
+                                          width: step * 0.88, height: step * 0.88)
+                        context.fill(Path(rect), with: .color(.white))
+                    }
+                }
+                .padding(5)
+            } else {
+                Text(String(name.prefix(1)))
+                    .font(.system(size: size * 0.55, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+            Rectangle().strokeBorder(.white.opacity(0.5), lineWidth: 2)
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
 struct PersonBadge: View {
     let name: String
-    var tint = TsutsuuraTheme.coral
+    var tint = TsutsuuraTheme.cyanDark
+    var mark: String? = nil
 
     var body: some View {
         HStack(spacing: 10) {
-            ZStack {
-                Rectangle()
-                    .fill(tint)
-
-                // Draw the decorative envelope directly. Some iOS builds
-                // exposed the SF Symbol's internal English name ("Mark
-                // Read") even when the Image was hidden and its parent was
-                // grouped, so it must not exist in the accessibility tree.
-                ZStack {
-                    RoundedRectangle(cornerRadius: 2)
-                        .stroke(.white, lineWidth: 3)
-                        .frame(width: 25, height: 18)
-                    Path { path in
-                        path.move(to: CGPoint(x: 1, y: 2))
-                        path.addLine(to: CGPoint(x: 12.5, y: 11))
-                        path.addLine(to: CGPoint(x: 24, y: 2))
-                    }
-                    .stroke(.white, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                    .frame(width: 25, height: 18)
-                }
-                .rotationEffect(.degrees(-8))
-                .accessibilityHidden(true)
-            }
-            .frame(width: 42, height: 42)
-
+            PersonalMarkBadge(name: name, mark: mark, tint: tint, size: 42)
             Text(name)
-                .font(TsutsuuraTheme.bodyFont(28))
+                .font(TsutsuuraTheme.displayFont(28))
                 .foregroundStyle(.white)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -568,7 +652,7 @@ struct BusyOverlay: View {
                 )
 
                 Text("認証中…")
-                    .font(TsutsuuraTheme.font(30))
+                    .font(TsutsuuraTheme.displayFont(30))
                     .foregroundStyle(.white)
             }
         }

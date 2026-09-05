@@ -7,8 +7,23 @@ enum PushDestinationResolution: Equatable, Sendable {
     case retryable
 }
 
+struct NavigationVisit: Equatable, Sendable {
+    fileprivate let revision: UInt64
+    fileprivate let path: [AppRoute]
+}
+
 struct AuthFeatureState: Equatable, Sendable {
     var phoneNumber = ""
+    var verificationCode = ""
+    var challenge: OTPChallenge?
+    var expiresAt: Date? = nil
+    var canReplayExpiredAttempt = false
+    var isSubmitting = false
+    var errorMessage: String?
+}
+
+struct EmailVerificationFeatureState: Equatable, Sendable {
+    var email = ""
     var verificationCode = ""
     var challenge: OTPChallenge?
     var expiresAt: Date? = nil
@@ -43,6 +58,7 @@ struct HomeFeatureState: Equatable, Sendable {
 
 struct QuestionFeatureState: Equatable, Sendable {
     var question: Question?
+    var pendingQuestion: Question?
     var answerDraft = AnswerDraft()
     var isLoading = false
     var isSubmitting = false
@@ -129,6 +145,18 @@ struct AccountFeatureState: Equatable, Sendable {
 
 @MainActor
 final class AppStore: ObservableObject {
+    private struct PersistedEmailVerificationChallenge: Codable {
+        let email: String
+        let requestID: String
+        let expiresAt: Date
+        let actorUserID: String?
+        /// Empty means the actor had no email when enrollment started; nil
+        /// is reserved for login records and records written by older builds.
+        let actorEmailAtRequest: String?
+        let attemptStartedAt: Date?
+        let replayUntil: Date?
+    }
+
     private struct PersistedVerificationChallenge: Codable {
         let phoneNumber: String
         let requestID: String
@@ -142,7 +170,13 @@ final class AppStore: ObservableObject {
     }
 
     @Published private(set) var session: SessionState = .restoring
-    @Published var path: [AppRoute] = []
+    @Published var path: [AppRoute] = [] {
+        didSet {
+            if path != oldValue { navigationRevision &+= 1 }
+        }
+    }
+    @Published var emailAuth = EmailVerificationFeatureState()
+    @Published var emailEnrollment = EmailVerificationFeatureState()
     @Published var auth = AuthFeatureState()
     @Published var phoneEnrollment = PhoneEnrollmentFeatureState()
     @Published var recovery = RecoveryFeatureState()
@@ -157,13 +191,24 @@ final class AppStore: ObservableObject {
     @Published var account = AccountFeatureState()
     @Published private(set) var globalErrorMessage: String?
     @Published private(set) var canRetrySessionRestore = false
+    @Published private(set) var personalMarkRequirementIsConfirmed = false
+    @Published private(set) var isCheckingPersonalMarkRequirement = false
+    @Published private(set) var personalMarkRequirementError: String?
 
     private let api: any AppAPI
     private let haptics: any HapticProviding
     private let verificationDefaults: UserDefaults?
     private let now: @Sendable () -> Date
     private var historyGeneration = 0
+    private var authenticationGeneration = 0
+    private let deviceTimeZoneSynchronizer = DeviceTimeZoneSynchronizer()
+    private var personalMarkVerificationGeneration: Int?
+    private var navigationRevision: UInt64 = 0
 
+    private static let emailLoginChallengeStorageKey =
+        "jp.tsutsuura.pending-email-login-verification.v1"
+    private static let emailEnrollmentChallengeStorageKey =
+        "jp.tsutsuura.pending-email-enrollment-verification.v1"
     private static let loginChallengeStorageKey =
         "jp.tsutsuura.pending-login-verification.v1"
     private static let enrollmentChallengeStorageKey =
@@ -183,17 +228,35 @@ final class AppStore: ObservableObject {
         self.now = now
     }
 
+    func navigationVisit() -> NavigationVisit {
+        NavigationVisit(revision: navigationRevision, path: path)
+    }
+
+    /// Saving may continue after Back. Only the visit that started it may
+    /// dismiss itself; reopening the same route creates a different visit.
+    func finishSave(
+        from visit: NavigationVisit,
+        operation: () async -> Bool
+    ) async -> Bool {
+        let didSave = await operation()
+        return didSave && navigationVisit() == visit
+    }
+
     static func live(
         configuration: APIConfiguration? = nil
     ) throws -> AppStore {
         let resolvedConfiguration = try configuration ?? .fromInfoDictionary()
         return AppStore(
             api: DefaultAppAPI(configuration: resolvedConfiguration),
-            verificationDefaults: .standard
+            verificationDefaults: UserDefaults(
+                suiteName: resolvedConfiguration.verificationStorageSuiteName
+            )
         )
     }
 
     func restoreSession() async {
+        authenticationGeneration += 1
+        resetPersonalMarkRequirement()
         session = .restoring
         globalErrorMessage = nil
         canRetrySessionRestore = false
@@ -224,10 +287,13 @@ final class AppStore: ObservableObject {
             clearVerificationChallenge(
                 storageKey: Self.loginChallengeStorageKey
             )
+            clearVerificationChallenge(storageKey: Self.emailLoginChallengeStorageKey)
+            personalMarkRequirementIsConfirmed = true
             session = .signedIn(user)
             path = [.home]
             await refreshHome()
             restorePendingEnrollmentChallenge(for: user)
+            restorePendingEmailEnrollmentChallenge(for: user)
         } catch {
             if isUnauthorized(error) {
                 transitionToSignedOut()
@@ -238,6 +304,209 @@ final class AppStore: ObservableObject {
                 canRetrySessionRestore = true
                 presentGlobalError(error)
             }
+        }
+    }
+
+    @discardableResult
+    func requestEmailOTP() async -> Bool {
+        guard let email = EmailAddressValidation.normalized(
+            emailAuth.email
+        ), !emailAuth.isSubmitting else { return false }
+
+        emailAuth.isSubmitting = true
+        emailAuth.errorMessage = nil
+        defer { emailAuth.isSubmitting = false }
+
+        do {
+            let challenge = try await api.requestEmailOTP(email: email)
+            emailAuth.email = email
+            emailAuth.challenge = challenge
+            emailAuth.verificationCode = ""
+            emailAuth.expiresAt = now().addingTimeInterval(
+                TimeInterval(challenge.expiresIn)
+            )
+            persistEmailVerificationChallenge(
+                email: email,
+                challenge: challenge,
+                expiresAt: emailAuth.expiresAt,
+                actorUserID: nil,
+                actorEmailAtRequest: nil,
+                storageKey: Self.emailLoginChallengeStorageKey
+            )
+            session = .awaitingEmailVerification(email: email)
+            path = [
+                .emailVerification(
+                    email: email,
+                    requestID: challenge.requestID
+                )
+            ]
+            haptics.impact()
+            return true
+        } catch {
+            emailAuth.errorMessage = userFacingMessage(for: error)
+            haptics.error()
+            return false
+        }
+    }
+
+    func verifyEmailOTP() async {
+        guard let requestID = emailAuth.challenge?.requestID,
+              emailAuth.verificationCode.count == 6,
+              NumericInputValidation.asciiDigits(in: emailAuth.verificationCode) == emailAuth.verificationCode,
+              !emailAuth.isSubmitting else {
+            return
+        }
+
+        emailAuth.isSubmitting = true
+        emailAuth.errorMessage = nil
+        emailAuth.canReplayExpiredAttempt = true
+        markEmailVerificationAttemptStarted(
+            storageKey: Self.emailLoginChallengeStorageKey
+        )
+        defer { emailAuth.isSubmitting = false }
+
+        do {
+            let authenticatedSession = try await api.verifyEmailOTP(
+                requestID: requestID,
+                code: emailAuth.verificationCode
+            )
+            await finishAuthentication(authenticatedSession)
+        } catch {
+            if isDefinitiveVerificationFailure(error) {
+                emailAuth.canReplayExpiredAttempt = false
+                markEmailVerificationAttemptDefinitivelyResolved(
+                    storageKey: Self.emailLoginChallengeStorageKey
+                )
+            }
+            emailAuth.errorMessage = userFacingMessage(for: error)
+            haptics.error()
+        }
+    }
+
+    func cancelEmailOTP() {
+        guard !emailAuth.isSubmitting else { return }
+        clearVerificationChallenge(storageKey: Self.emailLoginChallengeStorageKey)
+        emailAuth.verificationCode = ""
+        emailAuth.challenge = nil
+        emailAuth.errorMessage = nil
+        session = .signedOut
+        path = [.onboarding, .emailEntry]
+    }
+
+    @discardableResult
+    func requestEmailEnrollment() async -> Bool {
+        guard case .signedIn(let requestingActor) = session,
+              let email = EmailAddressValidation.normalized(
+                emailEnrollment.email
+              ),
+              !emailEnrollment.isSubmitting else {
+            return false
+        }
+
+        emailEnrollment.isSubmitting = true
+        emailEnrollment.errorMessage = nil
+        defer { emailEnrollment.isSubmitting = false }
+
+        do {
+            let challenge = try await api.requestEmailEnrollment(
+                email: email
+            )
+            guard case .signedIn(let currentActor) = session,
+                  currentActor.id == requestingActor.id else { return false }
+            emailEnrollment.email = email
+            emailEnrollment.challenge = challenge
+            emailEnrollment.expiresAt = now().addingTimeInterval(
+                TimeInterval(challenge.expiresIn)
+            )
+            emailEnrollment.verificationCode = ""
+            let actorUserID = requestingActor.id
+            let actorEmailAtRequest = requestingActor.email ?? ""
+            persistEmailVerificationChallenge(
+                email: email,
+                challenge: challenge,
+                expiresAt: emailEnrollment.expiresAt,
+                actorUserID: actorUserID,
+                actorEmailAtRequest: actorEmailAtRequest,
+                storageKey: Self.emailEnrollmentChallengeStorageKey
+            )
+            let route = AppRoute.emailEnrollmentVerification(
+                email: email,
+                requestID: challenge.requestID
+            )
+            if case .emailEnrollmentVerification = path.last {
+                path[path.count - 1] = route
+            } else {
+                path.append(route)
+            }
+            haptics.impact()
+            return true
+        } catch {
+            handleAuthenticatedError(error)
+            emailEnrollment.errorMessage = userFacingMessage(for: error)
+            haptics.error()
+            return false
+        }
+    }
+
+    @discardableResult
+    func verifyEmailEnrollment() async -> Bool {
+        guard case .signedIn(let verifyingActor) = session,
+              let requestID = emailEnrollment.challenge?.requestID,
+              emailEnrollment.verificationCode.count == 6,
+              NumericInputValidation.asciiDigits(in: emailEnrollment.verificationCode) == emailEnrollment.verificationCode,
+              !emailEnrollment.isSubmitting else {
+            return false
+        }
+
+        emailEnrollment.isSubmitting = true
+        emailEnrollment.errorMessage = nil
+        emailEnrollment.canReplayExpiredAttempt = true
+        markEmailVerificationAttemptStarted(
+            storageKey: Self.emailEnrollmentChallengeStorageKey
+        )
+        defer { emailEnrollment.isSubmitting = false }
+
+        do {
+            let profile = try await api.verifyEmailEnrollment(
+                requestID: requestID,
+                code: emailEnrollment.verificationCode
+            )
+            guard case .signedIn(let currentActor) = session,
+                  currentActor.id == verifyingActor.id, profile.id == verifyingActor.id else {
+                return false
+            }
+            applyCurrentUserProfile(profile)
+            clearVerificationChallenge(
+                storageKey: Self.emailEnrollmentChallengeStorageKey
+            )
+            emailEnrollment = EmailVerificationFeatureState()
+            while let route = path.last, route.isEmailEnrollmentRoute {
+                path.removeLast()
+            }
+            haptics.success()
+            return true
+        } catch {
+            if isDefinitiveVerificationFailure(error) {
+                emailEnrollment.canReplayExpiredAttempt = false
+                markEmailVerificationAttemptDefinitivelyResolved(
+                    storageKey: Self.emailEnrollmentChallengeStorageKey
+                )
+            }
+            handleAuthenticatedError(error)
+            emailEnrollment.errorMessage = userFacingMessage(for: error)
+            haptics.error()
+            return false
+        }
+    }
+
+    func cancelEmailEnrollment() {
+        guard !emailEnrollment.isSubmitting else { return }
+        clearVerificationChallenge(
+            storageKey: Self.emailEnrollmentChallengeStorageKey
+        )
+        emailEnrollment = EmailVerificationFeatureState()
+        while let route = path.last, route.isEmailEnrollmentRoute {
+            path.removeLast()
         }
     }
 
@@ -503,6 +772,8 @@ final class AppStore: ObservableObject {
                 familyName: familyName
             )
             canRetrySessionRestore = false
+            authenticationGeneration += 1
+            resetPersonalMarkRequirement()
             session = .signedIn(authenticatedSession.user)
             auth = AuthFeatureState()
             path = [.familySetup]
@@ -781,6 +1052,8 @@ final class AppStore: ObservableObject {
             // to preview the now-consumed invite a second time.
             familySetup.pairingCode = ""
             familySetup.pairingToken = nil
+            authenticationGeneration += 1
+            resetPersonalMarkRequirement()
             session = .signedIn(authenticatedSession.user)
             path = [.pairingReady]
             haptics.success()
@@ -815,17 +1088,47 @@ final class AppStore: ObservableObject {
         await refreshHome()
     }
 
-    func refreshHome() async {
-        guard !home.isLoading else { return }
+    func refreshHome(inBackground: Bool = false) async {
+        guard !home.isLoading, !home.isLoadingMore else { return }
+        let previousFeed = home.feed
+        let previousSession = session
+        let requestedGeneration = authenticationGeneration
         home.isLoading = true
-        home.errorMessage = nil
+        if !inBackground { home.errorMessage = nil }
         defer { home.isLoading = false }
 
         do {
             async let profileRequest = api.fetchMe()
             async let feedRequest = api.fetchHome(cursor: nil)
             let (profile, feed) = try await (profileRequest, feedRequest)
-            home.feed = feed
+            try Task.checkCancellation()
+            guard authenticationGeneration == requestedGeneration else { return }
+            // A successful mark save must win over an older /me snapshot,
+            // including the initial foreground refresh during first setup.
+            if case .signedIn(let previousProfile) = previousSession,
+               case .signedIn(let currentProfile) = session,
+               previousProfile.id != currentProfile.id
+                || previousProfile.avatarMark != currentProfile.avatarMark { return }
+            // A local answer/reaction or another account change wins over a
+            // background request that started before that change.
+            if inBackground, home.feed != previousFeed || session != previousSession { return }
+            var refreshedFeed = feed
+            if inBackground, let previousFeed,
+               previousFeed.family?.id == feed.family?.id,
+               previousFeed.answers.count > feed.answers.count,
+               feed.nextCursor != nil {
+                let currentMembers = Set(feed.family?.members.map(\.id) ?? [])
+                let refreshedIDs = Set(feed.answers.map(\.id))
+                let hasCompleteRoster = currentMembers.count == feed.family?.memberCount
+                let olderAnswers = previousFeed.answers.filter {
+                    !refreshedIDs.contains($0.id)
+                        && (!hasCompleteRoster || currentMembers.contains($0.author.id))
+                }
+                refreshedFeed.answers = mergedAnswers(feed.answers, appending: olderAnswers)
+                refreshedFeed.nextCursor = previousFeed.nextCursor
+            }
+            home.feed = refreshedFeed
+            home.errorMessage = nil
             if let family = feed.family {
                 applyFamily(family)
             }
@@ -836,11 +1139,25 @@ final class AppStore: ObservableObject {
             applyCurrentUserProfile(profile)
             synchronizeCurrentFamilyRole()
             if let todayQuestion = feed.todayQuestion {
-                question.question = todayQuestion
+                receiveTodayQuestion(todayQuestion)
             }
         } catch {
+            guard !Task.isCancelled, !isCancelledRequest(error) else { return }
+            guard authenticationGeneration == requestedGeneration else { return }
+            if inBackground, session != previousSession { return }
             handleAuthenticatedError(error)
-            home.errorMessage = userFacingMessage(for: error)
+            if !inBackground { home.errorMessage = userFacingMessage(for: error) }
+        }
+    }
+
+    /// Quiet updates preserve the current query, already loaded pages, drafts,
+    /// and scroll positions. Foreground view tasks own the ten-second cadence.
+    func refreshHomeInBackground(includingHistory: Bool) async {
+        guard case .signedIn = session else { return }
+        await refreshHome(inBackground: true)
+        guard !Task.isCancelled, case .signedIn = session else { return }
+        if includingHistory, history.hasLoaded {
+            await loadHistory(inBackground: true)
         }
     }
 
@@ -857,7 +1174,7 @@ final class AppStore: ObservableObject {
 
     func loadMoreHomeAnswers() async {
         guard let cursor = home.feed?.nextCursor,
-              !home.isLoadingMore else {
+              !home.isLoadingMore, !home.isLoading else {
             return
         }
         home.isLoadingMore = true
@@ -872,6 +1189,7 @@ final class AppStore: ObservableObject {
             )
             home.feed?.nextCursor = nextPage.nextCursor
         } catch {
+            guard !isCancelledRequest(error) else { return }
             handleAuthenticatedError(error)
             home.errorMessage = userFacingMessage(for: error)
         }
@@ -912,9 +1230,10 @@ final class AppStore: ObservableObject {
         defer { question.isLoading = false }
 
         do {
-            question.question = try await api.fetchTodayQuestion()
-            return true
+            receiveTodayQuestion(try await api.fetchTodayQuestion())
+            return question.pendingQuestion == nil
         } catch {
+            guard !isCancelledRequest(error) else { return false }
             if treatMissingAsHandled,
                isTerminalPushDestinationError(error) {
                 let message = "この質問は終了したか、現在は表示できません。"
@@ -930,7 +1249,12 @@ final class AppStore: ObservableObject {
     }
 
     func submitAnswer() async {
+        guard question.pendingQuestion == nil else {
+            question.errorMessage = "新しい質問が届きました。前の下書きは残っています。「新しい質問を確認」を押してください。"
+            return
+        }
         guard let questionID = question.question?.id,
+              question.question?.isAvailable != false,
               !question.answerDraft.isEmpty,
               !question.isSubmitting else {
             return
@@ -944,10 +1268,12 @@ final class AppStore: ObservableObject {
             let submission = try question.answerDraft.submission()
             let answer = try await api.submitAnswer(
                 questionID: questionID,
+                questionDate: question.question?.publishedOn,
                 submission: submission
             )
             question.question?.answer = answer
             question.answerDraft.removeAll()
+            updateHomeAnswerProgress(for: answer, isAnswered: true)
             if home.feed?.todayQuestion?.id == questionID {
                 home.feed?.todayQuestion?.answer = answer
                 home.feed?.myAnswer = answer
@@ -974,6 +1300,24 @@ final class AppStore: ObservableObject {
             question.errorMessage = userFacingMessage(for: error)
             haptics.error()
         }
+    }
+
+    private func receiveTodayQuestion(_ incoming: Question) {
+        if let current = question.question, !question.answerDraft.isEmpty,
+           current.id != incoming.id || current.publishedOn != incoming.publishedOn {
+            question.pendingQuestion = incoming
+            return
+        }
+        question.question = incoming
+        question.pendingQuestion = nil
+    }
+
+    func acceptNewQuestionDiscardingDraft() {
+        guard let pending = question.pendingQuestion else { return }
+        question.answerDraft = AnswerDraft()
+        question.question = pending
+        question.pendingQuestion = nil
+        question.errorMessage = nil
     }
 
     @discardableResult
@@ -1114,18 +1458,20 @@ final class AppStore: ObservableObject {
         }
     }
 
-    func loadHistory(loadMore: Bool = false) async {
+    func loadHistory(loadMore: Bool = false, inBackground: Bool = false) async {
         guard !history.isLoading, !history.isLoadingMore else { return }
         if loadMore, history.nextCursor == nil { return }
 
         let requestedQuery = history.query
         let requestedGeneration = historyGeneration
+        let previousAnswers = history.answers
+        let previousCursor = history.nextCursor
         if loadMore {
             history.isLoadingMore = true
         } else {
             history.isLoading = true
         }
-        history.errorMessage = nil
+        if !inBackground { history.errorMessage = nil }
         defer {
             if requestedGeneration == historyGeneration {
                 if loadMore {
@@ -1142,23 +1488,31 @@ final class AppStore: ObservableObject {
                 cursor: loadMore ? history.nextCursor : nil
             )
             guard requestedGeneration == historyGeneration,
-                  history.query == requestedQuery else {
+                  history.query == requestedQuery, !Task.isCancelled else {
                 return
             }
+            if inBackground, history.answers != previousAnswers { return }
+            let preservesOlderPages = inBackground
+                && previousAnswers.count > page.answers.count && page.nextCursor != nil
             if loadMore {
                 history.answers = mergedAnswers(
                     history.answers,
                     appending: page.answers
                 )
+            } else if preservesOlderPages {
+                let refreshedIDs = Set(page.answers.map(\.id))
+                history.answers = mergedAnswers(page.answers, appending: previousAnswers.filter { !refreshedIDs.contains($0.id) })
             } else {
                 history.answers = uniqueAnswers(page.answers)
             }
-            history.nextCursor = page.nextCursor
+            history.nextCursor = preservesOlderPages ? previousCursor : page.nextCursor
             history.hasLoaded = true
+            history.errorMessage = nil
         } catch {
-            guard requestedGeneration == historyGeneration else { return }
+            guard requestedGeneration == historyGeneration,
+                  !Task.isCancelled, !isCancelledRequest(error) else { return }
             handleAuthenticatedError(error)
-            history.errorMessage = userFacingMessage(for: error)
+            if !inBackground { history.errorMessage = userFacingMessage(for: error) }
         }
     }
 
@@ -1178,10 +1532,11 @@ final class AppStore: ObservableObject {
         query.limit = HistoryQuery.normalizedLimit(query.limit)
         guard history.query != query else { return }
         historyGeneration += 1
-        // Keep the last successful page visible until the newly selected
-        // filters load successfully. A transient GET failure should not erase
-        // a usable local history cache.
+        // A result belongs to its query. Showing an old page under a new
+        // search term makes a failed or pending request look like a match.
         history.query = query
+        history.answers = []
+        history.hasLoaded = false
         history.nextCursor = nil
         history.isLoading = false
         history.isLoadingMore = false
@@ -1490,6 +1845,7 @@ final class AppStore: ObservableObject {
 
         do {
             let profile = try await api.updateProfile(displayName: trimmedName)
+            if let family = profile.family { applyFamily(family) }
             applyCurrentUserProfile(profile)
             applyDisplayName(profile.displayName, toUserID: profile.id)
             haptics.success()
@@ -1498,6 +1854,83 @@ final class AppStore: ObservableObject {
             handleAuthenticatedError(error)
             presentGlobalError(error)
             haptics.error()
+            return false
+        }
+    }
+
+    var requiresPersonalMarkSetup: Bool {
+        guard case .signedIn(let profile) = session else { return false }
+        return !personalMarkRequirementIsConfirmed
+            || PersonalMarkRequirement.requiresSetup(for: profile)
+    }
+
+    /// Authentication receipts can replay an older profile snapshot. Resolve
+    /// the current server profile before asking an existing member to redraw.
+    func confirmPersonalMarkRequirement() async {
+        guard case .signedIn(let actor) = session,
+              !personalMarkRequirementIsConfirmed,
+              personalMarkVerificationGeneration != authenticationGeneration else { return }
+        let generation = authenticationGeneration
+        personalMarkVerificationGeneration = generation
+        isCheckingPersonalMarkRequirement = true
+        personalMarkRequirementError = nil
+        defer {
+            if personalMarkVerificationGeneration == generation {
+                personalMarkVerificationGeneration = nil
+                isCheckingPersonalMarkRequirement = false
+            }
+        }
+        do {
+            let profile = try await api.fetchMe()
+            guard case .signedIn(let current) = session,
+                  current.id == actor.id, profile.id == actor.id,
+                  generation == authenticationGeneration else { return }
+            personalMarkRequirementIsConfirmed = true
+            applyCurrentUserProfile(profile)
+        } catch {
+            guard !Task.isCancelled, !isCancelledRequest(error),
+                  case .signedIn(let current) = session,
+                  current.id == actor.id, generation == authenticationGeneration else { return }
+            handleAuthenticatedError(error)
+            personalMarkRequirementError = userFacingMessage(for: error)
+        }
+    }
+
+    private func resetPersonalMarkRequirement() {
+        personalMarkRequirementIsConfirmed = false
+        isCheckingPersonalMarkRequirement = false
+        personalMarkRequirementError = nil
+        personalMarkVerificationGeneration = nil
+    }
+
+    @discardableResult
+    func updatePersonalMark(_ mark: String?) async -> Bool {
+        guard case .signedIn(let actor) = session,
+              PersonalMarkRequirement.hasDrawing(mark) else { return false }
+        let generation = authenticationGeneration
+        let previousErrorMessage = globalErrorMessage
+        do {
+            let profile = try await api.updatePersonalMark(mark)
+            guard case .signedIn(let current) = session,
+                  current.id == actor.id, profile.id == actor.id,
+                  generation == authenticationGeneration,
+                  profile.avatarMark == mark,
+                  PersonalMarkRequirement.hasDrawing(profile.avatarMark) else { return false }
+            if globalErrorMessage == previousErrorMessage {
+                globalErrorMessage = nil
+            }
+            if let family = profile.family { applyFamily(family) }
+            personalMarkRequirementIsConfirmed = true
+            applyCurrentUserProfile(profile)
+            applyPersonalMark(profile.avatarMark, toUserID: profile.id)
+            haptics.success()
+            return true
+        } catch {
+            guard !Task.isCancelled, !isCancelledRequest(error),
+                  case .signedIn(let current) = session,
+                  current.id == actor.id, generation == authenticationGeneration else { return false }
+            handleAuthenticatedError(error)
+            presentGlobalError(error)
             return false
         }
     }
@@ -1584,15 +2017,61 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// This background update never changes notification switches or presents
+    /// an error banner. A later foreground event retries a failed sync.
+    func synchronizeDeviceTimeZone(
+        _ identifier: String = TimeZone.autoupdatingCurrent.identifier
+    ) async {
+        guard case .signedIn(let profile) = session else {
+            deviceTimeZoneSynchronizer.reset()
+            return
+        }
+        let identity = DeviceTimeZoneSynchronizer.Identity(
+            userID: profile.id,
+            sessionGeneration: authenticationGeneration,
+            timeZoneIdentifier: identifier
+        )
+        await deviceTimeZoneSynchronizer.synchronize(identity: identity) { [weak self] request in
+            guard let self,
+                  case .signedIn(let currentProfile) = session,
+                  currentProfile.id == request.userID,
+                  authenticationGeneration == request.sessionGeneration else { return false }
+            do {
+                try await api.updateDeviceTimeZone(request.timeZoneIdentifier)
+                guard case .signedIn(let currentProfile) = session,
+                      currentProfile.id == request.userID,
+                      authenticationGeneration == request.sessionGeneration else { return false }
+                notificationPreferences.preferences?.timeZoneIdentifier = request.timeZoneIdentifier
+                return true
+            } catch {
+                guard !Task.isCancelled, !isCancelledRequest(error),
+                      case .signedIn(let currentProfile) = session,
+                      currentProfile.id == request.userID,
+                      authenticationGeneration == request.sessionGeneration else { return false }
+                handleAuthenticatedError(error)
+                return false
+            }
+        }
+    }
+
     @discardableResult
     func registerPushToken(
         _ token: String,
         environment: PushEnvironment
     ) async -> Bool {
+        guard case .signedIn(let requestedProfile) = session else { return false }
+        let requestedGeneration = authenticationGeneration
         do {
             try await api.registerPushToken(token, environment: environment)
+            guard case .signedIn(let currentProfile) = session,
+                  currentProfile.id == requestedProfile.id,
+                  authenticationGeneration == requestedGeneration else { return false }
             return true
         } catch {
+            guard !Task.isCancelled, !isCancelledRequest(error),
+                  case .signedIn(let currentProfile) = session,
+                  currentProfile.id == requestedProfile.id,
+                  authenticationGeneration == requestedGeneration else { return false }
             handleAuthenticatedError(error)
             presentGlobalError(error)
             return false
@@ -1699,6 +2178,8 @@ final class AppStore: ObservableObject {
 
     func dismissPresentedErrors(commentAnswerID: String? = nil) {
         globalErrorMessage = nil
+        emailAuth.errorMessage = nil
+        emailEnrollment.errorMessage = nil
         auth.errorMessage = nil
         phoneEnrollment.errorMessage = nil
         recovery.errorMessage = nil
@@ -1731,9 +2212,13 @@ final class AppStore: ObservableObject {
     }
 
     private func finishAuthentication(_ authenticatedSession: AuthSession) async {
+        authenticationGeneration += 1
+        resetPersonalMarkRequirement()
         canRetrySessionRestore = false
         clearVerificationChallenge(storageKey: Self.loginChallengeStorageKey)
+        clearVerificationChallenge(storageKey: Self.emailLoginChallengeStorageKey)
         session = .signedIn(authenticatedSession.user)
+        emailAuth = EmailVerificationFeatureState()
         auth = AuthFeatureState()
         path = [.home]
         haptics.success()
@@ -1741,12 +2226,18 @@ final class AppStore: ObservableObject {
     }
 
     private func transitionToSignedOut() {
+        authenticationGeneration += 1
+        resetPersonalMarkRequirement()
+        deviceTimeZoneSynchronizer.reset()
         let pendingPairingToken = familySetup.pairingToken
         canRetrySessionRestore = false
         session = .signedOut
         clearVerificationChallenge(
             storageKey: Self.enrollmentChallengeStorageKey
         )
+        clearVerificationChallenge(storageKey: Self.emailEnrollmentChallengeStorageKey)
+        emailAuth = EmailVerificationFeatureState()
+        emailEnrollment = EmailVerificationFeatureState()
         auth = AuthFeatureState()
         phoneEnrollment = PhoneEnrollmentFeatureState()
         recovery = RecoveryFeatureState()
@@ -1761,10 +2252,196 @@ final class AppStore: ObservableObject {
         account = AccountFeatureState()
         historyGeneration += 1
         familySetup.pairingToken = pendingPairingToken
+        if pendingPairingToken == nil, restorePendingEmailLoginChallenge() {
+            return
+        }
         if pendingPairingToken == nil, restorePendingLoginChallenge() {
             return
         }
         path = pendingPairingToken == nil ? [.onboarding] : [.pairingEntry]
+    }
+
+    private func persistEmailVerificationChallenge(
+        email: String,
+        challenge: OTPChallenge,
+        expiresAt: Date?,
+        actorUserID: String?,
+        actorEmailAtRequest: String?,
+        storageKey: String
+    ) {
+        guard let verificationDefaults, let expiresAt else { return }
+        let record = PersistedEmailVerificationChallenge(
+            email: email,
+            requestID: challenge.requestID,
+            expiresAt: expiresAt,
+            actorUserID: actorUserID,
+            actorEmailAtRequest: actorEmailAtRequest,
+            attemptStartedAt: nil,
+            replayUntil: nil
+        )
+        guard let data = try? JSONEncoder().encode(record) else { return }
+        verificationDefaults.set(data, forKey: storageKey)
+    }
+
+    private func persistedEmailVerificationChallenge(
+        storageKey: String
+    ) -> PersistedEmailVerificationChallenge? {
+        guard let verificationDefaults,
+              let data = verificationDefaults.data(forKey: storageKey),
+              let record = try? JSONDecoder().decode(
+                  PersistedEmailVerificationChallenge.self,
+                  from: data
+              ),
+              !record.email.isEmpty,
+              !record.requestID.isEmpty else {
+            verificationDefaults?.removeObject(forKey: storageKey)
+            return nil
+        }
+        let isChallengeLive = record.expiresAt > now()
+        let isInterruptedAttemptRecoverable = record.attemptStartedAt != nil
+            && (record.replayUntil ?? .distantPast) > now()
+        guard isChallengeLive || isInterruptedAttemptRecoverable else {
+            verificationDefaults.removeObject(forKey: storageKey)
+            return nil
+        }
+        return record
+    }
+
+    private func markEmailVerificationAttemptStarted(storageKey: String) {
+        guard let verificationDefaults,
+              let data = verificationDefaults.data(forKey: storageKey),
+              let record = try? JSONDecoder().decode(
+                  PersistedEmailVerificationChallenge.self,
+                  from: data
+              ) else {
+            return
+        }
+        let updated = PersistedEmailVerificationChallenge(
+            email: record.email,
+            requestID: record.requestID,
+            expiresAt: record.expiresAt,
+            actorUserID: record.actorUserID,
+            actorEmailAtRequest: record.actorEmailAtRequest,
+            attemptStartedAt: now(),
+            replayUntil: now().addingTimeInterval(
+                Self.verificationReplayRetention
+            )
+        )
+        guard let encoded = try? JSONEncoder().encode(updated) else { return }
+        verificationDefaults.set(encoded, forKey: storageKey)
+    }
+
+    private func markEmailVerificationAttemptDefinitivelyResolved(
+        storageKey: String
+    ) {
+        guard let verificationDefaults,
+              let data = verificationDefaults.data(forKey: storageKey),
+              let record = try? JSONDecoder().decode(
+                  PersistedEmailVerificationChallenge.self,
+                  from: data
+              ) else {
+            return
+        }
+        guard record.expiresAt > now() else {
+            verificationDefaults.removeObject(forKey: storageKey)
+            return
+        }
+        let updated = PersistedEmailVerificationChallenge(
+            email: record.email,
+            requestID: record.requestID,
+            expiresAt: record.expiresAt,
+            actorUserID: record.actorUserID,
+            actorEmailAtRequest: record.actorEmailAtRequest,
+            attemptStartedAt: nil,
+            replayUntil: nil
+        )
+        guard let encoded = try? JSONEncoder().encode(updated) else { return }
+        verificationDefaults.set(encoded, forKey: storageKey)
+    }
+
+    @discardableResult
+    private func restorePendingEmailLoginChallenge() -> Bool {
+        guard let record = persistedEmailVerificationChallenge(
+            storageKey: Self.emailLoginChallengeStorageKey
+        ), record.actorUserID == nil else {
+            return false
+        }
+        let remaining = max(
+            1,
+            Int(ceil(record.expiresAt.timeIntervalSince(now())))
+        )
+        emailAuth = EmailVerificationFeatureState(
+            email: record.email,
+            verificationCode: "",
+            challenge: OTPChallenge(
+                requestID: record.requestID,
+                expiresIn: remaining
+            ),
+            expiresAt: record.expiresAt,
+            canReplayExpiredAttempt: record.attemptStartedAt != nil
+        )
+        session = .awaitingEmailVerification(email: record.email)
+        path = [
+            .emailVerification(
+                email: record.email,
+                requestID: record.requestID
+            )
+        ]
+        return true
+    }
+
+    private func restorePendingEmailEnrollmentChallenge(for user: UserProfile) {
+        guard let record = persistedEmailVerificationChallenge(
+            storageKey: Self.emailEnrollmentChallengeStorageKey
+        ) else {
+            return
+        }
+        guard record.actorUserID == user.id else {
+            clearVerificationChallenge(
+                storageKey: Self.emailEnrollmentChallengeStorageKey
+            )
+            return
+        }
+        // A fetched profile with an email means enrollment committed even if
+        // the process died before the verification screen cleared its record.
+        let fetchedEmail = Self.canonicalEmail(user.email ?? "")
+        let enrollmentHasCompleted: Bool
+        if let actorEmailAtRequest = record.actorEmailAtRequest {
+            let previousEmail = Self.canonicalEmail(actorEmailAtRequest)
+            enrollmentHasCompleted = fetchedEmail != previousEmail
+                || (previousEmail.isEmpty && user.hasEmail == true)
+        } else {
+            // Backward-compatible self-heal for a record written before the
+            // previous-email snapshot existed.
+            enrollmentHasCompleted = !fetchedEmail.isEmpty
+                && fetchedEmail == Self.canonicalEmail(record.email)
+        }
+        if enrollmentHasCompleted {
+            clearVerificationChallenge(
+                storageKey: Self.emailEnrollmentChallengeStorageKey
+            )
+            return
+        }
+        let remaining = max(
+            1,
+            Int(ceil(record.expiresAt.timeIntervalSince(now())))
+        )
+        emailEnrollment = EmailVerificationFeatureState(
+            email: record.email,
+            verificationCode: "",
+            challenge: OTPChallenge(
+                requestID: record.requestID,
+                expiresIn: remaining
+            ),
+            expiresAt: record.expiresAt,
+            canReplayExpiredAttempt: record.attemptStartedAt != nil
+        )
+        path.append(
+            .emailEnrollmentVerification(
+                email: record.email,
+                requestID: record.requestID
+            )
+        )
     }
 
     private func persistVerificationChallenge(
@@ -1973,6 +2650,15 @@ final class AppStore: ObservableObject {
             ?? error.localizedDescription
     }
 
+    private func isCancelledRequest(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if (error as? URLError)?.code == .cancelled { return true }
+        if case .transport(let underlying) = error as? APIClientError {
+            return isCancelledRequest(underlying)
+        }
+        return false
+    }
+
     private func isTerminalPushDestinationError(_ error: Error) -> Bool {
         guard case .server(let statusCode, _) = error as? APIClientError else {
             return false
@@ -1981,7 +2667,28 @@ final class AppStore: ObservableObject {
     }
 
     private func presentGlobalError(_ error: Error) {
+        guard !isCancelledRequest(error) else { return }
         globalErrorMessage = userFacingMessage(for: error)
+    }
+
+    private func applyPersonalMark(_ mark: String?, toUserID userID: String) {
+        for index in home.feed?.answers.indices ?? 0..<0
+        where home.feed?.answers[index].author.id == userID {
+            home.feed?.answers[index].author.avatarMark = mark
+        }
+        for index in history.answers.indices where history.answers[index].author.id == userID {
+            history.answers[index].author.avatarMark = mark
+        }
+        if home.feed?.myAnswer?.author.id == userID { home.feed?.myAnswer?.author.avatarMark = mark }
+        if home.feed?.todayQuestion?.answer?.author.id == userID { home.feed?.todayQuestion?.answer?.author.avatarMark = mark }
+        if question.question?.answer?.author.id == userID { question.question?.answer?.author.avatarMark = mark }
+        for key in Array(commentThreads.keys) {
+            guard var thread = commentThreads[key] else { continue }
+            for index in thread.comments.indices where thread.comments[index].author.id == userID {
+                thread.comments[index].author.avatarMark = mark
+            }
+            commentThreads[key] = thread
+        }
     }
 
     private var currentPairingCredential: FamilyPairingCredential? {
@@ -2048,6 +2755,7 @@ final class AppStore: ObservableObject {
         // Family members are summaries. Avoid nesting a full family inside
         // itself when a profile mutation response includes its family object.
         cachedMember.family = nil
+        cachedMember.email = nil
         if var family = familySetup.family,
            let index = family.members.firstIndex(where: { $0.id == member.id }) {
             family.members[index] = cachedMember
@@ -2235,6 +2943,7 @@ final class AppStore: ObservableObject {
     }
 
     private func replaceCachedAnswer(_ answer: Answer) {
+        updateHomeAnswerProgress(for: answer, isAnswered: true)
         if let index = home.feed?.answers.firstIndex(where: {
             $0.id == answer.id
         }) {
@@ -2261,6 +2970,9 @@ final class AppStore: ObservableObject {
     }
 
     private func removeCachedAnswer(answerID: String) {
+        if let cachedAnswer = answer(withID: answerID) {
+            updateHomeAnswerProgress(for: cachedAnswer, isAnswered: false)
+        }
         home.feed?.answers.removeAll(where: { $0.id == answerID })
         if home.feed?.myAnswer?.id == answerID {
             home.feed?.myAnswer = nil
@@ -2273,6 +2985,22 @@ final class AppStore: ObservableObject {
         }
         history.answers.removeAll(where: { $0.id == answerID })
         commentThreads[answerID] = nil
+    }
+
+    private func updateHomeAnswerProgress(for answer: Answer, isAnswered: Bool) {
+        guard let today = home.feed?.todayQuestion,
+              answer.answerDate == today.publishedOn,
+              answer.questionID == today.id,
+              var answeredIDs = home.feed?.todayAnsweredUserIDs else { return }
+
+        if isAnswered {
+            if !answeredIDs.contains(answer.author.id) {
+                answeredIDs.append(answer.author.id)
+            }
+        } else {
+            answeredIDs.removeAll(where: { $0 == answer.author.id })
+        }
+        home.feed?.todayAnsweredUserIDs = answeredIDs
     }
 
     private func answerMatchesHistoryQuery(_ answer: Answer) -> Bool {
@@ -2454,12 +3182,23 @@ final class AppStore: ObservableObject {
         }
     }
 
+    private static func canonicalEmail(_ value: String) -> String {
+        EmailAddressValidation.normalized(value) ?? ""
+    }
+
     private static func canonicalPhone(_ value: String) -> String {
         PhoneNumberValidation.canonicalE164(value) ?? ""
     }
 }
 
 private extension AppRoute {
+    var isEmailEnrollmentRoute: Bool {
+        switch self {
+        case .emailEnrollment, .emailEnrollmentVerification: return true
+        default: return false
+        }
+    }
+
     var isPhoneEnrollmentRoute: Bool {
         switch self {
         case .phoneEnrollment, .phoneEnrollmentVerification:

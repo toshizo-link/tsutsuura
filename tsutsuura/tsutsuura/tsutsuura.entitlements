@@ -6,7 +6,7 @@
 	<string>development</string>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:kttprojects.conohawing.com</string>
+		<string>applinks:toshizo.link</string>
 	</array>
 </dict>
 </plist>

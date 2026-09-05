@@ -10,20 +10,24 @@ struct ContentView: View {
     @StateObject private var speechTranscriber = SpeechTranscriber()
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var isNavigatingBack = false
+    @State private var isSavingPersonalMark = false
+    @State private var essentialsPage = 0
+    @State private var confirmsQuestionChange = false
     @State private var selectedTab: HomeTab = .family
     @State private var isVoiceAnswerPresented = false
     @State private var showAnswerSuccess = false
     @State private var localErrorMessage: String?
-    @State private var pendingPushToken: String?
+    @State private var pushRegistration = PushRegistrationCoordinator()
     @State private var settingsDisplayName = ""
     @State private var otpIssuedAt: Date?
     @State private var otpResendAvailableAt: Date?
-    @State private var phoneEnrollmentIssuedAt: Date?
-    @State private var phoneEnrollmentResendAvailableAt: Date?
+    @State private var emailEnrollmentIssuedAt: Date?
+    @State private var emailEnrollmentResendAvailableAt: Date?
     @State private var familyNameDraft = ""
     @State private var managedMemberNameDraft = ""
     @State private var answerEditorDraft = ""
-    @State private var commentEditorDraft = ""
     @State private var notificationDraft = NotificationPreferences()
     @State private var pushAuthorizationState: PushAuthorizationState = .unavailable
     @State private var informationDocument: InformationDocument?
@@ -32,9 +36,7 @@ struct ContentView: View {
         if let store {
             _store = StateObject(wrappedValue: store)
         } else if ProcessInfo.processInfo.environment["UI_TESTING"] == "1" {
-            let testURL = URL(
-                string: "https://kttprojects.conohawing.com/tsutsuura-api/api"
-            )!
+            let testURL = APIConfiguration.productionBaseURL
             let configuration = try! APIConfiguration(baseURL: testURL)
             _store = StateObject(
                 wrappedValue: AppStore(
@@ -48,9 +50,7 @@ struct ContentView: View {
         } else if let liveStore = try? AppStore.live() {
             _store = StateObject(wrappedValue: liveStore)
         } else {
-            let fallbackURL = URL(
-                string: "https://kttprojects.conohawing.com/tsutsuura-api/api"
-            )!
+            let fallbackURL = APIConfiguration.productionBaseURL
             let configuration = try! APIConfiguration(baseURL: fallbackURL)
             _store = StateObject(
                 wrappedValue: AppStore(
@@ -71,10 +71,8 @@ struct ContentView: View {
                         reduceMotion
                             ? .opacity
                             : .asymmetric(
-                                insertion: .move(edge: .trailing)
-                                    .combined(with: .opacity),
-                                removal: .move(edge: .leading)
-                                    .combined(with: .opacity)
+                                insertion: .move(edge: isNavigatingBack ? .leading : .trailing),
+                                removal: .move(edge: isNavigatingBack ? .trailing : .leading)
                             )
                     )
 
@@ -89,6 +87,7 @@ struct ContentView: View {
                         message: errorMessage,
                         onDismiss: dismissPresentedErrors
                     )
+                    .padding(.horizontal, 16)
                     .padding(.top, 54)
                     .transition(
                         reduceMotion
@@ -118,14 +117,39 @@ struct ContentView: View {
             if store.session == .restoring {
                 await store.restoreSession()
             }
+            await store.synchronizeDeviceTimeZone()
             await consumePendingPushDestination()
         }
+        .alert("新しい質問が届きました", isPresented: $confirmsQuestionChange) {
+            Button("下書きを消して新しい質問へ", role: .destructive) {
+                store.acceptNewQuestionDiscardingDraft()
+                if store.path.last != .todayQuestion { pushRoute(.todayQuestion) }
+            }
+            Button("下書きを残す", role: .cancel) {}
+        } message: {
+            Text("前の質問の下書きは、まだ送られていません。新しい質問へ進むと、この下書きは消えます。\n\n\(store.question.draft)")
+        }
+        .overlay(alignment: .leading) {
+            BackSwipeNavigation(enabled: canSwipeBack, onBack: performBackNavigation)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active, case .signedIn = store.session {
+                refreshPushRegistrationIfAuthorized()
+                Task { await store.synchronizeDeviceTimeZone() }
+                Task { await store.refreshHomeInBackground(includingHistory: selectedTab == .profile) }
+            }
+        }
         .onOpenURL(perform: handleIncomingURL)
+        .onReceive(
+            NotificationCenter.default.publisher(for: NSNotification.Name.NSSystemTimeZoneDidChange)
+        ) { _ in
+            Task { await store.synchronizeDeviceTimeZone() }
+        }
         .onReceive(
             NotificationCenter.default.publisher(for: .didReceivePushToken)
         ) { notification in
             guard let token = notification.object as? String else { return }
-            pendingPushToken = token
+            pushRegistration.receiveToken(token)
             registerPushTokenIfPossible()
         }
         .onReceive(
@@ -136,9 +160,15 @@ struct ContentView: View {
             }
         }
         .onChange(of: store.session) { _, newSession in
+            if case .signedIn(let profile) = newSession {
+                pushRegistration.setUserID(profile.id)
+            } else {
+                pushRegistration.setUserID(nil)
+            }
             switch newSession {
             case .signedIn:
                 refreshPushRegistrationIfAuthorized()
+                Task { await store.synchronizeDeviceTimeZone() }
                 if let pairingToken = store.familySetup.pairingToken {
                     store.preparePairingToken(pairingToken)
                     previewIncomingPairing()
@@ -166,9 +196,35 @@ struct ContentView: View {
         }
     }
 
+    private var canSwipeBack: Bool {
+        if store.requiresPersonalMarkSetup || store.auth.isSubmitting || store.familySetup.isSubmitting || store.question.isSubmitting
+            || store.emailAuth.isSubmitting || store.emailEnrollment.isSubmitting
+            || isSavingPersonalMark || store.familyLifecycle.isMutating
+            || store.account.isDeleting {
+            return false
+        }
+        return informationDocument != nil || isVoiceAnswerPresented
+            || store.path.count > 1 || store.session.isAwaitingVerification
+            || (store.path.last == .essentials && essentialsPage > 0)
+    }
+
+    private func performBackNavigation() {
+        guard canSwipeBack else { return }
+        isNavigatingBack = true
+        if informationDocument != nil { informationDocument = nil }
+        else if isVoiceAnswerPresented { dismissVoiceAnswer() }
+        else if store.session.isAwaitingVerification { returnToLogin() }
+        else if store.path.last == .pairingConfirmation { cancelPairingConfirmation() }
+        else if store.path.last == .emailEnrollment { store.cancelEmailEnrollment() }
+        else if case .emailEnrollmentVerification = store.path.last { store.cancelEmailEnrollment() }
+        else if store.path.last == .recoveryCode { closeRecoveryCode() }
+        else if store.path.last == .essentials { goBackInEssentials() }
+        else { popRoute() }
+    }
+
     private var keepsInputScreenFullScaleWithKeyboard: Bool {
         switch store.session {
-        case .signedOut, .awaitingOTP:
+        case .signedOut, .awaitingOTP, .awaitingEmailVerification:
             return false
         case .signedIn:
             guard !isVoiceAnswerPresented else { return false }
@@ -194,20 +250,30 @@ struct ContentView: View {
         case .signedOut:
             signedOutContent
 
-        case .awaitingOTP(let phoneNumber):
-            SMSVerificationScreen(
-                phoneNumber: phoneNumber,
+        case .awaitingEmailVerification(let email):
+            EmailVerificationScreen(
+                email: email,
                 code: Binding(
-                    get: { store.auth.verificationCode },
-                    set: { store.auth.verificationCode = $0 }
+                    get: { store.emailAuth.verificationCode },
+                    set: { store.emailAuth.verificationCode = $0 }
                 ),
-                isLoading: store.auth.isSubmitting,
+                isSubmitting: store.emailAuth.isSubmitting,
                 onBack: returnToLogin,
-                onResend: requestOTP,
-                onVerify: verifyOTP,
+                onResend: requestEmailOTP,
+                onVerify: verifyEmailOTP,
                 expiresAt: otpExpirationDate,
                 resendAvailableAt: otpResendAvailableAt,
-                canReplayExpiredAttempt: store.auth.canReplayExpiredAttempt
+                canReplayExpiredAttempt: store.emailAuth.canReplayExpiredAttempt
+            )
+
+        case .awaitingOTP:
+            // Old, interrupted SMS challenges return to email entry. Existing
+            // sessions and recovery codes remain usable after the upgrade.
+            EmailEntryScreen(
+                email: $store.emailAuth.email,
+                isSubmitting: store.emailAuth.isSubmitting,
+                onBack: showFamilyWelcome,
+                onContinue: requestEmailOTP
             )
 
         case .signedIn(let profile):
@@ -226,15 +292,12 @@ struct ContentView: View {
                 onRecover: recoverAccount
             )
 
-        case .phoneEntry:
-            LoginScreen(
-                phoneNumber: Binding(
-                    get: { store.auth.phoneNumber },
-                    set: { store.auth.phoneNumber = $0 }
-                ),
-                isLoading: store.auth.isSubmitting,
+        case .emailEntry, .emailVerification, .phoneEntry:
+            EmailEntryScreen(
+                email: $store.emailAuth.email,
+                isSubmitting: store.emailAuth.isSubmitting,
                 onBack: showFamilyWelcome,
-                onPhoneAuthentication: requestOTP
+                onContinue: requestEmailOTP
             )
 
         case .organizerSetup:
@@ -304,7 +367,7 @@ struct ContentView: View {
                 isWorking: store.familySetup.isSubmitting,
                 onCreateFamily: showOrganizerSetup,
                 onSetUpThisIPhone: showPairingEntry,
-                onReturningUserLogin: showPhoneLogin,
+                onReturningUserLogin: showEmailLogin,
                 onAccountRecovery: showAccountRecovery
             )
         }
@@ -312,10 +375,33 @@ struct ContentView: View {
 
     @ViewBuilder
     private func signedInContent(profile: UserProfile) -> some View {
-        if let informationDocument {
+        if store.requiresPersonalMarkSetup {
+            if !store.personalMarkRequirementIsConfirmed {
+                RestoringScreen(
+                    message: store.personalMarkRequirementError == nil
+                        ? "あなたのしるしを確認しています…"
+                        : "しるしを確認できませんでした",
+                    onRetry: { Task { await store.confirmPersonalMarkRequirement() } },
+                    isWorking: store.isCheckingPersonalMarkRequirement
+                )
+                .task { await store.confirmPersonalMarkRequirement() }
+            } else {
+                PersonalMarkEditor(
+                    displayName: profile.displayName,
+                    mark: nil,
+                    onBack: {},
+                    onSave: { mark in await store.updatePersonalMark(mark) },
+                    isRequiredSetup: true,
+                    onSavingChanged: {
+                        isSavingPersonalMark = $0
+                        if $0 { isNavigatingBack = false }
+                    }
+                )
+            }
+        } else if let informationDocument {
             InformationDocumentScreen(
                 document: informationDocument,
-                onBack: { self.informationDocument = nil }
+                onBack: { isNavigatingBack = true; self.informationDocument = nil }
             )
         } else if isVoiceAnswerPresented,
            let question = store.question.question {
@@ -453,16 +539,16 @@ struct ContentView: View {
                         isOwner: profile.familyRole == .owner,
                         onRenameFamily: {
                             familyNameDraft = family.name
-                            store.path.append(.familyRename)
+                            pushRoute(.familyRename)
                         },
                         onEditMember: { member in
                             managedMemberNameDraft = member.displayName
-                            store.path.append(
+                            pushRoute(
                                 .managedMemberEdit(memberID: member.id)
                             )
                         },
                         onTransferOwnership: {
-                            store.path.append(.ownershipTransfer)
+                            pushRoute(.ownershipTransfer)
                         },
                         onLeaveFamily: {
                             Task {
@@ -554,29 +640,30 @@ struct ContentView: View {
                     }
                 )
 
-            case .phoneEnrollment:
-                PhoneEnrollmentScreen(
-                    phoneNumber: $store.phoneEnrollment.phoneNumber,
-                    isSubmitting: store.phoneEnrollment.isSubmitting,
+            case .emailEnrollment, .phoneEnrollment, .phoneEnrollmentVerification:
+                EmailEnrollmentScreen(
+                    email: $store.emailEnrollment.email,
+                    isSubmitting: store.emailEnrollment.isSubmitting,
                     onBack: {
-                        store.cancelPhoneEnrollment()
+                        isNavigatingBack = true
+                        store.cancelEmailEnrollment()
                     },
-                    onContinue: requestPhoneEnrollment
+                    onContinue: requestEmailEnrollment
                 )
 
-            case .phoneEnrollmentVerification:
-                SMSVerificationScreen(
-                    phoneNumber: store.phoneEnrollment.phoneNumber,
-                    code: $store.phoneEnrollment.verificationCode,
-                    isLoading: store.phoneEnrollment.isSubmitting,
-                    onBack: { store.cancelPhoneEnrollment() },
-                    onResend: requestPhoneEnrollment,
-                    onVerify: verifyPhoneEnrollment,
-                    confirmationTitle: "電話番号を登録",
-                    expiresAt: phoneEnrollmentExpirationDate,
-                    resendAvailableAt: phoneEnrollmentResendAvailableAt,
+            case .emailEnrollmentVerification:
+                EmailVerificationScreen(
+                    email: store.emailEnrollment.email,
+                    code: $store.emailEnrollment.verificationCode,
+                    isSubmitting: store.emailEnrollment.isSubmitting,
+                    onBack: { isNavigatingBack = true; store.cancelEmailEnrollment() },
+                    onResend: requestEmailEnrollment,
+                    onVerify: verifyEmailEnrollment,
+                    confirmationTitle: "メールアドレスを登録",
+                    expiresAt: emailEnrollmentExpirationDate,
+                    resendAvailableAt: emailEnrollmentResendAvailableAt,
                     canReplayExpiredAttempt:
-                        store.phoneEnrollment.canReplayExpiredAttempt
+                        store.emailEnrollment.canReplayExpiredAttempt
                 )
 
             case .accountPrivacy:
@@ -584,23 +671,26 @@ struct ContentView: View {
                     profile: settingsProfile(from: profile),
                     isWorking: store.account.isDeleting,
                     onBack: popRoute,
-                    onPhoneEnrollment: {
-                        store.path.append(.phoneEnrollment)
+                    onEmailEnrollment: {
+                        store.emailEnrollment.email = profile.email ?? ""
+                        pushRoute(.emailEnrollment)
                     },
                     onRecoveryCode: {
-                        store.path.append(.recoveryCode)
+                        pushRoute(.recoveryCode)
                     },
                     onExport: {
-                        store.path.append(.accountExport)
+                        pushRoute(.accountExport)
                     },
                     onPrivacy: {
+                        isNavigatingBack = false
                         informationDocument = .privacy
                     },
                     onTerms: {
+                        isNavigatingBack = false
                         informationDocument = .terms
                     },
                     onHelp: {
-                        store.path.append(.help)
+                        pushRoute(.help)
                     },
                     onDelete: deleteAccount
                 )
@@ -636,77 +726,21 @@ struct ContentView: View {
                 }
 
             case .answerEditor(let answerID):
-                if let answer = answer(withID: answerID) {
-                    AnswerEditorScreen(
-                        answer: answer,
-                        bodyText: $answerEditorDraft,
-                        isSaving: store.answerOwnership.mutatingAnswerIDs
-                            .contains(answerID),
-                        onBack: popRoute,
-                        onSave: {
-                            Task {
-                                if await store.updateAnswer(
-                                    answerID: answerID,
-                                    submission: AnswerSubmission(
-                                        body: answerEditorDraft
-                                    )
-                                ) {
-                                    popRoute()
-                                }
-                            }
-                        },
-                        onDeleteMedia: { media in
-                            Task {
-                                _ = await store.deleteAnswerMedia(
-                                    answerID: answerID,
-                                    mediaID: media.id
-                                )
-                            }
-                        },
-                        onDeleteAnswer: {
-                            Task {
-                                if await store.deleteAnswer(answerID: answerID) {
-                                    popRoute()
-                                }
-                            }
-                        }
-                    )
-                } else {
-                    RestoringScreen(
-                        message: "回答が見つかりません",
-                        retryTitle: "戻る",
-                        onRetry: popRoute
-                    )
+                LifecyclePage(title: "送った回答", onBack: popRoute) {
+                    Text("送った回答は変更・削除できません。続きはコメントで伝えられます。")
+                        .font(TsutsuuraTheme.bodyFont(22))
+                        .foregroundStyle(.white)
+                    if let answer = answer(withID: answerID) {
+                        AnswerCard(
+                            answer: answer, actionMode: .profile, canLike: false,
+                            onLike: {}, onComments: { openComments(answer) },
+                            loadMedia: AnswerMediaLoader { media in try await store.fetchAnswerMedia(media) }
+                        )
+                    }
                 }
 
-            case .commentEditor(let commentID, let answerID):
-                if let comment = store.commentThreads[answerID]?.comments
-                    .first(where: { $0.id == commentID }) {
-                    CommentEditorScreen(
-                        comment: comment,
-                        bodyText: $commentEditorDraft,
-                        isSaving: store.commentThreads[answerID]?.isMutating
-                            ?? false,
-                        onBack: popRoute,
-                        onSave: {
-                            Task {
-                                if await store.updateComment(
-                                    commentID: commentID,
-                                    answerID: answerID,
-                                    body: commentEditorDraft
-                                ) {
-                                    popRoute()
-                                }
-                            }
-                        }
-                    )
-                } else {
-                    RestoringScreen(
-                        message: "コメントが見つかりません",
-                        retryTitle: "戻る",
-                        onRetry: popRoute
-                    )
-                }
+            case .commentEditor(_, let answerID):
+                commentsScreen(answerID: answerID, currentUserID: profile.id)
 
             case .historyFilters:
                 HistoryFilterScreen(
@@ -726,11 +760,42 @@ struct ContentView: View {
                 HelpScreen(
                     isManagedUser: profile.managed == true,
                     onBack: popRoute,
-                    onReplayOnboarding: {}
+                    onReplayOnboarding: {
+                        essentialsPage = 0
+                        pushRoute(.essentials)
+                    }
                 )
 
             case .todayQuestion:
-                if let question = store.question.question {
+                if let question = store.question.question, question.isAvailable == false {
+                    let schedule = QuestionSchedulePresentation(question: question)
+                    LifecyclePage(title: "次の質問", onBack: popRoute) {
+                        PaperPanel {
+                            VStack(spacing: 18) {
+                                Text(schedule.title)
+                                    .font(TsutsuuraTheme.displayFont(28))
+                                if let release = schedule.releaseInScheduleTimeZone {
+                                    Text(release)
+                                        .font(TsutsuuraTheme.bodyFont(24))
+                                }
+                                if let localRelease = schedule.releaseInLocalTimeZone {
+                                    Text(localRelease)
+                                        .font(TsutsuuraTheme.bodyFont(21))
+                                }
+                                Text("ホームで、家族の回答を読んでみましょう。")
+                                    .font(TsutsuuraTheme.bodyFont(21))
+                            }
+                            .foregroundStyle(TsutsuuraTheme.ink)
+                            .padding(24)
+                        }
+                    }
+                    .task(id: question.availableAt) {
+                        guard let release = question.availableAt else { return }
+                        do { try await Task.sleep(for: .seconds(max(0, release.timeIntervalSinceNow))) }
+                        catch { return }
+                        _ = await store.loadTodayQuestion()
+                    }
+                } else if let question = store.question.question {
                     QuestionScreen(
                         question: question,
                         answerText: Binding(
@@ -754,7 +819,9 @@ struct ContentView: View {
                         onMediaError: { message in
                             localErrorMessage = message
                         },
-                        onSubmit: submitAnswer
+                        onSubmit: submitAnswer,
+                        hasNewQuestion: store.question.pendingQuestion != nil,
+                        onNewQuestion: { confirmsQuestionChange = true }
                     )
                 } else {
                     RestoringScreen(message: "質問を読み込み中…")
@@ -779,14 +846,38 @@ struct ContentView: View {
                     onRefresh: refreshAll,
                     onSignOut: signOut,
                     onNotificationSettings: {
-                        store.path.append(.notificationSettings)
+                        pushRoute(.notificationSettings)
                     },
                     onAccountPrivacy: {
-                        store.path.append(.accountPrivacy)
+                        pushRoute(.accountPrivacy)
                     },
                     onHelp: {
-                        store.path.append(.help)
-                    }
+                        pushRoute(.help)
+                    },
+                    onPersonalMark: { pushRoute(.personalMark) }
+                )
+
+            case .essentials:
+                EssentialsWalkthroughScreen(
+                    page: $essentialsPage,
+                    onBack: goBackInEssentials,
+                    onFinished: { finishEssentials() },
+                    onPersonalize: {
+                        pushRoute(.personalMark)
+                    },
+                    completionTitle: store.path.contains(.help) ? "案内を閉じる" : "つつうらをはじめる"
+                )
+
+            case .personalMark:
+                PersonalMarkEditor(
+                    displayName: profile.displayName,
+                    mark: profile.avatarMark,
+                    onBack: {
+                        guard store.path.last == .personalMark, !isSavingPersonalMark else { return }
+                        popRoute()
+                    },
+                    onSave: { mark in await store.updatePersonalMark(mark) },
+                    onSavingChanged: { isSavingPersonalMark = $0 }
                 )
 
             case .answerHistory:
@@ -795,7 +886,9 @@ struct ContentView: View {
             case .home:
                 homeScreen(profile: profile)
 
-            case .phoneEntry,
+            case .emailEntry,
+                 .emailVerification,
+                 .phoneEntry,
                  .otpVerification,
                  .accountRecovery,
                  .onboarding,
@@ -810,7 +903,6 @@ struct ContentView: View {
         profile: UserProfile,
         forcing tab: HomeTab? = nil
     ) -> some View {
-        let shouldLoadHistoryOnRefresh = selectedTab == .profile
         let feed = store.home.feed ?? HomeFeed(
             family: profile.family,
             todayQuestion: store.question.question,
@@ -833,14 +925,6 @@ struct ContentView: View {
                     }
                 }
             ),
-            isRefreshing: store.home.isLoading
-                || (selectedTab == .profile && store.history.isLoading),
-            onRefresh: {
-                await store.refreshHome()
-                if shouldLoadHistoryOnRefresh {
-                    await store.loadHistory()
-                }
-            },
             onQuestion: openTodayQuestion,
             onSettings: openSettings,
             onLike: { answer in
@@ -852,34 +936,21 @@ struct ContentView: View {
             loadMedia: AnswerMediaLoader { media in
                 try await store.fetchAnswerMedia(media)
             },
+            isLoadingFamily: store.home.feed == nil && store.home.isLoading,
+            isLoadingHistory: !store.history.hasLoaded && store.history.isLoading,
             hasMoreHistory: store.history.nextCursor != nil,
             isLoadingMoreHistory: store.history.isLoadingMore,
             hasActiveHistoryFilters: store.history.query.hasActiveFilters
                 || store.history.query.scope != .mine,
             currentHistorySearchText: store.history.query.searchText,
             onHistorySearch: { text in
-                var query = store.history.query
+                var query = HistoryQuery()
                 query.searchText = HistoryQuery.normalizedSearchText(text)
-                store.setHistoryQuery(query)
-                Task { await store.loadHistory() }
-            },
-            onHistoryFilters: {
-                store.path.append(.historyFilters)
-            },
-            onHistoryJumpToToday: {
-                var query = store.history.query
-                let today = Self.historyDateFormatter.string(from: Date())
-                query.startDate = today
-                query.endDate = today
                 store.setHistoryQuery(query)
                 Task { await store.loadHistory() }
             },
             onLoadMoreHistory: {
                 Task { await store.loadHistory(loadMore: true) }
-            },
-            onEditAnswer: { answer in
-                answerEditorDraft = answer.body
-                store.path.append(.answerEditor(answerID: answer.id))
             },
             hasMoreFamilyAnswers: store.home.feed?.nextCursor != nil,
             isLoadingMoreFamilyAnswers: store.home.isLoadingMore,
@@ -888,9 +959,27 @@ struct ContentView: View {
             }
         )
         .task {
-            if store.home.feed == nil {
-                await store.refreshHome()
+            if store.home.feed == nil { await store.refreshHome() }
+        }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            await HomeAutoRefresh.run {
+                await store.refreshHomeInBackground(includingHistory: (tab ?? selectedTab) == .profile)
             }
+        }
+        .task(id: feed.todayQuestion?.availableAt) {
+            guard let question = feed.todayQuestion, question.isAvailable == false,
+                  let release = question.availableAt else { return }
+            let seconds = release.timeIntervalSinceNow
+            if seconds > 0 {
+                do { try await Task.sleep(for: .seconds(seconds)) }
+                catch { return }
+            }
+            while store.home.isLoading {
+                do { try await Task.sleep(for: .milliseconds(100)) }
+                catch { return }
+            }
+            await store.refreshHome()
         }
     }
 
@@ -931,25 +1020,8 @@ struct ContentView: View {
                         )
                     }
                 },
-                onDelete: { comment in
-                    Task {
-                        await store.deleteComment(
-                            commentID: comment.id,
-                            answerID: answerID
-                        )
-                    }
-                },
                 loadMedia: AnswerMediaLoader { media in
                     try await store.fetchAnswerMedia(media)
-                },
-                onEdit: { comment in
-                    commentEditorDraft = comment.body
-                    store.path.append(
-                        .commentEditor(
-                            commentID: comment.id,
-                            answerID: answerID
-                        )
-                    )
                 },
                 onReply: { comment in
                     let body = store.commentThreads[answerID]?.draft ?? ""
@@ -990,8 +1062,13 @@ struct ContentView: View {
         case .signedOut:
             return "signedOut-\(String(describing: store.path.last ?? .onboarding))"
         case .awaitingOTP:
-            return "otp"
-        case .signedIn:
+            return "legacy-recovery"
+        case .awaitingEmailVerification:
+            return "email-verification"
+        case .signedIn(let profile):
+            if store.requiresPersonalMarkSetup {
+                return "required-personal-mark-\(profile.id)-\(store.personalMarkRequirementIsConfirmed)"
+            }
             if let informationDocument {
                 return "information-\(informationDocument.rawValue)"
             }
@@ -1008,7 +1085,8 @@ struct ContentView: View {
             store.globalErrorMessage,
             store.familySetup.errorMessage,
             store.familyLifecycle.errorMessage,
-            store.phoneEnrollment.errorMessage,
+            store.emailAuth.errorMessage,
+            store.emailEnrollment.errorMessage,
             store.answerOwnership.errorMessage,
             store.notificationPreferences.errorMessage,
             store.account.errorMessage,
@@ -1069,58 +1147,62 @@ struct ContentView: View {
     }
 
     private var otpExpirationDate: Date? {
-        if let expiresAt = store.auth.expiresAt {
+        if let expiresAt = store.emailAuth.expiresAt {
             return expiresAt
         }
         guard let otpIssuedAt,
-              let challenge = store.auth.challenge else { return nil }
+              let challenge = store.emailAuth.challenge else { return nil }
         return otpIssuedAt.addingTimeInterval(
             TimeInterval(challenge.expiresIn)
         )
     }
 
-    private var phoneEnrollmentExpirationDate: Date? {
-        if let expiresAt = store.phoneEnrollment.expiresAt {
+    private var emailEnrollmentExpirationDate: Date? {
+        if let expiresAt = store.emailEnrollment.expiresAt {
             return expiresAt
         }
-        guard let phoneEnrollmentIssuedAt,
-              let challenge = store.phoneEnrollment.challenge else {
+        guard let emailEnrollmentIssuedAt,
+              let challenge = store.emailEnrollment.challenge else {
             return nil
         }
-        return phoneEnrollmentIssuedAt.addingTimeInterval(
+        return emailEnrollmentIssuedAt.addingTimeInterval(
             TimeInterval(challenge.expiresIn)
         )
     }
 
-    private func requestOTP() {
+    private func requestEmailOTP() {
+        isNavigatingBack = false
         Task {
-            if await store.requestOTP() {
+            if await store.requestEmailOTP() {
                 otpIssuedAt = Date()
                 otpResendAvailableAt = Date().addingTimeInterval(30)
             }
         }
     }
 
-    private func requestPhoneEnrollment() {
+    private func requestEmailEnrollment() {
+        isNavigatingBack = false
         Task {
-            if await store.requestPhoneEnrollment() {
-                phoneEnrollmentIssuedAt = Date()
-                phoneEnrollmentResendAvailableAt = Date()
+            if await store.requestEmailEnrollment() {
+                emailEnrollmentIssuedAt = Date()
+                emailEnrollmentResendAvailableAt = Date()
                     .addingTimeInterval(30)
             }
         }
     }
 
-    private func verifyPhoneEnrollment() {
+    private func verifyEmailEnrollment() {
+        isNavigatingBack = true
         Task {
-            if await store.verifyPhoneEnrollment() {
-                phoneEnrollmentIssuedAt = nil
-                phoneEnrollmentResendAvailableAt = nil
+            if await store.verifyEmailEnrollment() {
+                emailEnrollmentIssuedAt = nil
+                emailEnrollmentResendAvailableAt = nil
             }
         }
     }
 
     private func showFamilyWelcome() {
+        isNavigatingBack = true
         guard !store.familySetup.isSubmitting else { return }
         store.familySetup.pairingCode = ""
         store.familySetup.pairingToken = nil
@@ -1130,14 +1212,16 @@ struct ContentView: View {
         }
     }
 
-    private func showPhoneLogin() {
+    private func showEmailLogin() {
+        isNavigatingBack = false
         guard !store.familySetup.isSubmitting else { return }
         withAnimation(TsutsuuraMotion.respectingReduceMotion(reduceMotion)) {
-            store.path = [.onboarding, .phoneEntry]
+            store.path = [.onboarding, .emailEntry]
         }
     }
 
     private func showAccountRecovery() {
+        isNavigatingBack = false
         guard !store.familySetup.isSubmitting else { return }
         store.recovery.codeInput = ""
         withAnimation(TsutsuuraMotion.respectingReduceMotion(reduceMotion)) {
@@ -1146,6 +1230,7 @@ struct ContentView: View {
     }
 
     private func recoverAccount() {
+        isNavigatingBack = false
         Task {
             _ = await store.recoverAccount()
         }
@@ -1163,6 +1248,7 @@ struct ContentView: View {
     }
 
     private func showOrganizerSetup() {
+        isNavigatingBack = false
         guard !store.familySetup.isSubmitting else { return }
         withAnimation(TsutsuuraMotion.respectingReduceMotion(reduceMotion)) {
             store.path = [.onboarding, .organizerSetup]
@@ -1170,6 +1256,7 @@ struct ContentView: View {
     }
 
     private func showPairingEntry() {
+        isNavigatingBack = false
         guard !store.familySetup.isSubmitting else { return }
         store.familySetup.pairingPreview = nil
         store.familySetup.pairingToken = nil
@@ -1179,6 +1266,7 @@ struct ContentView: View {
     }
 
     private func cancelPairingConfirmation() {
+        isNavigatingBack = true
         guard !store.familySetup.isSubmitting else { return }
 
         if case .signedOut = store.session {
@@ -1199,12 +1287,14 @@ struct ContentView: View {
     }
 
     private func createOrganizerFamily() {
+        isNavigatingBack = false
         Task {
             await store.createOrganizerFamily()
         }
     }
 
     private func createManagedMemberPairing() {
+        isNavigatingBack = false
         Task {
             await store.createManagedMemberPairing()
         }
@@ -1217,12 +1307,14 @@ struct ContentView: View {
     }
 
     private func previewFamilyPairing() {
+        isNavigatingBack = false
         Task {
             await store.previewFamilyPairing()
         }
     }
 
     private func activateFamilyPairing() {
+        isNavigatingBack = false
         Task {
             await store.activateFamilyPairing()
             guard case .signedIn = store.session,
@@ -1232,10 +1324,38 @@ struct ContentView: View {
         }
     }
 
+    private func goBackInEssentials() {
+        guard store.path.last == .essentials else { return }
+        isNavigatingBack = true
+        if essentialsPage > 0 {
+            essentialsPage -= 1
+        } else {
+            finishEssentials(isGoingBack: true)
+        }
+    }
+
+    private func finishEssentials(isGoingBack: Bool = false) {
+        guard store.path.last == .essentials,
+              case .signedIn(let profile) = store.session else { return }
+        UserDefaults.standard.set(true, forKey: "essentials-v2-\(profile.id)")
+        if store.path.contains(.help) {
+            popRoute()
+        } else {
+            isNavigatingBack = isGoingBack
+            store.path = [.home]
+        }
+    }
+
     private func finishFamilySetup() {
+        isNavigatingBack = false
         guard !store.familySetup.isSubmitting else { return }
         Task {
             await store.finishFamilySetup()
+            if case .signedIn(let profile) = store.session,
+               !UserDefaults.standard.bool(forKey: "essentials-v2-\(profile.id)") {
+                essentialsPage = 0
+                pushRoute(.essentials)
+            }
         }
     }
 
@@ -1254,9 +1374,10 @@ struct ContentView: View {
         }
     }
 
-    private func verifyOTP() {
+    private func verifyEmailOTP() {
+        isNavigatingBack = false
         Task {
-            await store.verifyOTP()
+            await store.verifyEmailOTP()
             if case .signedIn = store.session {
                 otpIssuedAt = nil
                 otpResendAvailableAt = nil
@@ -1271,19 +1392,25 @@ struct ContentView: View {
     }
 
     private func returnToLogin() {
+        isNavigatingBack = true
         otpIssuedAt = nil
         otpResendAvailableAt = nil
         withAnimation(TsutsuuraMotion.respectingReduceMotion(reduceMotion)) {
-            store.cancelOTP()
+            if case .awaitingOTP = store.session { store.cancelOTP() }
+            else { store.cancelEmailOTP() }
         }
     }
 
     private func openTodayQuestion() {
         Task {
-            guard await store.loadTodayQuestion(),
-                  store.question.question != nil else { return }
+            let loaded = await store.loadTodayQuestion()
+            if store.question.pendingQuestion != nil {
+                confirmsQuestionChange = true
+                return
+            }
+            guard loaded, store.question.question != nil else { return }
             withAnimation(TsutsuuraMotion.respectingReduceMotion(reduceMotion)) {
-                store.path.append(.todayQuestion)
+                pushRoute(.todayQuestion)
             }
         }
     }
@@ -1293,19 +1420,21 @@ struct ContentView: View {
         withAnimation(
             TsutsuuraMotion.respectingReduceMotion(
                 reduceMotion,
-                TsutsuuraMotion.emphasizedSpring
+                TsutsuuraMotion.navigation
             )
         ) {
+            isNavigatingBack = false
             isVoiceAnswerPresented = true
         }
     }
 
     private func dismissVoiceAnswer() {
+        isNavigatingBack = true
         speechTranscriber.reset()
         withAnimation(
             TsutsuuraMotion.respectingReduceMotion(
                 reduceMotion,
-                TsutsuuraMotion.quickSpring
+                TsutsuuraMotion.navigation
             )
         ) {
             isVoiceAnswerPresented = false
@@ -1322,6 +1451,7 @@ struct ContentView: View {
     }
 
     private func useVoiceTranscript() {
+        isNavigatingBack = true
         speechTranscriber.stop()
         guard let recording = speechTranscriber.takeRecording() else {
             localErrorMessage = speechTranscriber.errorMessage
@@ -1374,7 +1504,7 @@ struct ContentView: View {
             settingsDisplayName = profile.displayName
         }
         withAnimation(TsutsuuraMotion.respectingReduceMotion(reduceMotion)) {
-            store.path.append(.settings)
+            pushRoute(.settings)
         }
     }
 
@@ -1384,7 +1514,7 @@ struct ContentView: View {
             store.familySetup.family = family
         }
         withAnimation(TsutsuuraMotion.respectingReduceMotion(reduceMotion)) {
-            store.path.append(.familyManagement)
+            pushRoute(.familyManagement)
         }
         Task {
             await store.loadFamilySetup()
@@ -1392,12 +1522,23 @@ struct ContentView: View {
     }
 
     private func openComments(_ answer: Answer) {
+        isNavigatingBack = false
         withAnimation(TsutsuuraMotion.respectingReduceMotion(reduceMotion)) {
             store.openComments(answerID: answer.id)
         }
     }
 
+    private func pushRoute(_ route: AppRoute) {
+        guard !store.requiresPersonalMarkSetup else { return }
+        isNavigatingBack = false
+        withAnimation(TsutsuuraMotion.respectingReduceMotion(reduceMotion, TsutsuuraMotion.navigation)) {
+            store.path.append(route)
+        }
+    }
+
     private func popRoute() {
+        guard !store.requiresPersonalMarkSetup else { return }
+        isNavigatingBack = true
         guard !store.path.isEmpty else { return }
         withAnimation(TsutsuuraMotion.respectingReduceMotion(reduceMotion)) {
             if store.path.count > 1 {
@@ -1426,7 +1567,7 @@ struct ContentView: View {
         Task {
             if await store.deleteAccount() {
                 PushNotificationRegistration.unregister()
-                pendingPushToken = nil
+                pushRegistration.setUserID(nil)
                 AnswerMediaViewCache.clear()
                 informationDocument = nil
                 selectedTab = .family
@@ -1435,36 +1576,50 @@ struct ContentView: View {
     }
 
     private func prepareNotificationSettings() async {
-        async let state = PushNotificationRegistration.registerIfAuthorized()
+        async let permission: Void = refreshPushAuthorization()
         await store.loadNotificationPreferences()
-        pushAuthorizationState = await state
-        store.setNotificationPermissionStatus(
-            notificationPermissionStatus(from: pushAuthorizationState)
-        )
+        await permission
         if let preferences = store.notificationPreferences.preferences {
             notificationDraft = preferences
         }
     }
 
     private func requestPushPermission() {
-        Task {
-            pushAuthorizationState = await PushNotificationRegistration
-                .requestAuthorizationIfNeeded()
-            store.setNotificationPermissionStatus(
-                notificationPermissionStatus(from: pushAuthorizationState)
-            )
-        }
+        Task { await refreshPushAuthorization(requestPermission: true) }
     }
 
     private func refreshPushRegistrationIfAuthorized() {
-        Task {
-            _ = await PushNotificationRegistration.registerIfAuthorized()
+        Task { await refreshPushAuthorization() }
+    }
+
+    private func refreshPushAuthorization(requestPermission: Bool = false) async {
+        guard case .signedIn(let profile) = store.session else { return }
+        pushRegistration.setUserID(profile.id)
+        let state = await pushRegistration.refreshAuthorization {
+            if requestPermission {
+                return await PushNotificationRegistration.requestAuthorizationIfNeeded()
+            }
+            return await PushNotificationRegistration.registerIfAuthorized()
         }
+        guard case .signedIn = store.session else { return }
+        if let state {
+            pushAuthorizationState = state
+            store.setNotificationPermissionStatus(notificationPermissionStatus(from: state))
+        }
+        registerPushTokenIfPossible()
     }
 
     private func saveNotificationPreferences() {
+        let visit = store.navigationVisit()
+        var preferences = notificationDraft
+        // The timezone can change while this form is open. Saving switches
+        // must not restore an older timezone copied when the page opened.
+        preferences.timeZoneIdentifier = TimeZone.autoupdatingCurrent.identifier
         Task {
-            if await store.updateNotificationPreferences(notificationDraft) {
+            let mayDismiss = await store.finishSave(from: visit) {
+                await store.updateNotificationPreferences(preferences)
+            }
+            if mayDismiss {
                 popRoute()
             }
         }
@@ -1484,29 +1639,30 @@ struct ContentView: View {
     }
 
     private func signOut() {
+        isNavigatingBack = true
         Task {
             await store.signOut()
             guard case .signedOut = store.session else { return }
             PushNotificationRegistration.unregister()
-            pendingPushToken = nil
+            pushRegistration.setUserID(nil)
             AnswerMediaViewCache.clear()
             selectedTab = .family
         }
     }
 
     private func registerPushTokenIfPossible() {
-        guard let token = pendingPushToken,
-              case .signedIn = store.session else {
-            return
-        }
+        guard case .signedIn(let profile) = store.session else { return }
+        pushRegistration.setUserID(profile.id)
         Task {
-            #if DEBUG
-            let environment = PushEnvironment.sandbox
-            #else
-            let environment = PushEnvironment.production
-            #endif
-            if await store.registerPushToken(token, environment: environment) {
-                pendingPushToken = nil
+            await pushRegistration.synchronize { token, expectedUserID in
+                guard case .signedIn(let currentProfile) = store.session,
+                      currentProfile.id == expectedUserID else { return false }
+                #if DEBUG
+                let environment = PushEnvironment.sandbox
+                #else
+                let environment = PushEnvironment.production
+                #endif
+                return await store.registerPushToken(token, environment: environment)
             }
         }
     }
@@ -1520,6 +1676,8 @@ struct ContentView: View {
     }
 
     private func previewIncomingPairing() {
+        guard !store.requiresPersonalMarkSetup else { return }
+        isNavigatingBack = false
         Task {
             await store.previewFamilyPairing()
         }
@@ -1531,6 +1689,7 @@ struct ContentView: View {
 
     private func consumePendingPushDestination() async {
         guard case .signedIn = store.session,
+              !store.requiresPersonalMarkSetup,
               let destination = await PendingPushDestinationStore.shared.peek()
         else {
             return
@@ -1546,7 +1705,7 @@ struct ContentView: View {
                 withAnimation(
                     TsutsuuraMotion.respectingReduceMotion(reduceMotion)
                 ) {
-                    store.path.append(.todayQuestion)
+                    pushRoute(.todayQuestion)
                 }
             }
         case .familyAnswer(let answerID):
@@ -1587,9 +1746,7 @@ private struct RestoringScreen: View {
             DottedBackdrop()
 
             VStack(spacing: 26) {
-                Text("つつうら")
-                    .font(TsutsuuraTheme.font(82))
-                    .foregroundStyle(TsutsuuraTheme.cyan)
+                TsutsuuraWordmark(size: 82)
                     .scaleEffect(pulse && !reduceMotion ? 1.04 : 0.97)
                     .animation(
                         reduceMotion
@@ -1627,7 +1784,6 @@ private struct RestoringScreen: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 50, style: .continuous))
         .onAppear {
             pulse = true
         }

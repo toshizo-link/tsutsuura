@@ -23,9 +23,7 @@ struct LoginScreen: View {
             }
         ) {
             VStack(spacing: 10) {
-                Text("つつうら")
-                    .font(TsutsuuraTheme.font(68))
-                    .foregroundStyle(TsutsuuraTheme.cyan)
+                TsutsuuraWordmark()
                 Text("登録済みの電話番号へ、6桁の確認番号を送ります。")
                     .font(TsutsuuraTheme.bodyFont(size: 21))
                     .foregroundStyle(.white)
@@ -272,17 +270,19 @@ struct SMSVerificationScreen: View {
 
 struct HomeScreen: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.colorSchemeContrast) private var contrast
     let feed: HomeFeed
     let history: [Answer]
     let currentUserID: String
     @Binding var selectedTab: HomeTab
-    let isRefreshing: Bool
-    let onRefresh: @Sendable () async -> Void
     let onQuestion: () -> Void
     let onSettings: () -> Void
     let onLike: (Answer) -> Void
     let onComments: (Answer) -> Void
     let loadMedia: AnswerMediaLoader
+    var isLoadingFamily = false
+    var isLoadingHistory = false
     var hasMoreHistory = false
     var isLoadingMoreHistory = false
     var hasActiveHistoryFilters = false
@@ -291,59 +291,137 @@ struct HomeScreen: View {
     var onHistoryFilters: (() -> Void)? = nil
     var onHistoryJumpToToday: (() -> Void)? = nil
     var onLoadMoreHistory: (() -> Void)? = nil
-    var onEditAnswer: ((Answer) -> Void)? = nil
     var hasMoreFamilyAnswers = false
     var isLoadingMoreFamilyAnswers = false
     var onLoadMoreFamilyAnswers: (() -> Void)? = nil
 
     @State private var historySearchText = ""
+    @State private var searchTask: Task<Void, Never>?
+    @AppStorage("dismissed-upcoming-questions") private var dismissedUpcomingQuestions = Data()
+    @FocusState private var isHistorySearchFocused: Bool
 
-    private var visibleAnswers: [Answer] {
-        selectedTab == .family ? feed.answers : history
+    private var bannerAccountKey: String {
+        "\(currentUserID):\(feed.family?.id ?? "")"
     }
 
-    private var familyProgressTotal: Int {
-        max(1, feed.family?.memberCount ?? 1)
+    private var dismissedBanners: [String: String] {
+        (try? JSONDecoder().decode([String: String].self, from: dismissedUpcomingQuestions)) ?? [:]
     }
 
-    private var familyAnsweredUserIDs: Set<String> {
-        guard let date = feed.todayQuestion?.publishedOn else { return [] }
-        var answers = feed.answers.filter { $0.answerDate == date }
-        if let myAnswer = feed.myAnswer,
-           !answers.contains(where: { $0.id == myAnswer.id }) {
-            answers.append(myAnswer)
+    private var questionBannerKey: String {
+        guard let question = feed.todayQuestion else { return "" }
+        return "\(question.id):\(question.publishedOn)"
+    }
+
+    private var showsQuestionBanner: Bool {
+        guard let question = feed.todayQuestion, question.answer == nil else { return false }
+        return question.isAvailable != false || dismissedBanners[bannerAccountKey] != questionBannerKey
+    }
+
+    private var canRevealUpcomingQuestion: Bool {
+        feed.todayQuestion?.isAvailable == false
+            && feed.todayQuestion?.answer == nil
+            && !showsQuestionBanner
+    }
+
+    private func dismissUpcomingQuestion() {
+        guard feed.todayQuestion?.isAvailable == false, showsQuestionBanner else { return }
+        HapticPlayer.play(.selection)
+        var dismissals = dismissedBanners
+        dismissals[bannerAccountKey] = questionBannerKey
+        saveBannerDismissals(dismissals)
+    }
+
+    private func revealUpcomingQuestion() {
+        guard canRevealUpcomingQuestion else { return }
+        var dismissals = dismissedBanners
+        dismissals.removeValue(forKey: bannerAccountKey)
+        saveBannerDismissals(dismissals)
+    }
+
+    private func saveBannerDismissals(_ dismissals: [String: String]) {
+        if let data = try? JSONEncoder().encode(dismissals) {
+            withAnimation(TsutsuuraMotion.respectingReduceMotion(reduceMotion, TsutsuuraMotion.navigation)) {
+                dismissedUpcomingQuestions = data
+            }
         }
-        return Set(answers.map(\.author.id))
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            DottedBackdrop()
-
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 20) {
-                    if let question = feed.todayQuestion,
-                       question.answer == nil {
-                        NewQuestionHero(
-                            tint: TsutsuuraTheme.cyan,
-                            onQuestion: onQuestion
-                        )
+        VStack(spacing: 0) {
+            if let question = feed.todayQuestion, showsQuestionBanner {
+                NewQuestionHero(
+                    question: question,
+                    tint: TsutsuuraTheme.cyan,
+                    onQuestion: onQuestion,
+                    onDismiss: dismissUpcomingQuestion
+                )
+                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                .fixedSize(horizontal: false, vertical: true)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+            GeometryReader { viewport in
+                ZStack(alignment: .topLeading) {
+                    ForEach([HomeTab.family, .profile], id: \.self) { tab in
+                        timeline(for: tab)
+                            .frame(width: viewport.size.width, height: viewport.size.height)
+                            .offset(x: tabOffset(tab) * viewport.size.width)
+                            .allowsHitTesting(selectedTab == tab)
+                            .accessibilityHidden(selectedTab != tab)
                     }
+                }
+                .clipped()
+            }
+            BottomNavigation(selectedTab: Binding(
+                get: { selectedTab },
+                set: { tab in
+                    // Resign while the field is still visible. Once its page
+                    // moves away UIKit can retain focus and reopen the keyboard
+                    // when that mounted page returns, despite a FocusState reset.
+                    dismissHistorySearchKeyboard()
+                    selectedTab = tab
+                }
+            ))
+                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+        }
+        .animation(TsutsuuraMotion.respectingReduceMotion(reduceMotion, TsutsuuraMotion.navigation), value: selectedTab)
+        .onAppear { historySearchText = currentHistorySearchText }
+        .onChange(of: currentHistorySearchText) { _, value in
+            historySearchText = value
+        }
+        .onChange(of: selectedTab) { _, _ in
+            dismissHistorySearchKeyboard()
+        }
+        .onDisappear { searchTask?.cancel() }
+        .preference(key: TsutsuuraTopBackdropTintKey.self,
+                    value: showsQuestionBanner ? TsutsuuraTheme.cyan : nil)
+    }
 
-                    if selectedTab == .family {
+    private func tabOffset(_ tab: HomeTab) -> CGFloat {
+        CGFloat((tab == .family ? 0 : 1) - (selectedTab == .family ? 0 : 1))
+    }
+
+    private func timeline(for tab: HomeTab) -> some View {
+        let visibleAnswers = tab == .family ? feed.answers : history
+        return ScrollView(showsIndicators: false) {
+                VStack(spacing: 20) {
+                    if tab == .family {
                         FamilyProgress(
-                            members: feed.family?.members ?? [],
-                            answeredUserIDs: familyAnsweredUserIDs,
-                            total: familyProgressTotal,
-                            topPadding: feed.todayQuestion?.answer == nil ? 16 : 79
+                            progress: FamilyAnswerProgress(feed: feed),
+                            topPadding: feed.todayQuestion?.answer == nil ? 0 : 16
                         )
                     } else {
                         VStack(spacing: 14) {
-                            HStack {
+                            let headerLayout = dynamicTypeSize.isAccessibilitySize
+                                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+                                : AnyLayout(HStackLayout(spacing: 16))
+                            headerLayout {
                                 Text("過去の回答")
-                                    .font(TsutsuuraTheme.font(31))
+                                    .font(TsutsuuraTheme.displayFont(31))
                                     .foregroundStyle(.white)
-                                Spacer()
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .accessibilityAddTraits(.isHeader)
                                 TextRaisedButton(
                                     title: "設定",
                                     fill: TsutsuuraTheme.cyan,
@@ -352,17 +430,23 @@ struct HomeScreen: View {
                                     fontSize: 27,
                                     action: onSettings
                                 )
-                                .frame(width: 105)
+                                .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : 105)
                             }
 
                             if onHistorySearch != nil {
                                 HStack(spacing: 10) {
-                                    TextField("質問や回答を検索", text: $historySearchText)
+                                    TextField(
+                                        "質問や回答を検索",
+                                        text: $historySearchText,
+                                        prompt: Text("質問や回答を検索")
+                                            .foregroundStyle(TsutsuuraTheme.skyMuted)
+                                    )
                                         .font(TsutsuuraTheme.bodyFont(size: 20))
                                         .foregroundStyle(TsutsuuraTheme.ink)
+                                        .focused($isHistorySearchFocused)
                                         .submitLabel(.search)
                                         .onSubmit {
-                                            onHistorySearch?(historySearchText)
+                                            searchNow()
                                         }
                                         .padding(.horizontal, 14)
                                         .frame(minHeight: 54)
@@ -374,56 +458,53 @@ struct HomeScreen: View {
                                                 value,
                                                 maximumLength: HistoryQuery.maximumSearchCharacterCount
                                             )
-                                            if clamped != value {
-                                                historySearchText = clamped
+                                            if clamped != value { historySearchText = clamped }
+                                            searchTask?.cancel()
+                                            searchTask = Task { @MainActor in
+                                                do { try await Task.sleep(for: .milliseconds(350)) }
+                                                catch { return }
+                                                onHistorySearch?(clamped)
                                             }
                                         }
 
                                     Button {
-                                        onHistorySearch?(historySearchText)
+                                        searchNow()
                                     } label: {
                                         Image(systemName: "magnifyingglass")
                                             .font(.system(size: 22, weight: .bold))
                                             .foregroundStyle(.white)
                                             .frame(width: 54, height: 54)
-                                            .background(TsutsuuraTheme.cyan)
+                                            .background(TsutsuuraTheme.actionFill(TsutsuuraTheme.cyan, contrast: contrast))
                                             .accessibilityHidden(true)
                                     }
                                     .accessibilityLabel("履歴を検索")
                                 }
                             }
 
-                            HStack(spacing: 10) {
-                                if let onHistoryFilters {
-                                    Button(action: onHistoryFilters) {
-                                        Label(
-                                            hasActiveHistoryFilters ? "条件あり" : "絞り込み",
-                                            systemImage: "line.3.horizontal.decrease.circle"
-                                        )
-                                        .font(TsutsuuraTheme.bodyFont(size: 18, weight: .bold))
+                            if hasActiveHistoryFilters {
+                                Button {
+                                    historySearchText = ""
+                                    searchNow()
+                                } label: {
+                                    Label("すべての回答に戻る", systemImage: "xmark.circle.fill")
+                                        .font(TsutsuuraTheme.bodyFont(20))
                                         .foregroundStyle(.white)
                                         .frame(maxWidth: .infinity, minHeight: 48)
-                                        .overlay(Rectangle().stroke(.white, lineWidth: 2))
-                                    }
                                 }
-                                if let onHistoryJumpToToday {
-                                    Button(action: onHistoryJumpToToday) {
-                                        Label("今日へ", systemImage: "calendar.badge.clock")
-                                            .font(TsutsuuraTheme.bodyFont(size: 18, weight: .bold))
-                                            .foregroundStyle(.white)
-                                            .frame(maxWidth: .infinity, minHeight: 48)
-                                            .overlay(Rectangle().stroke(.white, lineWidth: 2))
-                                    }
-                                }
+                                .accessibilityIdentifier("history-clear-search")
                             }
                         }
                         .padding(.horizontal, 34)
-                        .padding(.top, feed.todayQuestion?.answer == nil ? 8 : 73)
+                        .padding(.top, 8)
                     }
 
-                    if visibleAnswers.isEmpty && !isRefreshing {
-                        EmptyFeedState(isFamily: selectedTab == .family)
-                            .padding(.top, 80)
+                    if visibleAnswers.isEmpty && !(tab == .family ? isLoadingFamily : isLoadingHistory) {
+                        EmptyFeedState(
+                            isFamily: tab == .family,
+                            hasActiveFilters: tab == .profile && hasActiveHistoryFilters
+                        )
+                        .padding(.horizontal, 24)
+                        .padding(.top, 32)
                     } else {
                         ForEach(
                             Array(visibleAnswers.enumerated()),
@@ -431,24 +512,19 @@ struct HomeScreen: View {
                         ) { index, answer in
                             AnswerCard(
                                 answer: answer,
-                                actionMode: selectedTab == .family
+                                actionMode: tab == .family
                                     ? .family
                                     : .profile,
                                 canLike: answer.author.id != currentUserID,
                                 onLike: { onLike(answer) },
                                 onComments: { onComments(answer) },
-                                loadMedia: loadMedia,
-                                onEdit: answer.author.id == currentUserID
-                                    ? onEditAnswer.map { callback in
-                                        { callback(answer) }
-                                    }
-                                    : nil
+                                loadMedia: loadMedia
                             )
                             .padding(.top, index == 0 ? 12 : 0)
                         }
                     }
 
-                    if selectedTab == .profile {
+                    if tab == .profile {
                         if hasMoreHistory, let onLoadMoreHistory {
                             TextRaisedButton(
                                 title: isLoadingMoreHistory ? "読み込み中…" : "さらに古い回答を読む",
@@ -462,7 +538,7 @@ struct HomeScreen: View {
                             .accessibilityIdentifier("history-load-more-button")
                         } else if !visibleAnswers.isEmpty {
                             Text("すべての回答を表示しました")
-                                .font(TsutsuuraTheme.bodyFont(size: 17))
+                                .font(TsutsuuraTheme.displayFont(18))
                                 .foregroundStyle(.white)
                                 .accessibilityIdentifier("history-end-label")
                         }
@@ -482,207 +558,302 @@ struct HomeScreen: View {
                         .accessibilityIdentifier("family-feed-load-more-button")
                     }
 
-                    Spacer(minLength: 115)
+                    Spacer(minLength: 24)
                 }
                 .padding(.top, 0)
             }
-            .refreshable {
-                await onRefresh()
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                // Reserving the navigation bar's space keeps the last card
-                // actions reachable. An overlay made partially visible
-                // comment/edit buttons appear hittable to VoiceOver and
-                // XCTest even though the navigation gradient intercepted the
-                // actual touch.
-                BottomNavigation(
-                    selectedTab: $selectedTab
-                )
-            }
+            .scrollDismissesKeyboard(.interactively)
+            .scrollBounceBehavior(.always, axes: .vertical)
+            .accessibilityIdentifier(tab == .family ? "home-family-timeline" : "home-profile-timeline")
+            .modifier(HomeBannerPullToReveal(
+                enabled: selectedTab == tab && canRevealUpcomingQuestion,
+                contextID: "\(bannerAccountKey):\(questionBannerKey)",
+                onReveal: revealUpcomingQuestion
+            ))
+    }
 
-            if isRefreshing {
-                ProgressView()
-                    .tint(.white)
-                    .controlSize(.large)
-                    .padding(20)
-                    .background(.black.opacity(0.48))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 50, style: .continuous))
-        .animation(
-            TsutsuuraMotion.respectingReduceMotion(
-                reduceMotion,
-                TsutsuuraMotion.spring
-            ),
-            value: selectedTab
+    private func searchNow() {
+        dismissHistorySearchKeyboard()
+        searchTask?.cancel()
+        onHistorySearch?(historySearchText)
+    }
+
+    private func dismissHistorySearchKeyboard() {
+        isHistorySearchFocused = false
+        #if canImport(UIKit)
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil
         )
-        .onAppear {
-            historySearchText = currentHistorySearchText
-        }
-        .onChange(of: currentHistorySearchText) { _, value in
-            historySearchText = value
-        }
+        #endif
     }
 }
 
 private struct NewQuestionHero: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    let question: Question
     let tint: Color
     let onQuestion: () -> Void
-    @State private var glowing = false
+    let onDismiss: () -> Void
 
     var body: some View {
+        let schedule = QuestionSchedulePresentation(question: question)
         ZStack {
             DottedBackdrop(
-                background: tint.opacity(0.72),
-                dot: Color.white.opacity(0.08)
+                background: TsutsuuraTheme.ink,
+                dot: TsutsuuraTheme.dot
             )
+            .overlay(tint.opacity(0.5))
 
-            VStack(spacing: 24) {
-                Text("本日の質問!")
-                    .font(TsutsuuraTheme.font(28))
+            VStack(spacing: dynamicTypeSize.isAccessibilitySize ? 8 : 16) {
+                Text(schedule.title)
+                    .font(TsutsuuraTheme.displayFont(dynamicTypeSize.isAccessibilitySize ? 22 : 36))
                     .foregroundStyle(.white)
+                    .accessibilityAddTraits(.isHeader)
 
+                if question.isAvailable == false {
+                    if let release = schedule.releaseInScheduleTimeZone {
+                        Text(release)
+                            .font(TsutsuuraTheme.bodyFont(24))
+                            .foregroundStyle(.white)
+                    }
+                    if let localRelease = schedule.releaseInLocalTimeZone {
+                        Text(localRelease)
+                            .font(TsutsuuraTheme.bodyFont(20))
+                            .foregroundStyle(.white)
+                    }
+                    Text("先に、家族の回答を読んでみましょう。")
+                        .font(TsutsuuraTheme.bodyFont(18))
+                        .foregroundStyle(.white)
+                } else {
+                if schedule.title != "本日の質問!" {
+                    Text(schedule.questionDateLabel)
+                        .font(TsutsuuraTheme.bodyFont(18))
+                        .foregroundStyle(.white)
+                }
                 TextRaisedButton(
                     title: "回答する",
                     fill: tint,
                     shadow: tint == TsutsuuraTheme.orange
                         ? TsutsuuraTheme.orangeDark
                         : TsutsuuraTheme.cyanDark,
-                    height: 50,
-                    fontSize: 24,
+                    height: 62,
+                    fontSize: dynamicTypeSize.isAccessibilitySize ? 22 : 30,
                     haptic: .success,
                     action: onQuestion
                 )
                 .frame(minWidth: 132, maxWidth: 240)
-                .scaleEffect(glowing && !reduceMotion ? 1.04 : 1)
-                .animation(
-                    reduceMotion
-                        ? nil
-                        : .easeInOut(duration: 0.82).repeatForever(autoreverses: true),
-                    value: glowing
-                )
+                }
             }
-            .padding(.top, 23)
-            .offset(y: 21)
+            .padding(.horizontal, question.isAvailable == false ? 48 : 24)
+            .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 12 : 20)
         }
-        .frame(minHeight: 241)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(
-                    tint == TsutsuuraTheme.orange
-                        ? TsutsuuraTheme.orangeDark
-                        : TsutsuuraTheme.cyanDark
-                )
-                .frame(height: 3)
+        .overlay(alignment: .topTrailing) {
+            if question.isAvailable == false {
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(4)
+                .accessibilityLabel("次の質問のお知らせを閉じる")
+                .accessibilityIdentifier("dismiss-upcoming-question")
+            }
         }
-        .onAppear {
-            glowing = true
-        }
+        .frame(minHeight: dynamicTypeSize.isAccessibilitySize ? 100 : 150)
+        .contentShape(Rectangle())
+        .highPriorityGesture(
+            DragGesture(minimumDistance: 16)
+                .onEnded { value in
+                    let upwardDistance = -value.translation.height
+                    guard question.isAvailable == false,
+                          upwardDistance >= 48,
+                          upwardDistance > abs(value.translation.width) else { return }
+                    onDismiss()
+                },
+            // Consume drags even after publication so a swipe beginning on
+            // the answer button cannot finish as a button press. The handler
+            // above still permits dismissal only for an upcoming question.
+            including: .all
+        )
         .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home-question-banner")
     }
 }
 
 private struct FamilyProgress: View {
-    let members: [UserProfile]
-    let answeredUserIDs: Set<String>
-    let total: Int
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let progress: FamilyAnswerProgress
     let topPadding: CGFloat
-
-    private var answered: Int {
-        min(total, answeredUserIDs.count)
-    }
+    @State private var showsMembers = false
 
     var body: some View {
-        VStack(spacing: 14) {
-            Text("今日の回答 \(answered)人／\(total)人")
-                .font(TsutsuuraTheme.font(30))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(spacing: 0) {
+            let batteryLayout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(spacing: 16))
+                : AnyLayout(HStackLayout(alignment: .top, spacing: 5))
+            batteryLayout {
+                FamilyBatteryGauge(progress: progress)
+                    .frame(height: 112)
 
-            if members.isEmpty {
-                Text("\(answered)人が回答済みです")
-                    .font(TsutsuuraTheme.font(23))
-                    .foregroundStyle(TsutsuuraTheme.ink)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(18)
-                    .background(TsutsuuraTheme.sky)
-                    .accessibilityLabel("今日の回答。\(answered)人中\(total)人が回答済み")
-            } else {
-                PaperPanel {
-                    VStack(spacing: 0) {
-                        ForEach(Array(members.enumerated()), id: \.element.id) { index, member in
-                            let hasAnswered = answeredUserIDs.contains(member.id)
-                            HStack(spacing: 12) {
-                                Image(
-                                    systemName: hasAnswered
-                                        ? "checkmark.circle.fill"
-                                        : "circle"
-                                )
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundStyle(
-                                    hasAnswered
-                                        ? TsutsuuraTheme.greenDark
-                                        : TsutsuuraTheme.skyInk
-                                )
-                                .accessibilityHidden(true)
+                if !progress.members.isEmpty {
+                    RaisedButton(
+                        fill: TsutsuuraTheme.cyan,
+                        shadow: TsutsuuraTheme.cyanDark,
+                        height: dynamicTypeSize.isAccessibilitySize ? 64 : 107,
+                        isSelected: showsMembers,
+                        action: {
+                            withAnimation(TsutsuuraMotion.respectingReduceMotion(reduceMotion)) {
+                                showsMembers.toggle()
+                            }
+                        }
+                    ) {
+                        if dynamicTypeSize.isAccessibilitySize {
+                            Text("確認")
+                                .font(TsutsuuraTheme.displayFont(36))
+                                .padding(12)
+                        } else {
+                            VStack(spacing: 12) {
+                                Text("確").frame(height: 42)
+                                Text("認").frame(height: 42)
+                            }
+                            .font(TsutsuuraTheme.displayFont(36))
+                        }
+                    }
+                    .foregroundStyle(.white)
+                    .frame(width: dynamicTypeSize.isAccessibilitySize ? nil : 78)
+                    .accessibilityLabel(showsMembers ? "家族の回答状況を閉じる" : "家族の回答状況を確認")
+                    .accessibilityValue(showsMembers ? "開いています" : "閉じています")
+                    .accessibilityIdentifier("family-progress-details-button")
+                }
+            }
+            .padding(.top, 8)
 
+            if progress.total == 0 {
+                Text("家族の情報を読み込むと、回答状況が表示されます。")
+                    .font(TsutsuuraTheme.bodyFont(20))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(24)
+            }
+
+            if showsMembers && !progress.members.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(Array(progress.members.enumerated()), id: \.element.id) { index, member in
+                        let hasAnswered = progress.answeredUserIDs.contains(member.id)
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            Image(
+                                systemName: hasAnswered
+                                    ? "checkmark.circle.fill"
+                                    : "circle"
+                            )
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(
+                                hasAnswered
+                                    ? TsutsuuraTheme.cyanDark
+                                    : TsutsuuraTheme.skyInk
+                            )
+                            .accessibilityHidden(true)
+
+                            let memberLayout = dynamicTypeSize.isAccessibilitySize
+                                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                                : AnyLayout(HStackLayout(spacing: 8))
+                            memberLayout {
                                 Text(member.displayName)
-                                    .font(TsutsuuraTheme.font(23))
+                                    .font(TsutsuuraTheme.displayFont(23))
                                     .foregroundStyle(TsutsuuraTheme.ink)
+                                    .fixedSize(horizontal: false, vertical: true)
 
-                                Spacer(minLength: 8)
+                                if !dynamicTypeSize.isAccessibilitySize {
+                                    Spacer(minLength: 8)
+                                }
 
                                 Text(hasAnswered ? "回答済み" : "未回答")
-                                    .font(TsutsuuraTheme.font(20))
+                                    .font(TsutsuuraTheme.displayFont(20))
                                     .foregroundStyle(TsutsuuraTheme.skyInk)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 14)
-                            .accessibilityElement(children: .ignore)
-                            .accessibilityLabel(
-                                "\(member.displayName)：\(hasAnswered ? "回答済み" : "未回答")"
-                            )
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(
+                            "\(member.displayName)：\(hasAnswered ? "回答済み" : "未回答")"
+                        )
 
-                            if index < members.count - 1 {
-                                Divider()
-                                    .overlay(TsutsuuraTheme.skyInk.opacity(0.35))
-                                    .accessibilityHidden(true)
-                            }
+                        if index < progress.members.count - 1 {
+                            Divider()
+                                .overlay(TsutsuuraTheme.skyInk.opacity(0.18))
+                                .padding(.horizontal, 16)
+                                .accessibilityHidden(true)
                         }
                     }
                 }
+                .background(TsutsuuraTheme.sky)
+                .padding(.top, 10)
+                .transition(.opacity)
             }
         }
-        .padding(.horizontal, 34)
+        .frame(maxWidth: .infinity)
+        .padding(.leading, 33)
+        .padding(.trailing, 34)
         .padding(.top, topPadding)
     }
 }
 
-private struct UnevenProgressShine: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: 0, y: 0))
-        path.addLine(to: CGPoint(x: rect.maxX, y: 0))
-        path.addLine(to: CGPoint(x: 0, y: rect.height * 0.24))
-        path.closeSubpath()
-        return path
+private struct FamilyBatteryGauge: View {
+    let progress: FamilyAnswerProgress
+
+    var body: some View {
+        ZStack {
+            HStack(spacing: progress.total > 12 ? 2 : 5) {
+                ForEach(0..<progress.total, id: \.self) { index in
+                    let answered = index < progress.members.count
+                        ? progress.answeredUserIDs.contains(progress.members[index].id)
+                        : index - progress.members.count < progress.answered
+                            - progress.members.filter { progress.answeredUserIDs.contains($0.id) }.count
+                    Rectangle()
+                        .fill(answered ? TsutsuuraTheme.cyan : TsutsuuraTheme.batteryEmpty)
+                }
+            }
+            .padding(5)
+            UnevenPaperHighlight().fill(.white.opacity(0.2))
+            Rectangle().strokeBorder(TsutsuuraTheme.cyanDark, lineWidth: 5)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("今日の家族の回答")
+        .accessibilityValue(progress.total > 0
+            ? "\(progress.total)人中\(progress.answered)人が回答済み"
+            : "家族の情報を読み込み中")
+        .accessibilityIdentifier("family-answer-battery")
     }
 }
 
 private struct EmptyFeedState: View {
     let isFamily: Bool
+    var hasActiveFilters = false
 
     var body: some View {
         VStack(spacing: 18) {
             Image(systemName: isFamily ? "person.3.fill" : "text.book.closed.fill")
                 .font(.system(size: 46, weight: .bold))
                 .accessibilityHidden(true)
-            Text(isFamily ? "家族の回答はまだありません" : "過去の回答はまだありません")
-                .font(TsutsuuraTheme.font(25))
+            Text(hasActiveFilters
+                ? "条件に合う回答がありません"
+                : (isFamily ? "家族の回答はまだありません" : "過去の回答はまだありません"))
+                .font(TsutsuuraTheme.displayFont(27))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            if hasActiveFilters {
+                Text("言葉を短くするか、「すべての回答に戻る」を押してください")
+                    .font(TsutsuuraTheme.bodyFont(size: 19))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .foregroundStyle(.white.opacity(0.75))
         .frame(maxWidth: .infinity)
@@ -696,6 +867,7 @@ enum AnswerCardActionMode: Equatable {
 }
 
 struct AnswerCard: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let answer: Answer
     let actionMode: AnswerCardActionMode
     let canLike: Bool
@@ -732,17 +904,20 @@ struct AnswerCard: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            HStack {
+            let authorLayout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                : AnyLayout(HStackLayout(spacing: 12))
+            authorLayout {
                 PersonBadge(
                     name: answer.author.displayName,
-                    tint: answer.author.displayName == "あたた"
-                        ? TsutsuuraTheme.coral
-                        : TsutsuuraTheme.blueAvatar
+                    tint: TsutsuuraTheme.cyanDark,
+                    mark: answer.author.avatarMark
                 )
-                Spacer()
+                .frame(maxWidth: .infinity, alignment: .leading)
                 Text(Self.dateFormatter.string(from: answer.createdAt))
-                    .font(TsutsuuraTheme.font(27))
+                    .font(TsutsuuraTheme.displayFont(24))
                     .foregroundStyle(.white)
+                    .fixedSize(horizontal: !dynamicTypeSize.isAccessibilitySize, vertical: true)
             }
 
             PaperPanel {
@@ -752,14 +927,14 @@ struct AnswerCard: View {
                 ) {
                     if let prompt = answer.questionPrompt {
                         Text("Q. \(prompt)")
-                            .font(TsutsuuraTheme.font(27))
+                            .font(TsutsuuraTheme.displayFont(27))
                             .foregroundStyle(TsutsuuraTheme.skyMuted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
                     if !answer.body.isEmpty {
                         Text(answer.body)
-                            .font(TsutsuuraTheme.font(30))
+                            .font(TsutsuuraTheme.displayFont(30))
                             .foregroundStyle(TsutsuuraTheme.ink)
                             .lineSpacing(actionMode == .none ? 20 : 9)
                             .fixedSize(horizontal: false, vertical: true)
@@ -777,7 +952,7 @@ struct AnswerCard: View {
 
                     if answer.likeCount > 0, actionMode != .none {
                         Text("いいね \(answer.likeCount)")
-                            .font(TsutsuuraTheme.font(24))
+                            .font(TsutsuuraTheme.displayFont(24))
                         .foregroundStyle(TsutsuuraTheme.ink)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .accessibilityElement(children: .ignore)
@@ -796,27 +971,29 @@ struct AnswerCard: View {
             .frame(minHeight: minimumPanelHeight)
 
             if actionMode == .family && canLike {
-                HStack(spacing: 28) {
+                let actionLayout = dynamicTypeSize.isAccessibilitySize
+                    ? AnyLayout(VStackLayout(spacing: 14))
+                    : AnyLayout(HStackLayout(spacing: 12))
+                actionLayout {
                     TextRaisedButton(
                         title: answer.isLikedByMe ? "いいね済" : "いいね",
-                        fill: answer.isLikedByMe
-                            ? TsutsuuraTheme.cyanMuted
-                            : TsutsuuraTheme.cyan,
+                        fill: TsutsuuraTheme.cyan,
                         shadow: TsutsuuraTheme.cyanDark,
                         height: 62,
-                        fontSize: 27,
+                        fontSize: 23,
+                        isSelected: answer.isLikedByMe,
                         action: onLike
                     )
-                    .frame(width: 178)
+                    .accessibilityValue(answer.isLikedByMe ? "選択中" : "")
+                    .accessibilityHint(answer.isLikedByMe ? "もう一度押すといいねを取り消します" : "この回答にいいねを送ります")
 
                     TextRaisedButton(
                         title: "コメント",
                         icon: "text.bubble.fill",
                         height: 62,
-                        fontSize: 27,
+                        fontSize: 23,
                         action: onComments
                     )
-                    .frame(width: 168)
                     .accessibilityIdentifier("answer-comments-\(answer.id)")
                 }
             } else if actionMode == .family || actionMode == .profile {
@@ -827,20 +1004,10 @@ struct AnswerCard: View {
                     fontSize: 27,
                     action: onComments
                 )
-                .frame(width: 188)
+                .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : 220)
                 .accessibilityIdentifier("answer-comments-\(answer.id)")
             }
 
-            if let onEdit {
-                Button(action: onEdit) {
-                    Label("この回答を編集・削除", systemImage: "pencil.circle.fill")
-                        .font(TsutsuuraTheme.bodyFont(size: 19, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(minWidth: 220, minHeight: 48)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("edit-answer-\(answer.id)")
-            }
         }
         .padding(.horizontal, 34)
         .accessibilityElement(children: .contain)
@@ -855,10 +1022,11 @@ struct AnswerCard: View {
 }
 
 private struct BottomNavigation: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Binding var selectedTab: HomeTab
 
     var body: some View {
-        HStack(spacing: 27) {
+        HStack(spacing: 10) {
             tabButton(
                 title: "家族",
                 icon: "figure.2.and.child.holdinghands",
@@ -870,17 +1038,10 @@ private struct BottomNavigation: View {
                 tab: .profile
             )
         }
-        .frame(maxWidth: .infinity, minHeight: 130)
-        .background(
-            LinearGradient(
-                colors: [
-                    TsutsuuraTheme.ink.opacity(0),
-                    Color(hex: 0x596063).opacity(0.95)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .background(TsutsuuraTheme.ink)
     }
 
     private func tabButton(
@@ -888,21 +1049,27 @@ private struct BottomNavigation: View {
         icon: String,
         tab: HomeTab
     ) -> some View {
-        TextRaisedButton(
-            title: title,
-            icon: icon,
-            fill: selectedTab == tab
-                ? TsutsuuraTheme.cyanMuted
-                : TsutsuuraTheme.cyan,
-            shadow: TsutsuuraTheme.cyanDark,
-            height: 68,
-            fontSize: 29,
-            isSelected: selectedTab == tab
-        ) {
-            selectedTab = tab
+        Button { selectedTab = tab } label: {
+            HStack(spacing: 7) {
+                Image(systemName: icon)
+                Text(title)
+                if selectedTab == tab {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 15, weight: .bold))
+                }
+            }
+            .font(TsutsuuraTheme.displayFont(dynamicTypeSize.isAccessibilitySize ? 23 : 24))
+            .foregroundStyle(selectedTab == tab ? TsutsuuraTheme.cyanDark : .white)
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .padding(.vertical, 2)
+            .background(selectedTab == tab ? TsutsuuraTheme.sky : TsutsuuraTheme.cyanDark)
+            .overlay(Rectangle().strokeBorder(selectedTab == tab ? .white : TsutsuuraTheme.cyan, lineWidth: 3))
         }
-        .frame(width: 160)
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityIdentifier(tab == .family ? "home-tab-family" : "home-tab-profile")
         .accessibilityValue(selectedTab == tab ? "選択中" : "")
+        .accessibilityAddTraits(selectedTab == tab ? .isSelected : [])
     }
 }
 
@@ -922,8 +1089,11 @@ struct QuestionScreen: View {
     let onRemovePhoto: (UUID) -> Void
     let onMediaError: (String) -> Void
     let onSubmit: () -> Void
+    var hasNewQuestion = false
+    var onNewQuestion: (() -> Void)? = nil
 
     @FocusState private var isAnswerFocused: Bool
+    @State private var confirmsSubmission = false
 
     private var isAnswerEmpty: Bool {
         answerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -932,15 +1102,23 @@ struct QuestionScreen: View {
     }
 
     private var isSubmitDisabled: Bool {
-        isAnswerEmpty || isSubmitting
+        isAnswerEmpty || isSubmitting || !question.canAnswer || hasNewQuestion
     }
 
     var body: some View {
         ScrollViewReader { scrollProxy in
             LifecyclePage(title: "本日の質問", onBack: goBack) {
+                if hasNewQuestion {
+                    Text("新しい質問が届きました。この下書きは前の質問のものです。")
+                        .font(TsutsuuraTheme.bodyFont(21))
+                        .foregroundStyle(.white)
+                    TextRaisedButton(title: "新しい質問を確認", fontSize: 22) {
+                        onNewQuestion?()
+                    }
+                }
                 PaperPanel {
                     Text(question.prompt)
-                        .font(TsutsuuraTheme.font(32))
+                        .font(TsutsuuraTheme.displayFont(32))
                         .foregroundStyle(TsutsuuraTheme.ink)
                         .multilineTextAlignment(.center)
                         .lineSpacing(7)
@@ -1006,7 +1184,7 @@ struct QuestionScreen: View {
                         title: voiceRecording == nil ? "声で回答" : "声を変更",
                         icon: "waveform",
                         fill: voiceRecording == nil
-                            ? TsutsuuraTheme.cyanMuted
+                            ? TsutsuuraTheme.cyan
                             : TsutsuuraTheme.green,
                         shadow: voiceRecording == nil
                             ? TsutsuuraTheme.cyanDark
@@ -1025,6 +1203,11 @@ struct QuestionScreen: View {
                     )
                     #endif
                 }
+
+                Text("送った回答は変更・削除できません。送る前に、内容を確かめましょう。")
+                    .font(TsutsuuraTheme.bodyFont(19))
+                    .foregroundStyle(.white)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 TextRaisedButton(
                     title: isSubmitting ? "送信中…" : "この回答を送る",
@@ -1091,6 +1274,12 @@ struct QuestionScreen: View {
                 }
             }
         }
+        .alert("この内容で家族に送りますか？", isPresented: $confirmsSubmission) {
+            Button("家族に送る") { onSubmit() }
+            Button("戻って確認", role: .cancel) {}
+        } message: {
+            Text("送った後は変更・削除できません。\n\n\(answerText)")
+        }
     }
 
     private func revealAnswerEditor(using scrollProxy: ScrollViewProxy) {
@@ -1120,7 +1309,7 @@ struct QuestionScreen: View {
     private func submitAnswer() {
         guard !isSubmitDisabled else { return }
         isAnswerFocused = false
-        onSubmit()
+        confirmsSubmission = true
     }
 }
 
@@ -1140,11 +1329,24 @@ struct VoiceAnswerScreen: View {
     let onUseTextAnswer: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var countdown = 3
     @State private var countdownFinished = false
 
     private var hasCaptureError: Bool {
-        errorMessage != nil && !isRecording && !hasRecording
+        errorMessage != nil && !isRecording
+    }
+
+    private var recordingStatus: String {
+        if !transcript.isEmpty { return transcript }
+        if hasRecording && !isRecording {
+            return hasCaptureError
+                ? "録音が中断されました。録音済みの内容を使えます。"
+                : "録音できました。「この回答を使う」で進めます。"
+        }
+        if hasCaptureError { return "録音は始まっていません" }
+        if !countdownFinished { return "まもなく録音を始めます…" }
+        return isRecording ? "声を聞いています…" : "録音ボタンを押して話してください"
     }
 
     var body: some View {
@@ -1159,15 +1361,17 @@ struct VoiceAnswerScreen: View {
                         onCancel()
                     } label: {
                         Label("戻る", systemImage: "chevron.left")
-                            .font(TsutsuuraTheme.font(27))
+                            .font(TsutsuuraTheme.displayFont(27))
                             .foregroundStyle(.white)
+                            .frame(minWidth: 64, minHeight: 52, alignment: .leading)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     Spacer()
                 }
 
                 Text(prompt)
-                    .font(TsutsuuraTheme.font(27))
+                    .font(TsutsuuraTheme.displayFont(27))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1199,7 +1403,7 @@ struct VoiceAnswerScreen: View {
                             .transition(.scale.combined(with: .opacity))
                     } else {
                         Text("\(countdown)")
-                            .font(TsutsuuraTheme.font(112))
+                            .font(TsutsuuraTheme.displayFont(112))
                             .foregroundStyle(.white)
                             .contentTransition(.numericText())
                             .id(countdown)
@@ -1210,11 +1414,7 @@ struct VoiceAnswerScreen: View {
 
                 PaperPanel {
                     ScrollView {
-                        Text(
-                            hasCaptureError
-                                ? "録音は始まっていません"
-                                : (transcript.isEmpty ? "声を聞いています…" : transcript)
-                        )
+                        Text(recordingStatus)
                             .font(TsutsuuraTheme.font(28))
                             .foregroundStyle(
                                 transcript.isEmpty || hasCaptureError
@@ -1278,7 +1478,7 @@ struct VoiceAnswerScreen: View {
                         TextRaisedButton(
                             title: "テキストで回答する",
                             icon: "keyboard",
-                            fill: TsutsuuraTheme.cyanMuted,
+                            fill: TsutsuuraTheme.cyan,
                             shadow: TsutsuuraTheme.cyanDark,
                             height: 64,
                             fontSize: 24,
@@ -1287,7 +1487,10 @@ struct VoiceAnswerScreen: View {
                         .accessibilityIdentifier("use-text-answer-instead")
                     }
                 } else {
-                    HStack(spacing: 22) {
+                    let recordingLayout = dynamicTypeSize.isAccessibilitySize
+                        ? AnyLayout(VStackLayout(spacing: 14))
+                        : AnyLayout(HStackLayout(spacing: 12))
+                    recordingLayout {
                         TextRaisedButton(
                             title: isRecording ? "停止" : "録音",
                             icon: isRecording ? "stop.fill" : "mic.fill",
@@ -1306,18 +1509,17 @@ struct VoiceAnswerScreen: View {
                                 }
                             }
                         }
-                        .frame(width: 165)
                         .disabled(!countdownFinished)
 
                         TextRaisedButton(
-                            title: "この回答",
+                            title: "この回答を使う",
                             icon: "checkmark",
                             height: 64,
                             fontSize: 26,
                             haptic: .success,
                             action: onUseTranscript
                         )
-                        .frame(width: 180)
+                        .accessibilityIdentifier("voice-use-answer-button")
                         .disabled(transcript.isEmpty && !isRecording && !hasRecording)
                     }
                 }
@@ -1328,7 +1530,6 @@ struct VoiceAnswerScreen: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 50, style: .continuous))
         .task {
             guard !countdownFinished else { return }
             for number in stride(from: 3, through: 1, by: -1) {
@@ -1398,19 +1599,8 @@ private struct AnimatedWaveform: View {
 }
 
 struct CommentsScreen: View {
-    private enum PendingCommentConfirmation {
-        case delete(Comment)
-        case report(Comment)
-
-        var title: String {
-            switch self {
-            case .delete: "このコメントを削除しますか？"
-            case .report: "このコメントを報告しますか？"
-            }
-        }
-    }
-
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let answer: Answer
     let comments: [Comment]
     let currentUserID: String
@@ -1421,14 +1611,12 @@ struct CommentsScreen: View {
     let onBack: () -> Void
     let onSend: () -> Void
     let onLoadMore: () -> Void
-    let onDelete: (Comment) -> Void
     let loadMedia: AnswerMediaLoader
-    var onEdit: ((Comment) -> Void)? = nil
     var onReply: ((Comment) -> Void)? = nil
     var onReport: ((Comment) -> Void)? = nil
 
     @FocusState private var isCommentFocused: Bool
-    @State private var pendingConfirmation: PendingCommentConfirmation?
+    @State private var pendingReport: Comment?
     @State private var shouldRevealNewestComment = false
     @State private var replyingTo: Comment?
 
@@ -1442,35 +1630,23 @@ struct CommentsScreen: View {
             DottedBackdrop()
 
             VStack(spacing: 0) {
-                ZStack {
-                    Text("コメント")
-                        .font(TsutsuuraTheme.font(32))
-                        .foregroundStyle(.white)
-                        .accessibilityIdentifier("comments-screen-title")
-
-                    HStack {
-                        Button {
-                            HapticPlayer.play(.selection)
-                            goBack()
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 24, weight: .bold))
-                                    .accessibilityHidden(true)
-                                Text("戻る")
-                                    .font(TsutsuuraTheme.font(26))
-                            }
-                            .foregroundStyle(.white)
-                            .frame(minHeight: 54)
-                        }
-                        .buttonStyle(.plain)
-
-                        Spacer()
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 20) {
+                        commentsBackButton
+                        Spacer(minLength: 0)
+                        commentsTitle
+                            .fixedSize()
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        commentsBackButton
+                        commentsTitle
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(minHeight: 64)
                 .padding(.horizontal, 28)
-                .padding(.top, 52)
+                .padding(.top, 16)
                 .padding(.bottom, 12)
 
                 ScrollViewReader { scrollProxy in
@@ -1487,35 +1663,24 @@ struct CommentsScreen: View {
 
                             ForEach(comments) { comment in
                                 VStack(alignment: .leading, spacing: 9) {
-                                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                                        Text(comment.author.displayName)
-                                            .font(TsutsuuraTheme.font(23))
-                                            .foregroundStyle(.white)
-                                            .fixedSize(horizontal: false, vertical: true)
-
-                                        Spacer(minLength: 8)
-
-                                        Text(Self.commentDateFormatter.string(from: comment.createdAt))
-                                            .font(TsutsuuraTheme.font(17))
-                                            .foregroundStyle(.white.opacity(0.78))
-                                    }
+                                    commentHeader(for: comment)
 
                                     PaperPanel {
                                         VStack(alignment: .leading, spacing: 6) {
                                             if comment.parentCommentID != nil {
                                                 Label("返信", systemImage: "arrowshape.turn.up.left.fill")
-                                                    .font(TsutsuuraTheme.bodyFont(size: 15, weight: .semibold))
+                                                    .font(TsutsuuraTheme.displayFont(18))
                                                     .foregroundStyle(TsutsuuraTheme.skyInk)
                                             }
                                             Text(comment.body)
-                                                .font(TsutsuuraTheme.font(23))
+                                                .font(TsutsuuraTheme.displayFont(24))
                                                 .foregroundStyle(TsutsuuraTheme.ink)
                                                 .fixedSize(horizontal: false, vertical: true)
                                                 .frame(maxWidth: .infinity, alignment: .leading)
                                             if let updatedAt = comment.updatedAt,
                                                updatedAt.timeIntervalSince(comment.createdAt) > 1 {
                                                 Text("編集済み")
-                                                    .font(TsutsuuraTheme.bodyFont(size: 14))
+                                                    .font(TsutsuuraTheme.displayFont(18))
                                                     .foregroundStyle(TsutsuuraTheme.skyInk)
                                             }
                                         }
@@ -1538,21 +1703,7 @@ struct CommentsScreen: View {
                                             : "comment-\(comment.id)"
                                     )
 
-                                    if comment.author.id == currentUserID {
-                                        HStack(spacing: 12) {
-                                            if let onEdit {
-                                                Button("編集") { onEdit(comment) }
-                                                    .accessibilityIdentifier("edit-comment-\(comment.id)")
-                                            }
-                                            Button("削除", role: .destructive) {
-                                                pendingConfirmation = .delete(comment)
-                                            }
-                                            .accessibilityIdentifier("delete-comment-\(comment.id)")
-                                        }
-                                        .font(TsutsuuraTheme.font(19))
-                                        .foregroundStyle(.white)
-                                        .frame(minHeight: 44)
-                                    } else {
+                                    if comment.author.id != currentUserID {
                                         HStack(spacing: 16) {
                                             if onReply != nil {
                                                 Button("返信") {
@@ -1562,11 +1713,11 @@ struct CommentsScreen: View {
                                             }
                                             if onReport != nil {
                                                 Button("報告") {
-                                                    pendingConfirmation = .report(comment)
+                                                    pendingReport = comment
                                                 }
                                             }
                                         }
-                                        .font(TsutsuuraTheme.bodyFont(size: 18, weight: .semibold))
+                                        .font(TsutsuuraTheme.displayFont(20))
                                         .foregroundStyle(.white)
                                         .frame(minHeight: 44)
                                     }
@@ -1586,7 +1737,7 @@ struct CommentsScreen: View {
                                             : "以前のコメントを読み込む",
                                         systemImage: "arrow.down.circle"
                                     )
-                                    .font(TsutsuuraTheme.bodyFont(size: 19, weight: .semibold))
+                                    .font(TsutsuuraTheme.displayFont(21))
                                     .foregroundStyle(.white)
                                     .frame(minHeight: 52)
                                 }
@@ -1597,7 +1748,7 @@ struct CommentsScreen: View {
 
                             if comments.isEmpty && !isLoading {
                                 Text("最初のコメントを書こう")
-                                    .font(TsutsuuraTheme.font(24))
+                                    .font(TsutsuuraTheme.displayFont(24))
                                     .foregroundStyle(.white.opacity(0.72))
                                     .padding(.top, 30)
                             }
@@ -1649,41 +1800,27 @@ struct CommentsScreen: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 50, style: .continuous))
         .alert(
-            pendingConfirmation?.title ?? "コメントの操作",
+            "このコメントを報告しますか？",
             isPresented: Binding(
-                get: { pendingConfirmation != nil },
+                get: { pendingReport != nil },
                 set: { isPresented in
                     if !isPresented {
-                        pendingConfirmation = nil
+                        pendingReport = nil
                     }
                 }
             ),
-            presenting: pendingConfirmation
-        ) { confirmation in
-            switch confirmation {
-            case .delete(let comment):
-                Button("削除", role: .destructive) {
-                    pendingConfirmation = nil
-                    onDelete(comment)
-                }
-            case .report(let comment):
-                Button("不適切な内容として報告") {
-                    pendingConfirmation = nil
-                    onReport?(comment)
-                }
+            presenting: pendingReport
+        ) { comment in
+            Button("不適切な内容として報告") {
+                pendingReport = nil
+                onReport?(comment)
             }
             Button("キャンセル", role: .cancel) {
-                pendingConfirmation = nil
+                pendingReport = nil
             }
-        } message: { confirmation in
-            switch confirmation {
-            case .delete:
-                Text("削除したコメントは元に戻せません。")
-            case .report:
-                Text("家族へ通知せず、サービスの安全確認に送ります。緊急時は身近な方や公的窓口にも相談してください。")
-            }
+        } message: { _ in
+            Text("家族へ通知せず、サービスの安全確認に送ります。緊急時は身近な方や公的窓口にも相談してください。")
         }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -1715,17 +1852,59 @@ struct CommentsScreen: View {
     }
 
     @ViewBuilder
+    private func commentHeader(for comment: Comment) -> some View {
+        let commentHeaderLayout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 12))
+        commentHeaderLayout {
+            PersonBadge(name: comment.author.displayName, mark: comment.author.avatarMark)
+
+            if !dynamicTypeSize.isAccessibilitySize {
+                Spacer(minLength: 8)
+            }
+
+            Text(Self.commentDateFormatter.string(from: comment.createdAt))
+                .font(TsutsuuraTheme.displayFont(18))
+                .foregroundStyle(.white.opacity(0.78))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var commentsTitle: some View {
+        Text("コメント")
+            .font(TsutsuuraTheme.displayFont(32))
+            .foregroundStyle(.white)
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityIdentifier("comments-screen-title")
+    }
+
+    private var commentsBackButton: some View {
+        Button {
+            HapticPlayer.play(.selection)
+            goBack()
+        } label: {
+            Label("戻る", systemImage: "chevron.left")
+                .font(TsutsuuraTheme.displayFont(24))
+                .foregroundStyle(.white)
+                .fixedSize()
+                .frame(minWidth: 64, minHeight: 54, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
     private var commentComposer: some View {
         VStack(spacing: 0) {
             if let replyingTo {
                 HStack {
                     Text("\(replyingTo.author.displayName)へ返信")
-                        .font(TsutsuuraTheme.bodyFont(size: 16, weight: .semibold))
+                        .font(TsutsuuraTheme.displayFont(18))
                         .foregroundStyle(.white)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer()
                     Button("返信をやめる") { self.replyingTo = nil }
-                        .font(TsutsuuraTheme.bodyFont(size: 15))
+                        .font(TsutsuuraTheme.displayFont(18))
                         .foregroundStyle(.white)
                         .frame(minHeight: 44)
                 }
@@ -1763,13 +1942,6 @@ struct CommentsScreen: View {
                         }
                     }
 
-                    Text("\(UnicodeTextValidation.characterCount(draft)) / \(Comment.maximumBodyCharacterCount)文字")
-                        .font(TsutsuuraTheme.bodyFont(size: 13, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.82))
-                        .accessibilityLabel(
-                            "コメントは\(UnicodeTextValidation.characterCount(draft))文字、最大\(Comment.maximumBodyCharacterCount)文字"
-                        )
-                        .accessibilityIdentifier("comment-character-count")
                 }
 
                 TextRaisedButton(
@@ -1829,6 +2001,7 @@ struct SettingsScreen: View {
     var onNotificationSettings: (() -> Void)? = nil
     var onAccountPrivacy: (() -> Void)? = nil
     var onHelp: (() -> Void)? = nil
+    var onPersonalMark: (() -> Void)? = nil
 
     @FocusState private var isDisplayNameFocused: Bool
     @State private var saveFeedback: String?
@@ -1851,10 +2024,10 @@ struct SettingsScreen: View {
         if profile.managed == true {
             return "ログアウト後は、保存した復旧コードで戻れます。コードがない場合は、ご家族から新しい設定番号を送ってもらう必要があります。"
         }
-        if profile.hasPhone == true {
-            return "ログアウト後は、登録した電話番号で再度ログインできます。"
+        if profile.hasEmail == true {
+            return "ログアウト後は、登録したメールアドレスで再度ログインできます。"
         }
-        return "電話番号が登録されていません。保存した復旧コードがなければ元のアカウントへ戻れません。先に「アカウントとプライバシー」で復旧方法を準備してください。"
+        return "メールアドレスが登録されていません。保存した復旧コードがなければ元のアカウントへ戻れません。先に「機種変更・データの保存」で準備してください。"
     }
 
     var body: some View {
@@ -1867,6 +2040,8 @@ struct SettingsScreen: View {
 
                 PaperPanel {
                     VStack(alignment: .leading, spacing: 16) {
+                        Text("家族に見える名前")
+                            .font(TsutsuuraTheme.bodyFont(size: 22, weight: .semibold))
                         VStack(alignment: .leading, spacing: 10) {
                             TextField("名前", text: $displayName)
                                 .focused($isDisplayNameFocused)
@@ -1899,6 +2074,7 @@ struct SettingsScreen: View {
                                     saveFeedback = nil
                                 }
 
+                            if isDisplayNameFocused {
                             Text("\(NameValidation.characterCount(displayName)) / \(NameValidation.maximumLength)文字")
                                 .font(TsutsuuraTheme.font(17))
                                 .foregroundStyle(TsutsuuraTheme.skyInk)
@@ -1906,12 +2082,15 @@ struct SettingsScreen: View {
                                 .accessibilityLabel(
                                     "表示名は\(NameValidation.characterCount(displayName))文字、最大\(NameValidation.maximumLength)文字"
                                 )
+                            }
 
                             TextRaisedButton(
                                 title: isSavingName
                                     ? "保存中…"
-                                    : (canSaveDisplayName ? "保存" : "変更なし"),
-                                height: 52,
+                                    : (normalizedDisplayName.isEmpty
+                                        ? "名前を入力してください"
+                                        : "名前を保存"),
+                                height: 58,
                                 fontSize: 22,
                                 haptic: .success,
                                 action: saveDisplayName
@@ -1927,74 +2106,79 @@ struct SettingsScreen: View {
                                 .accessibilityIdentifier("settings-save-feedback")
                         }
 
-                        if let phone = profile.phoneNumber,
-                           !phone.isEmpty {
-                            Text(phone)
-                                .font(TsutsuuraTheme.font(23))
-                                .foregroundStyle(TsutsuuraTheme.skyMuted)
-                        }
                         if let family = profile.family {
                             Label(
                                 "\(family.name) · \(family.memberCount)人",
                                 systemImage: "person.3.fill"
                             )
-                            .font(TsutsuuraTheme.font(24))
+                            .font(TsutsuuraTheme.bodyFont(size: 20))
+                            .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                     .foregroundStyle(TsutsuuraTheme.ink)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(28)
+                    .padding(22)
                 }
 
-                VStack(spacing: 10) {
-                    if let onNotificationSettings {
-                        LifecycleNavigationButton(
-                            title: "通知",
-                            subtitle: "リマインダー・コメント・いいねを選ぶ",
-                            icon: "bell.fill",
-                            action: onNotificationSettings
-                        )
-                        .accessibilityIdentifier("notification-settings-button")
-                    }
-                    if let onAccountPrivacy {
-                        LifecycleNavigationButton(
-                            title: "アカウントとプライバシー",
-                            subtitle: "復旧・データ書き出し・削除・規約",
-                            icon: "person.crop.circle.badge.checkmark",
-                            action: onAccountPrivacy
-                        )
-                        .accessibilityIdentifier("account-privacy-button")
-                    }
+                if let onPersonalMark {
+                    LifecycleNavigationButton(
+                        title: "あなたのしるし",
+                        subtitle: "名前の横の絵を、指でかいて変える",
+                        icon: "pencil.tip.crop.circle",
+                        action: {
+                            isDisplayNameFocused = false
+                            onPersonalMark()
+                        }
+                    )
+                    .accessibilityIdentifier("personal-mark-button")
+                }
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("よく使う設定")
+                        .font(TsutsuuraTheme.bodyFont(size: 24, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .accessibilityAddTraits(.isHeader)
                     if let onHelp {
                         LifecycleNavigationButton(
-                            title: "使い方・ヘルプ",
-                            subtitle: "回答や端末設定をもう一度確認する",
+                            title: "使い方を見る",
+                            subtitle: "質問への答え方を、ひとつずつ確認",
                             icon: "questionmark.circle.fill",
                             action: onHelp
                         )
                         .accessibilityIdentifier("help-button")
                     }
-                }
-                .frame(minHeight: 210)
-
-                if profile.managed != true {
-                    VStack(spacing: 10) {
-                        TextRaisedButton(
-                            title: "家族の設定",
+                    if let onNotificationSettings {
+                        LifecycleNavigationButton(
+                            title: "お知らせを選ぶ",
+                            subtitle: "今日の質問や、家族からの反応",
+                            icon: "bell.fill",
+                            action: onNotificationSettings
+                        )
+                        .accessibilityIdentifier("notification-settings-button")
+                    }
+                    if profile.managed != true {
+                        LifecycleNavigationButton(
+                            title: "家族を追加・確認する",
+                            subtitle: "家族の名前や、iPhoneの準備",
                             icon: "person.3.fill",
-                            height: 72,
-                            fontSize: 28,
                             action: openFamilySettings
                         )
                         .accessibilityIdentifier("family-settings-button")
-
-                        Text("家族の追加や、iPhoneの準備ができます")
-                            .font(TsutsuuraTheme.font(20))
-                            .foregroundStyle(.white.opacity(0.74))
-                            .multilineTextAlignment(.center)
                     }
                 }
 
+                if let onAccountPrivacy {
+                    LifecycleNavigationButton(
+                        title: "機種変更・データの保存",
+                        subtitle: "新しいiPhoneへの引き継ぎなど",
+                        icon: "iphone",
+                        action: onAccountPrivacy
+                    )
+                    .accessibilityIdentifier("account-privacy-button")
+                }
+
+                DisclosureGroup {
+                    VStack(spacing: 18) {
                 TextRaisedButton(
                     title: isRefreshingData ? "更新中…" : "データを更新",
                     icon: "arrow.clockwise",
@@ -2003,6 +2187,7 @@ struct SettingsScreen: View {
                     action: refreshData
                 )
                 .disabled(isRefreshingData)
+                .accessibilityIdentifier("settings-refresh-button")
 
                 if let refreshFeedback {
                     Text(refreshFeedback)
@@ -2022,17 +2207,25 @@ struct SettingsScreen: View {
                     action: { isSignOutConfirmationPresented = true }
                 )
                 .accessibilityIdentifier("settings-sign-out-button")
+                    }
+                    .padding(.top, 16)
+                } label: {
+                    Text("ほかの操作")
+                        .font(TsutsuuraTheme.bodyFont(size: 22, weight: .semibold))
+                        .frame(minHeight: 56)
+                }
+                .tint(.white)
+                .foregroundStyle(.white)
 
                 Spacer(minLength: 24)
                 }
-                .padding(.horizontal, 34)
-                .padding(.top, 58)
+                .padding(.horizontal, 24)
+                .padding(.top, 20)
                 .padding(.bottom, 44)
             }
             .scrollDismissesKeyboard(.interactively)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 50, style: .continuous))
         .animation(
             TsutsuuraMotion.respectingReduceMotion(
                 reduceMotion,
@@ -2070,7 +2263,7 @@ struct SettingsScreen: View {
             VStack(alignment: .leading, spacing: 10) {
                 settingsBackButton
                 Text("設定")
-                    .font(TsutsuuraTheme.font(34))
+                    .font(TsutsuuraTheme.displayFont(34))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -2080,7 +2273,7 @@ struct SettingsScreen: View {
                 settingsBackButton
                 Spacer()
                 Text("設定")
-                    .font(TsutsuuraTheme.font(34))
+                    .font(TsutsuuraTheme.displayFont(34))
                     .foregroundStyle(.white)
                 Spacer()
                 Color.clear.frame(width: 67)
@@ -2094,7 +2287,7 @@ struct SettingsScreen: View {
             goBack()
         } label: {
             Label("戻る", systemImage: "chevron.left")
-                .font(TsutsuuraTheme.font(26))
+                .font(TsutsuuraTheme.displayFont(26))
                 .foregroundStyle(.white)
                 .frame(minHeight: 54)
                 .contentShape(Rectangle())
@@ -2163,7 +2356,7 @@ struct ErrorToast: View {
                     .accessibilityHidden(true)
                 Text(message)
                     .font(TsutsuuraTheme.font(19))
-                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
                 Image(systemName: "xmark")
                     .font(.system(size: 16, weight: .bold))
                     .accessibilityHidden(true)
@@ -2219,7 +2412,7 @@ struct SuccessBurst: View {
             .scaleEffect(reduceMotion ? 1 : (animate ? 1 : 0.76))
 
             Text("回答しました!")
-                .font(TsutsuuraTheme.font(34))
+                .font(TsutsuuraTheme.displayFont(34))
                 .foregroundStyle(.white)
                 .offset(y: 126)
         }
@@ -2239,7 +2432,7 @@ struct SuccessBurst: View {
     }
 }
 
-private extension View {
+extension View {
     @ViewBuilder
     func tsutsuuraPhoneInputTraits() -> some View {
         #if os(iOS)

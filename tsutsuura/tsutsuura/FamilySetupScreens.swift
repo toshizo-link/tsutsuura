@@ -29,21 +29,20 @@ struct FamilyWelcomeScreen: View {
     }
 
     var body: some View {
-        FamilySetupPage(title: "家族の準備") {
+        FamilySetupPage(title: "") {
             VStack(spacing: 28) {
-                Image(systemName: "figure.2.and.child.holdinghands")
-                    .font(.system(size: 78, weight: .bold))
-                    .foregroundStyle(TsutsuuraTheme.cyan)
-                    .accessibilityHidden(true)
+                TsutsuuraWordmark(size: 80)
 
                 PaperPanel {
                     VStack(spacing: 14) {
-                        Text("どちらから始めますか？")
-                            .font(TsutsuuraTheme.font(31))
+                        Text("家族と、毎日ひとこと")
+                            .font(TsutsuuraTheme.bodyFont(size: 31, weight: .bold))
                             .foregroundStyle(TsutsuuraTheme.ink)
+                            .multilineTextAlignment(.center)
+                            .accessibilityAddTraits(.isHeader)
 
-                        Text("離れて暮らしていても、ご家族の方が\nほとんどの準備をできます。")
-                            .font(TsutsuuraTheme.font(24))
+                        Text("一日ひとつの質問に答えて、近況を伝え合います。回答は、同じ家族だけに見えます。")
+                            .font(TsutsuuraTheme.bodyFont(size: 23))
                             .foregroundStyle(TsutsuuraTheme.skyInk)
                             .multilineTextAlignment(.center)
                             .lineSpacing(8)
@@ -55,17 +54,20 @@ struct FamilyWelcomeScreen: View {
                 .frame(minHeight: 170)
 
                 VStack(spacing: 12) {
+                    Text("家族から招待された方")
+                        .font(TsutsuuraTheme.bodyFont(size: 24, weight: .semibold))
+                        .foregroundStyle(.white)
                     TextRaisedButton(
-                        title: "家族をつくる",
-                        icon: "person.3.fill",
+                        title: "家族の番号を入力",
+                        icon: "number.square.fill",
                         height: 76,
-                        fontSize: 31,
-                        action: onCreateFamily
+                        fontSize: 28,
+                        action: onSetUpThisIPhone
                     )
                     .disabled(isWorking)
-                    .accessibilityIdentifier("create-family-button")
+                    .accessibilityIdentifier("setup-this-iphone-button")
 
-                    Text("ご家族の準備をする方はこちら")
+                    Text("家族から聞いた6桁の番号を入れます。届いたリンクからも始められます。")
                         .font(TsutsuuraTheme.font(21))
                         .foregroundStyle(.white.opacity(0.82))
                         .multilineTextAlignment(.center)
@@ -74,34 +76,39 @@ struct FamilyWelcomeScreen: View {
                 FamilySetupDivider()
 
                 VStack(spacing: 14) {
-                    Text("ご家族から届いたリンクを開くか、\n電話で聞いた番号を入力します")
-                        .font(TsutsuuraTheme.font(23))
+                    Text("最初に準備する方")
+                        .font(TsutsuuraTheme.bodyFont(size: 24, weight: .semibold))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                         .lineSpacing(7)
 
                     TextRaisedButton(
-                        title: "このiPhoneを設定",
-                        icon: "iphone",
+                        title: "新しく家族をつくる",
+                        icon: "person.3.fill",
                         fill: TsutsuuraTheme.orange,
                         shadow: TsutsuuraTheme.orangeDark,
                         height: 76,
                         fontSize: 28,
-                        action: onSetUpThisIPhone
+                        action: onCreateFamily
                     )
                     .disabled(isWorking)
-                    .accessibilityIdentifier("setup-this-iphone-button")
+                    .accessibilityIdentifier("create-family-button")
+
+                    Text("あなたの名前を入れて、家族を招待します。離れた家族の準備も手伝えます。")
+                        .font(TsutsuuraTheme.bodyFont(size: 21))
+                        .foregroundStyle(.white.opacity(0.82))
+                        .multilineTextAlignment(.center)
                 }
 
                 VStack(spacing: 10) {
                     Text("以前のアカウントを使う方")
-                        .font(TsutsuuraTheme.font(20))
+                        .font(TsutsuuraTheme.displayFont(20))
                         .foregroundStyle(.white.opacity(0.82))
 
                     TextRaisedButton(
-                        title: "電話番号でログイン",
-                        icon: "phone.fill",
-                        fill: TsutsuuraTheme.cyanMuted,
+                        title: "メールでログイン",
+                        icon: "envelope.fill",
+                        fill: TsutsuuraTheme.cyan,
                         shadow: TsutsuuraTheme.cyanDark,
                         height: 64,
                         fontSize: 24,
@@ -111,10 +118,12 @@ struct FamilyWelcomeScreen: View {
                     .accessibilityIdentifier("returning-user-login-button")
 
                     Button(action: onAccountRecovery) {
-                        Label(
-                            "復旧コードを使う",
-                            systemImage: "key.horizontal.fill"
-                        )
+                        Label {
+                            Text("復旧コードを使う")
+                                .font(TsutsuuraTheme.displayFont(21))
+                        } icon: {
+                            Image(systemName: "key.horizontal.fill")
+                        }
                         .font(TsutsuuraTheme.bodyFont(size: 21, weight: .bold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity, minHeight: 54)
@@ -184,9 +193,10 @@ struct OrganizerSetupScreen: View {
 
                     VStack(spacing: 10) {
                         Text("まず、あなたのお名前")
-                            .font(TsutsuuraTheme.font(32))
+                            .font(TsutsuuraTheme.displayFont(32))
                             .foregroundStyle(.white)
                             .multilineTextAlignment(.center)
+                            .accessibilityAddTraits(.isHeader)
 
                         Text("家族に表示する、呼びやすい名前を\n入れてください。")
                             .font(TsutsuuraTheme.font(22))
@@ -369,7 +379,7 @@ struct FamilySetupScreen: View {
                 )
 
                 TextRaisedButton(
-                    title: "家族の画面へ進む",
+                    title: "使い方を見てはじめる",
                     icon: "arrow.right",
                     fill: TsutsuuraTheme.green,
                     shadow: TsutsuuraTheme.greenDark,
@@ -380,6 +390,11 @@ struct FamilySetupScreen: View {
                 )
                 .disabled(isCreatingPairing)
                 .accessibilityIdentifier("family-setup-finished-button")
+
+                Text("家族はあとから追加できます。次に、使い方をひとつずつご案内します。")
+                    .font(TsutsuuraTheme.bodyFont(size: 20))
+                    .foregroundStyle(.white.opacity(0.82))
+                    .multilineTextAlignment(.center)
             }
             .padding(.top, 14)
         }
@@ -505,13 +520,14 @@ private struct FamilyManagementContent: View {
         VStack(spacing: 26) {
             VStack(spacing: 8) {
                 Text(familyName)
-                    .font(TsutsuuraTheme.font(35))
+                    .font(TsutsuuraTheme.displayFont(35))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
 
                 Text("\(members.count)人の家族")
-                    .font(TsutsuuraTheme.font(22))
+                    .font(TsutsuuraTheme.displayFont(22))
                     .foregroundStyle(.white.opacity(0.75))
             }
             .accessibilityElement(children: .combine)
@@ -520,7 +536,7 @@ private struct FamilyManagementContent: View {
                 VStack(spacing: 0) {
                     if members.isEmpty {
                         Text("まだ家族がいません")
-                            .font(TsutsuuraTheme.font(24))
+                            .font(TsutsuuraTheme.displayFont(24))
                             .foregroundStyle(TsutsuuraTheme.skyMuted)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 28)
@@ -560,8 +576,10 @@ private struct FamilyManagementContent: View {
                 VStack(spacing: 18) {
                     VStack(spacing: 8) {
                         Text("つつうらを使う方")
-                            .font(TsutsuuraTheme.font(29))
+                            .font(TsutsuuraTheme.displayFont(29))
                             .foregroundStyle(.white)
+                            .multilineTextAlignment(.center)
+                            .accessibilityAddTraits(.isHeader)
 
                         Text("お名前は、あなたが先に\n入力しておけます。")
                             .font(TsutsuuraTheme.font(21))
@@ -613,7 +631,7 @@ private struct FamilyManagementContent: View {
                         }
                     } label: {
                         Text("やめる")
-                            .font(TsutsuuraTheme.font(23))
+                            .font(TsutsuuraTheme.displayFont(23))
                             .foregroundStyle(.white)
                             .frame(minWidth: 120, minHeight: 64)
                     }
@@ -668,7 +686,7 @@ private struct FamilyManagementContent: View {
                 Button("この家族から退会", role: .destructive) {
                     confirmsLeavingFamily = true
                 }
-                    .font(TsutsuuraTheme.bodyFont(size: 22, weight: .bold))
+                    .font(TsutsuuraTheme.displayFont(22))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, minHeight: 58)
                     .background(TsutsuuraTheme.coral)
@@ -733,6 +751,7 @@ private struct FamilyManagementContent: View {
 // MARK: - Pairing invitation
 
 struct PairingShareScreen: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let familyName: String
     let memberName: String
     let pairingURL: URL
@@ -782,6 +801,9 @@ struct PairingShareScreen: View {
         TimelineView(.periodic(from: Date.now, by: 1)) { timeline in
             sharePage(at: timeline.date)
         }
+        .onChange(of: pairingURL) { _, _ in
+            copyFeedback = nil
+        }
     }
 
     private func sharePage(at now: Date) -> some View {
@@ -789,10 +811,11 @@ struct PairingShareScreen: View {
             VStack(spacing: 24) {
                 VStack(spacing: 8) {
                     Text("「\(memberName)」の\n設定ができました")
-                        .font(TsutsuuraTheme.font(32))
+                        .font(TsutsuuraTheme.displayFont(32))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                         .lineSpacing(7)
+                        .accessibilityAddTraits(.isHeader)
 
                     Text("離れているときは、リンクを送るか\n電話で6桁の番号を伝えてください。")
                         .font(TsutsuuraTheme.font(21))
@@ -802,13 +825,15 @@ struct PairingShareScreen: View {
                 }
 
                 ActivityShareButton(items: [shareMessage, pairingURL]) {
-                    Label(
-                        now >= expiresAt
+                    Label {
+                        Text(now >= expiresAt
                             ? "この設定案内は期限切れです"
-                            : "設定リンクを送る",
-                        systemImage: "square.and.arrow.up"
-                    )
-                    .font(TsutsuuraTheme.font(29))
+                            : "設定リンクを送る")
+                            .font(TsutsuuraTheme.displayFont(29))
+                    } icon: {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .font(TsutsuuraTheme.bodyFont(29))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .fixedSize(horizontal: false, vertical: true)
@@ -822,12 +847,14 @@ struct PairingShareScreen: View {
                     )
                 )
                 .accessibilityLabel(
-                    "\(memberName)へ設定リンクを送る"
+                    now >= expiresAt
+                        ? "この設定案内は期限切れです"
+                        : "\(memberName)へ設定リンクを送る"
                 )
                 .accessibilityIdentifier("pairing-share-button")
                 .disabled(now >= expiresAt)
 
-                HStack(spacing: 12) {
+                copyActionsLayout {
                     PairingCopyButton(
                         title: "リンクをコピー",
                         icon: "link",
@@ -872,7 +899,7 @@ struct PairingShareScreen: View {
 
                 VStack(spacing: 12) {
                     Text("電話で伝えるときは、6桁の番号")
-                        .font(TsutsuuraTheme.font(22))
+                        .font(TsutsuuraTheme.displayFont(22))
                         .foregroundStyle(.white)
 
                     PaperPanel {
@@ -939,6 +966,12 @@ struct PairingShareScreen: View {
         copyFeedback = message
     }
 
+    private var copyActionsLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(spacing: 12))
+            : AnyLayout(HStackLayout(spacing: 12))
+    }
+
     private func expirationMessage(at now: Date) -> String {
         let seconds = Int(expiresAt.timeIntervalSince(now).rounded(.down))
         guard seconds > 0 else {
@@ -966,10 +999,17 @@ private struct PairingCopyButton: View {
 
     var body: some View {
         Button(action: action) {
-            Label(title, systemImage: icon)
+            Label {
+                Text(title)
+                    .font(TsutsuuraTheme.displayFont(18))
+            } icon: {
+                Image(systemName: icon)
+            }
                 .font(TsutsuuraTheme.bodyFont(size: 18, weight: .bold))
                 .foregroundStyle(isDisabled ? TsutsuuraTheme.skyMuted : TsutsuuraTheme.ink)
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(10)
                 .frame(maxWidth: .infinity, minHeight: 54)
                 .background(isDisabled ? Color(hex: 0xD6E1E3) : TsutsuuraTheme.sky)
                 .overlay(
@@ -1028,9 +1068,10 @@ struct PairingEntryScreen: View {
 
                 VStack(spacing: 12) {
                     Text("6桁の設定番号を入力")
-                        .font(TsutsuuraTheme.font(32))
+                        .font(TsutsuuraTheme.displayFont(32))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
+                        .accessibilityAddTraits(.isHeader)
 
                     Text("ご家族から電話やメッセージで\n聞いた番号を入れてください。")
                         .font(TsutsuuraTheme.font(23))
@@ -1145,12 +1186,13 @@ struct PairingConfirmationScreen: View {
             VStack(spacing: 30) {
                 VStack(spacing: 12) {
                     Text("この内容で合っていますか？")
-                        .font(TsutsuuraTheme.font(32))
+                        .font(TsutsuuraTheme.displayFont(32))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
+                        .accessibilityAddTraits(.isHeader)
 
                     Text("入力はもうありません。")
-                        .font(TsutsuuraTheme.font(23))
+                        .font(TsutsuuraTheme.displayFont(23))
                         .foregroundStyle(.white.opacity(0.78))
                 }
 
@@ -1234,7 +1276,7 @@ struct PairingConfirmationScreen: View {
             }
             Button("キャンセル", role: .cancel) {}
         } message: {
-            Text("現在のアカウントへ戻るには、登録済みの電話番号または家族からの復旧用設定案内が必要です。")
+            Text("現在のアカウントへ戻るには、登録済みのメール、復旧コード、または家族からの復旧用設定案内が必要です。")
         }
     }
 }
@@ -1278,22 +1320,23 @@ struct PairingReadyScreen: View {
 
                 VStack(spacing: 18) {
                     Text("準備できました")
-                        .font(TsutsuuraTheme.font(45))
+                        .font(TsutsuuraTheme.displayFont(45))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
+                        .accessibilityAddTraits(.isHeader)
                         .accessibilityIdentifier("pairing-ready-title")
 
                     if let memberName,
                        !memberName.familyTrimmed.isEmpty {
                         Text("「\(memberName)」が使うiPhoneです")
-                            .font(TsutsuuraTheme.font(25))
+                            .font(TsutsuuraTheme.displayFont(25))
                             .foregroundStyle(.white.opacity(0.82))
                             .multilineTextAlignment(.center)
                     }
 
                     PaperPanel {
-                        Text("設定はすべて終わりました\nこのまま使えます")
-                            .font(TsutsuuraTheme.font(31))
+                        Text("設定は終わりました。\n次に、使い方をひとつずつ\nご案内します。")
+                            .font(TsutsuuraTheme.bodyFont(size: 26, weight: .semibold))
                             .foregroundStyle(TsutsuuraTheme.ink)
                             .multilineTextAlignment(.center)
                             .lineSpacing(10)
@@ -1305,18 +1348,18 @@ struct PairingReadyScreen: View {
                 }
 
                 TextRaisedButton(
-                    title: "はじめる",
+                    title: "使い方を見てはじめる",
                     icon: "arrow.right",
                     fill: TsutsuuraTheme.green,
                     shadow: TsutsuuraTheme.greenDark,
                     height: 82,
-                    fontSize: 34,
+                    fontSize: 26,
                     haptic: .success,
                     action: onStart
                 )
                 .accessibilityIdentifier("pairing-start-button")
             }
-            .padding(.top, 126)
+            .padding(.top, 40)
         }
         .onAppear {
             HapticPlayer.play(.success)
@@ -1335,6 +1378,7 @@ struct PairingReadyScreen: View {
 // MARK: - Shared family setup pieces
 
 private struct FamilySetupPage<Content: View>: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let title: String
     let onBack: (() -> Void)?
     let isBackDisabled: Bool
@@ -1356,29 +1400,57 @@ private struct FamilySetupPage<Content: View>: View {
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            DottedBackdrop()
+        GeometryReader { geometry in
+            ZStack(alignment: .top) {
+                DottedBackdrop()
 
-            VStack(spacing: 0) {
-                FamilySetupHeader(
-                    title: title,
-                    onBack: onBack,
-                    isBackDisabled: isBackDisabled,
-                    backAccessibilityIdentifier: backAccessibilityIdentifier
-                )
+                VStack(spacing: 0) {
+                    if dynamicTypeSize.isAccessibilitySize {
+                        if let onBack {
+                            FamilySetupHeader(
+                                title: "",
+                                onBack: onBack,
+                                isBackDisabled: isBackDisabled,
+                                backAccessibilityIdentifier: backAccessibilityIdentifier
+                            )
+                        }
+                    } else {
+                        pageHeader
+                    }
 
-                ScrollView(showsIndicators: false) {
-                    content()
-                        .padding(.horizontal, 34)
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            // Large Japanese headings must scroll too, or
+                            // the title alone can consume a compact screen.
+                            if dynamicTypeSize.isAccessibilitySize {
+                                pageHeader
+                            }
+
+                            content()
+                                .padding(.horizontal, geometry.size.width < 400 ? 20 : 34)
+                                .frame(maxWidth: .infinity)
+                        }
                         .padding(.bottom, 58)
                         .frame(maxWidth: .infinity)
+                    }
+                    .scrollDismissesKeyboard(.interactively)
                 }
-                .scrollDismissesKeyboard(.interactively)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 50, style: .continuous))
         .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder
+    private var pageHeader: some View {
+        if !title.isEmpty || (onBack != nil && !dynamicTypeSize.isAccessibilitySize) {
+            FamilySetupHeader(
+                title: title,
+                onBack: dynamicTypeSize.isAccessibilitySize ? nil : onBack,
+                isBackDisabled: isBackDisabled,
+                backAccessibilityIdentifier: backAccessibilityIdentifier
+            )
+        }
     }
 }
 
@@ -1391,41 +1463,49 @@ private struct FamilySetupHeader: View {
 
     var body: some View {
         Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 8) {
-                    if onBack != nil {
-                        backButton
-                    }
-                    headerTitle
-                        .frame(maxWidth: .infinity, alignment: .center)
-                }
+            if title.isEmpty {
+                backButton
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else if onBack == nil {
+                headerTitle
+                    .frame(maxWidth: .infinity)
+            } else if dynamicTypeSize.isAccessibilitySize {
+                stackedHeader
             } else {
-                ZStack {
+                ViewThatFits(in: .horizontal) {
                     headerTitle
+                        .fixedSize(horizontal: true, vertical: true)
                         .padding(.horizontal, 112)
-
-                    if onBack != nil {
-                        HStack(spacing: 0) {
+                        .frame(maxWidth: .infinity, minHeight: 66)
+                        .overlay(alignment: .leading) {
                             backButton
-                            Spacer(minLength: 0)
                         }
-                        .zIndex(2)
-                    }
+
+                    stackedHeader
                 }
             }
         }
         .frame(minHeight: 66)
         .padding(.horizontal, 24)
-        .padding(.top, 50)
+        .padding(.top, 16)
         .padding(.bottom, 8)
+    }
+
+    private var stackedHeader: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            backButton
+            headerTitle
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
     }
 
     private var headerTitle: some View {
         Text(title)
-            .font(TsutsuuraTheme.font(34))
+            .font(TsutsuuraTheme.displayFont(34))
             .foregroundStyle(.white)
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
+            .accessibilityAddTraits(.isHeader)
             .allowsHitTesting(false)
     }
 
@@ -1439,7 +1519,7 @@ private struct FamilySetupHeader: View {
                     .font(.system(size: 22, weight: .bold))
                     .accessibilityHidden(true)
                 Text("戻る")
-                    .font(TsutsuuraTheme.font(25))
+                    .font(TsutsuuraTheme.displayFont(25))
             }
             .foregroundStyle(
                 isBackDisabled
@@ -1479,7 +1559,7 @@ private struct FamilySetupDivider: View {
                 .fill(.white.opacity(0.26))
                 .frame(height: 2)
             Text("または")
-                .font(TsutsuuraTheme.font(20))
+                .font(TsutsuuraTheme.displayFont(20))
                 .foregroundStyle(.white.opacity(0.72))
             Rectangle()
                 .fill(.white.opacity(0.26))
@@ -1490,6 +1570,7 @@ private struct FamilySetupDivider: View {
 }
 
 private struct FamilyInputPanel: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let title: String
     let prompt: String
     @Binding var text: String
@@ -1522,11 +1603,16 @@ private struct FamilyInputPanel: View {
     var body: some View {
         PaperPanel {
             VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .firstTextBaseline) {
+                labelLayout {
                     Text(title)
-                    Spacer()
+                        .font(TsutsuuraTheme.displayFont(21))
+                        .fixedSize(horizontal: false, vertical: true)
+                    if !dynamicTypeSize.isAccessibilitySize {
+                        Spacer(minLength: 8)
+                    }
                     Text("\(NameValidation.characterCount(text)) / \(NameValidation.maximumLength)")
                         .monospacedDigit()
+                        .fixedSize(horizontal: false, vertical: true)
                         .accessibilityLabel(
                             "\(NameValidation.characterCount(text))文字、上限\(NameValidation.maximumLength)文字"
                         )
@@ -1578,6 +1664,12 @@ private struct FamilyInputPanel: View {
             return
         }
         text = NameValidation.clamped(text)
+    }
+
+    private var labelLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline))
     }
 }
 
@@ -1645,11 +1737,16 @@ private struct FamilyMemberRow: View {
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(member.displayName)
-                        .font(TsutsuuraTheme.font(27))
+                        .font(TsutsuuraTheme.displayFont(27))
                         .foregroundStyle(TsutsuuraTheme.ink)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Label(status.title, systemImage: status.icon)
+                    Label {
+                        Text(status.title)
+                            .font(TsutsuuraTheme.displayFont(18))
+                    } icon: {
+                        Image(systemName: status.icon)
+                    }
                         .font(TsutsuuraTheme.font(18))
                         .foregroundStyle(status.color)
                 }
@@ -1673,7 +1770,12 @@ private struct FamilyMemberRow: View {
 
             if let onEdit {
                 Button(action: onEdit) {
-                    Label("名前・端末・家族所属を編集", systemImage: "ellipsis.circle")
+                    Label {
+                        Text("名前・端末・家族所属を編集")
+                            .font(TsutsuuraTheme.displayFont(18))
+                    } icon: {
+                        Image(systemName: "ellipsis.circle")
+                    }
                         .font(TsutsuuraTheme.bodyFont(size: 18, weight: .semibold))
                         .foregroundStyle(TsutsuuraTheme.cyanDark)
                         .frame(maxWidth: .infinity, minHeight: 46)
@@ -1703,11 +1805,11 @@ private struct PairingConfirmationRow: View {
 
             VStack(alignment: .leading, spacing: 7) {
                 Text(title)
-                    .font(TsutsuuraTheme.font(20))
+                    .font(TsutsuuraTheme.displayFont(20))
                     .foregroundStyle(TsutsuuraTheme.skyMuted)
 
                 Text(value)
-                    .font(TsutsuuraTheme.font(29))
+                    .font(TsutsuuraTheme.displayFont(29))
                     .foregroundStyle(TsutsuuraTheme.ink)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1774,6 +1876,8 @@ private struct PairingQRCode: View {
 
 private struct FamilyShareButtonStyle: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.colorSchemeContrast) private var contrast
     let fill: Color
     let shadow: Color
     let height: CGFloat
@@ -1784,12 +1888,14 @@ private struct FamilyShareButtonStyle: ButtonStyle {
 
         ZStack {
             Rectangle()
-                .fill(shadow)
+                .fill(isEnabled ? shadow : Color(hex: 0x343C3E))
                 .offset(y: depth)
 
             ZStack {
                 Rectangle()
-                    .fill(fill)
+                    .fill(isEnabled
+                        ? TsutsuuraTheme.actionFill(fill, contrast: contrast)
+                        : Color(hex: 0x566366))
 
                 VStack(spacing: 0) {
                     Rectangle()

@@ -153,6 +153,7 @@ struct AnswerDraftMediaStrip: View {
 #if canImport(PhotosUI)
 @MainActor
 struct AnswerPhotoPickerButton: View {
+    @Environment(\.colorSchemeContrast) private var contrast
     let currentPhotoCount: Int
     let onAddPhotos: ([AnswerMediaUpload]) -> Bool
     let onError: (String) -> Void
@@ -167,6 +168,7 @@ struct AnswerPhotoPickerButton: View {
 
     var body: some View {
         let importing = isImporting
+        let buttonFill = TsutsuuraTheme.actionFill(TsutsuuraTheme.cyan, contrast: contrast)
         PhotosPicker(
             selection: $selection,
             maxSelectionCount: max(1, remainingPhotoCount),
@@ -179,7 +181,7 @@ struct AnswerPhotoPickerButton: View {
                     .offset(y: 5)
 
                 Rectangle()
-                    .fill(TsutsuuraTheme.cyan)
+                    .fill(buttonFill)
 
                 HStack(spacing: 8) {
                     if importing {
@@ -191,7 +193,7 @@ struct AnswerPhotoPickerButton: View {
                             .accessibilityHidden(true)
                     }
                     Text(currentPhotoCount == 0 ? "写真" : "写真 \(currentPhotoCount)")
-                        .font(TsutsuuraTheme.font(20))
+                        .font(TsutsuuraTheme.displayFont(20))
                 }
                 .foregroundStyle(.white)
             }
@@ -252,6 +254,7 @@ struct AnswerMediaGallery: View {
     let media: [AnswerMedia]
     let loadMedia: AnswerMediaLoader
     @State private var selectedPhotoIndex = 0
+    @State private var fullScreenSelection: AnswerPhotoSelection?
 
     private var photos: [AnswerMedia] {
         media.filter { $0.kind == .photo }
@@ -273,6 +276,10 @@ struct AnswerMediaGallery: View {
                                 total: photos.count,
                                 loadMedia: loadMedia
                             )
+                            .onTapGesture { openPhoto(at: index) }
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityHint("タップすると、写真を大きく表示します")
+                            .accessibilityAction { openPhoto(at: index) }
                             .tag(index)
                         }
                     }
@@ -305,7 +312,248 @@ struct AnswerMediaGallery: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .fullScreenCover(item: $fullScreenSelection) { selection in
+            AnswerPhotoFullscreenGallery(selection: selection, loadMedia: loadMedia) { photoID in
+                if let index = photos.firstIndex(where: { $0.id == photoID }) {
+                    selectedPhotoIndex = index
+                }
+            }
+        }
     }
+
+    private func openPhoto(at index: Int) {
+        guard photos.indices.contains(index) else { return }
+        fullScreenSelection = AnswerPhotoSelection(photos: photos, initialIndex: index)
+    }
+}
+
+/// Snapshot this answer's photos so a feed refresh cannot change an open gallery.
+private struct AnswerPhotoSelection: Identifiable {
+    let id = UUID()
+    let photos: [AnswerMedia]
+    let initialIndex: Int
+}
+
+private struct AnswerPhotoFullscreenGallery: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let selection: AnswerPhotoSelection
+    let loadMedia: AnswerMediaLoader
+    let onSelectionChanged: (String) -> Void
+    @State private var selectedIndex: Int
+    @State private var dismissalGesture = PhotoDismissGestureState()
+    @State private var photoOffset: CGFloat = 0
+    @State private var closingOpacity: Double = 1
+    @State private var isClosing = false
+    @State private var horizontalOffset: CGFloat = 0
+    @State private var dragDirection: PhotoGalleryDragDirection?
+    @GestureState private var photoGestureIsActive = false
+
+    init(
+        selection: AnswerPhotoSelection,
+        loadMedia: AnswerMediaLoader,
+        onSelectionChanged: @escaping (String) -> Void
+    ) {
+        self.selection = selection
+        self.loadMedia = loadMedia
+        self.onSelectionChanged = onSelectionChanged
+        _selectedIndex = State(initialValue: selection.initialIndex)
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            let progress = min(1, photoOffset / max(1, geometry.size.height))
+            VStack(spacing: 0) {
+                HStack(spacing: 20) {
+                    Text("\(selectedIndex + 1) / \(selection.photos.count)")
+                        .font(.system(size: 22, weight: .semibold))
+                        .accessibilityLabel("写真\(selectedIndex + 1)／\(selection.photos.count)")
+                        .accessibilityIdentifier("answer-fullscreen-photo-page-indicator")
+                        .accessibilityAdjustableAction { direction in
+                            switch direction {
+                            case .increment: showPhoto(at: selectedIndex + 1)
+                            case .decrement: showPhoto(at: selectedIndex - 1)
+                            @unknown default: break
+                            }
+                        }
+                    Spacer()
+                    TextRaisedButton(
+                        title: "閉じる", icon: "xmark", height: 52,
+                        fontSize: 20, usesDisplayFont: false
+                    ) {
+                        closePhoto(playHaptic: false)
+                    }
+                    .frame(width: 140)
+                    .disabled(isClosing)
+                    .accessibilityLabel("写真を閉じる")
+                    .accessibilityIdentifier("answer-fullscreen-photo-close")
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .opacity(closingOpacity)
+
+                GeometryReader { viewport in
+                    ZStack(alignment: .topLeading) {
+                        Color.clear
+                        HStack(spacing: 0) {
+                            ForEach(Array(selection.photos.enumerated()), id: \.element.id) { index, photo in
+                                AuthenticatedAnswerPhoto(
+                                    media: photo,
+                                    index: index,
+                                    total: selection.photos.count,
+                                    loadMedia: loadMedia,
+                                    isFullScreen: true
+                                )
+                                .frame(width: viewport.size.width, height: viewport.size.height)
+                                .allowsHitTesting(selectedIndex == index)
+                                .accessibilityHidden(selectedIndex != index)
+                            }
+                        }
+                        .offset(x: -CGFloat(selectedIndex) * viewport.size.width
+                                + (reduceMotion ? 0 : horizontalOffset))
+                        .frame(width: viewport.size.width, height: viewport.size.height, alignment: .leading)
+                        .clipped()
+                        .offset(y: reduceMotion ? 0 : photoOffset)
+                        .scaleEffect(reduceMotion ? 1 : 1 - progress * 0.06)
+                        .opacity(closingOpacity)
+                    }
+                    .frame(width: viewport.size.width, height: viewport.size.height)
+                    .contentShape(Rectangle())
+                    .highPriorityGesture(photoDrag(
+                        pageWidth: viewport.size.width,
+                        dismissalHeight: geometry.size.height
+                    ))
+                    .allowsHitTesting(!isClosing)
+                }
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("answer-fullscreen-photo-gallery")
+
+                Text(selection.photos.count > 1
+                     ? "左右にスワイプして写真を見られます\n下にスワイプすると閉じます"
+                     : "下にスワイプすると閉じます")
+                    .font(.system(size: 17))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .multilineTextAlignment(.center)
+                    .padding(20)
+                    .opacity(closingOpacity)
+            }
+            .foregroundStyle(.white)
+            .background {
+                Color.black
+                    .opacity(closingOpacity * (1 - Double(progress) * 0.6))
+                    .ignoresSafeArea()
+            }
+
+        }
+        .presentationBackground(.clear)
+        .interactiveDismissDisabled()
+        .preferredColorScheme(.dark)
+        .accessibilityAction(.escape) { closePhoto(playHaptic: true) }
+        .onChange(of: selectedIndex) { _, index in
+            onSelectionChanged(selection.photos[index].id)
+        }
+        .onChange(of: photoGestureIsActive) { _, isActive in
+            if !isActive, dragDirection != nil { restorePhotoPosition() }
+        }
+    }
+
+    private func photoDrag(pageWidth: CGFloat, dismissalHeight: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 12, coordinateSpace: .global)
+            .updating($photoGestureIsActive) { _, isActive, _ in isActive = true }
+            .onChanged { value in
+                guard !isClosing else { return }
+                let translation = value.translation
+                if dragDirection == nil {
+                    if abs(translation.width) > abs(translation.height) * 1.25 {
+                        dragDirection = .horizontal
+                    } else if PhotoDismissGestureState.acceptsInitialTranslation(translation) {
+                        dragDirection = .downward
+                        dismissalGesture.begin(translation: translation)
+                    } else if -translation.height > abs(translation.width) * 1.25 {
+                        dragDirection = .ignored
+                    } else {
+                        return
+                    }
+                }
+                switch dragDirection {
+                case .horizontal:
+                    let isBeyondEdge = (selectedIndex == 0 && translation.width > 0)
+                        || (selectedIndex == selection.photos.count - 1 && translation.width < 0)
+                    horizontalOffset = min(pageWidth, max(-pageWidth, translation.width))
+                        * (isBeyondEdge ? 0.2 : 1)
+                case .downward:
+                    dismissalGesture.update(translation: translation)
+                    photoOffset = dismissalGesture.distance
+                case .ignored, nil: break
+                }
+            }
+            .onEnded { value in
+                guard !isClosing else { return }
+                let completedDirection = dragDirection
+                dragDirection = nil
+                switch completedDirection {
+                case .horizontal:
+                    let threshold = min(96, max(44, pageWidth * 0.22))
+                    let step = value.translation.width < -threshold ? 1
+                        : (value.translation.width > threshold ? -1 : 0)
+                    showPhoto(at: selectedIndex + step)
+                case .downward:
+                    if dismissalGesture.finish(translation: value.translation) {
+                        closePhoto(playHaptic: true, travelHeight: dismissalHeight)
+                    } else {
+                        restorePhotoPosition()
+                    }
+                case .ignored, nil:
+                    restorePhotoPosition()
+                }
+            }
+    }
+
+    private func showPhoto(at index: Int) {
+        withAnimation(TsutsuuraMotion.respectingReduceMotion(reduceMotion)) {
+            selectedIndex = min(max(0, index), selection.photos.count - 1)
+            horizontalOffset = 0
+        }
+    }
+
+    private func restorePhotoPosition() {
+        guard !isClosing else { return }
+        dismissalGesture.cancel()
+        dragDirection = nil
+        withAnimation(TsutsuuraMotion.respectingReduceMotion(reduceMotion)) {
+            photoOffset = 0
+            horizontalOffset = 0
+        }
+    }
+
+    private func closePhoto(playHaptic: Bool, travelHeight: CGFloat? = nil) {
+        guard !isClosing else { return }
+        isClosing = true
+        dismissalGesture.cancel()
+        if playHaptic { HapticPlayer.play(.selection) }
+        guard let travelHeight, !reduceMotion else {
+            var transaction = Transaction()
+            transaction.disablesAnimations = reduceMotion
+            withTransaction(transaction) { dismiss() }
+            return
+        }
+        withAnimation(TsutsuuraMotion.navigation, completionCriteria: .logicallyComplete) {
+            photoOffset = travelHeight
+            closingOpacity = 0
+        } completion: {
+            // The photo already followed the finger offscreen. Avoid a second
+            // system cover animation after the interactive spring completes.
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) { dismiss() }
+        }
+    }
+}
+
+private enum PhotoGalleryDragDirection {
+    case horizontal
+    case downward
+    case ignored
 }
 
 private struct AuthenticatedAnswerPhoto: View {
@@ -313,45 +561,78 @@ private struct AuthenticatedAnswerPhoto: View {
     let index: Int
     let total: Int
     let loadMedia: AnswerMediaLoader
+    var isFullScreen = false
 
     @State private var image: Image?
     @State private var failed = false
+    @State private var retryCount = 0
 
     var body: some View {
         ZStack {
-            TsutsuuraTheme.skyMuted.opacity(0.25)
+            if !isFullScreen {
+                TsutsuuraTheme.skyMuted.opacity(0.25)
+            }
 
             if let image {
-                image
-                    .resizable()
-                    .scaledToFill()
+                GeometryReader { geometry in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: isFullScreen ? .fit : .fill)
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .clipped()
+                }
+                // A fill image's intrinsic frame can be taller than its crop.
+                // Keep interaction and accessibility on the bounded container.
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
             } else if failed {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(TsutsuuraTheme.coral)
-                    .accessibilityHidden(true)
+                if isFullScreen {
+                    VStack(spacing: 18) {
+                        Label("写真を読み込めませんでした", systemImage: "exclamationmark.triangle")
+                            .multilineTextAlignment(.center)
+                        Button("もう一度読み込む") { retryCount += 1 }
+                            .padding(.horizontal, 20)
+                            .frame(minHeight: 52)
+                            .background(.white.opacity(0.16), in: Capsule())
+                    }
+                    .font(.system(size: 20))
+                    .padding(24)
+                } else {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundStyle(TsutsuuraTheme.coral)
+                        .accessibilityHidden(true)
+                }
             } else {
                 ProgressView()
-                    .tint(TsutsuuraTheme.cyanDark)
+                    .tint(isFullScreen ? .white : TsutsuuraTheme.cyanDark)
             }
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 172)
+        .frame(maxWidth: .infinity, maxHeight: isFullScreen ? .infinity : nil)
+        .frame(height: isFullScreen ? nil : 172)
         .clipped()
-        .overlay(Rectangle().stroke(TsutsuuraTheme.skyInk.opacity(0.55), lineWidth: 2))
+        .contentShape(Rectangle())
+        .overlay {
+            if !isFullScreen {
+                Rectangle().stroke(TsutsuuraTheme.skyInk.opacity(0.55), lineWidth: 2)
+                    .allowsHitTesting(false)
+            }
+        }
+        .accessibilityElement(children: isFullScreen && failed ? .contain : .ignore)
         .accessibilityLabel(
             failed
                 ? "写真\(index + 1)／\(total)を読み込めませんでした"
                 : "回答の写真\(index + 1)／\(total)"
         )
-        .accessibilityIdentifier("answer-photo-\(index + 1)-of-\(total)")
-        .task(id: media.id) {
+        .accessibilityIdentifier("answer-\(isFullScreen ? "fullscreen-" : "")photo-\(index + 1)-of-\(total)")
+        .task(id: "\(media.id)-\(retryCount)") {
             await loadPhoto()
         }
     }
 
     private func loadPhoto() async {
         #if canImport(UIKit)
+        failed = false
         do {
             let data = try await AnswerMediaDataCache.shared.data(
                 for: media,
@@ -360,9 +641,11 @@ private struct AuthenticatedAnswerPhoto: View {
             guard let uiImage = UIImage(data: data) else {
                 throw AnswerMediaViewError.invalidPhoto
             }
+            guard !Task.isCancelled else { return }
             image = Image(uiImage: uiImage)
             failed = false
         } catch {
+            guard !Task.isCancelled else { return }
             failed = true
         }
         #else
@@ -372,6 +655,7 @@ private struct AuthenticatedAnswerPhoto: View {
 }
 
 private struct AnswerAudioButton: View {
+    @Environment(\.colorSchemeContrast) private var contrast
     let media: AnswerMedia
     let loadMedia: AnswerMediaLoader
 
@@ -409,7 +693,10 @@ private struct AnswerAudioButton: View {
             .padding(.horizontal, 15)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .background(failed ? TsutsuuraTheme.coral : TsutsuuraTheme.cyanMuted)
+            .background(TsutsuuraTheme.actionFill(
+                failed ? TsutsuuraTheme.coral : TsutsuuraTheme.cyan,
+                contrast: contrast
+            ))
             .overlay(Rectangle().stroke(TsutsuuraTheme.cyanDark, lineWidth: 2))
         }
         .buttonStyle(.plain)

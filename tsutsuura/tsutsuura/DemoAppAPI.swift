@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 enum DemoLaunchMode: String, Sendable {
     case authenticated
@@ -42,9 +45,7 @@ enum AppStoreLaunchFactory {
         }
 
         // This remains a safe fallback for malformed local build configuration.
-        let baseURL = URL(
-            string: "https://kttprojects.conohawing.com/tsutsuura-api/api"
-        )!
+        let baseURL = APIConfiguration.productionBaseURL
         let configuration = try! APIConfiguration(baseURL: baseURL)
         return AppStore(
             api: DefaultAppAPI(configuration: configuration)
@@ -95,6 +96,9 @@ actor DemoAppAPI: AppAPI {
     private var notificationPreferences = NotificationPreferences()
     private var reportsByCommentID: [String: CommentReport] = [:]
     private var nextReportID = 1
+    private var emailByUserID: [String: String] = ["demo-user": "demo@example.com"]
+    private var pendingLoginEmail: (requestID: String, email: String)?
+    private var pendingEmailEnrollment: (requestID: String, email: String, actorID: String)?
     private var pendingLoginPhone: String?
     private var pendingPhoneEnrollment: (requestID: String, phone: String)?
     private var activeRecoveryCode: AccountRecoveryCode?
@@ -103,19 +107,22 @@ actor DemoAppAPI: AppAPI {
     /// Activation and durable recovery are separate live-server invariants.
     /// The seeded sibling represents a device that has completed both; a newly
     /// paired managed profile is activated but remains ineligible for ownership
-    /// until it enrolls a phone or creates a recovery code.
+    /// until it enrolls an email or creates a recovery code.
     private var activatedMemberIDs: Set<String> = ["demo-user", "demo-family-1"]
     private var recoverableMemberIDs: Set<String> = ["demo-user", "demo-family-1"]
 
     init(startsAuthenticated: Bool) {
         isAuthenticated = startsAuthenticated
+        let hasExistingMark = !ProcessInfo.processInfo.arguments.contains("-tsutsuura-demo-missing-mark")
+        let existingMark = (0..<256).map { index in
+            index / 16 == index % 16 && (3...12).contains(index / 16) ? "1" : "0"
+        }.joined()
 
         let includesGalleryFixture = ProcessInfo.processInfo.arguments
             .contains("-tsutsuura-demo-gallery")
-        let galleryPhotoData = Data(
-            base64Encoded:
-                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
-        )!
+        let galleryPhotoData = includesGalleryFixture
+            ? (1...3).map { Self.galleryFixturePhoto(index: $0) }
+            : []
         let galleryMedia: [AnswerMedia] = includesGalleryFixture
             ? (1...3).map { index in
                 AnswerMedia(
@@ -126,7 +133,7 @@ actor DemoAppAPI: AppAPI {
                     )!,
                     mimeType: "image/png",
                     fileName: "demo-gallery-\(index).png",
-                    byteCount: galleryPhotoData.count
+                    byteCount: galleryPhotoData[index - 1].count
                 )
             }
             : []
@@ -141,7 +148,9 @@ actor DemoAppAPI: AppAPI {
             managed: false,
             familyRole: .owner,
             joinedAt: Date(timeIntervalSince1970: 1_722_124_800),
-            createdAt: Date(timeIntervalSince1970: 1_722_124_800)
+            createdAt: Date(timeIntervalSince1970: 1_722_124_800),
+            avatarMark: hasExistingMark ? existingMark : nil,
+            hasEmail: true
         )
         let sibling = UserProfile(
             id: "demo-family-1",
@@ -163,17 +172,23 @@ actor DemoAppAPI: AppAPI {
             members: [currentUser, sibling]
         )
         var userWithFamily = currentUser
+        userWithFamily.email = "demo@example.com"
         userWithFamily.family = demoFamily
         profile = userWithFamily
         family = demoFamily
         notificationPreferences.familyID = demoFamily.id
 
         todayQuestion = Question(
-            id: "demo-question-today",
+            id: ProcessInfo.processInfo.environment["TSUTSUURA_DEMO_WAITING_QUESTION_ID"] ?? "demo-question-today",
             prompt: "今日、家族に伝えたい小さな出来事は？",
             publishedOn: "2026-07-28",
             answer: nil
         )
+        if ProcessInfo.processInfo.arguments.contains("-tsutsuura-demo-waiting-question") {
+            todayQuestion.isAvailable = false
+            todayQuestion.availableAt = Date().addingTimeInterval(3600)
+            todayQuestion.timeZoneIdentifier = "Asia/Tokyo"
+        }
 
         let siblingAuthor = AnswerAuthor(
             id: sibling.id,
@@ -215,6 +230,25 @@ actor DemoAppAPI: AppAPI {
         feedAnswers = [familyAnswer, ownHistoryAnswer]
         historyAnswers = [ownHistoryAnswer]
 
+        if ProcessInfo.processInfo.arguments.contains("-tsutsuura-demo-battery-complete") {
+            for author in [siblingAuthor, currentAuthor] {
+                let answer = Answer(
+                    id: "demo-battery-\(author.id)",
+                    questionID: todayQuestion.id,
+                    questionPrompt: todayQuestion.prompt,
+                    author: author,
+                    body: "今日も家族で話せてうれしかった。",
+                    createdAt: Date(),
+                    answerDate: todayQuestion.publishedOn
+                )
+                feedAnswers.insert(answer, at: 0)
+                if author.id == currentUser.id {
+                    todayQuestion.answer = answer
+                    historyAnswers.insert(answer, at: 0)
+                }
+            }
+        }
+
         commentsByAnswerID = [
             familyAnswer.id: [
                 Comment(
@@ -242,16 +276,118 @@ actor DemoAppAPI: AppAPI {
                 )
             ]
         ]
-        for media in galleryMedia {
+        for (index, media) in galleryMedia.enumerated() {
             mediaContentByURL[media.url] = AnswerMediaContent(
-                data: galleryPhotoData,
+                data: galleryPhotoData[index],
                 mimeType: media.mimeType
             )
         }
     }
 
+    /// Distinct image shapes and visible edge markers make cropping and page
+    /// selection verifiable without using personal photos or a network service.
+    private nonisolated static func galleryFixturePhoto(index: Int) -> Data {
+        #if canImport(UIKit)
+        let sizes = [CGSize(width: 480, height: 720), CGSize(width: 800, height: 450), CGSize(width: 600, height: 600)]
+        let colors: [UIColor] = [.systemTeal, .systemOrange, .systemIndigo]
+        let size = sizes[index - 1]
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        return UIGraphicsImageRenderer(size: size, format: format).pngData { context in
+            let bounds = CGRect(origin: .zero, size: size)
+            colors[index - 1].setFill()
+            context.fill(bounds)
+            UIColor.white.setStroke()
+            context.cgContext.setLineWidth(10)
+            context.stroke(bounds.insetBy(dx: 10, dy: 10))
+
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.alignment = .center
+            func label(_ text: String, y: CGFloat, fontSize: CGFloat, height: CGFloat) {
+                (text as NSString).draw(
+                    in: CGRect(x: 24, y: y, width: size.width - 48, height: height),
+                    withAttributes: [
+                        .font: UIFont.systemFont(ofSize: fontSize, weight: .bold),
+                        .foregroundColor: UIColor.white,
+                        .paragraphStyle: paragraph
+                    ]
+                )
+            }
+            label("TOP", y: 30, fontSize: 30, height: 42)
+            label("\(index)", y: size.height / 2 - 90, fontSize: 130, height: 156)
+            label("\(Int(size.width)) × \(Int(size.height))", y: size.height / 2 + 65, fontSize: 28, height: 42)
+            label("BOTTOM", y: size.height - 70, fontSize: 30, height: 42)
+            for point in [CGPoint(x: 24, y: 24), CGPoint(x: size.width - 48, y: 24), CGPoint(x: 24, y: size.height - 48), CGPoint(x: size.width - 48, y: size.height - 48)] {
+                UIColor.white.setFill()
+                context.fill(CGRect(origin: point, size: CGSize(width: 24, height: 24)))
+            }
+        }
+        #else
+        return Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")!
+        #endif
+    }
+
     func hasStoredSession() -> Bool {
         isAuthenticated
+    }
+
+    func requestEmailOTP(email: String) async throws -> OTPChallenge {
+        guard let email = EmailAddressValidation.normalized(email) else {
+            throw TextInputValidationError.invalidEmailAddress
+        }
+        let requestID = "demo-email-login-" + UUID().uuidString
+        pendingLoginEmail = (requestID, email)
+        return OTPChallenge(requestID: requestID, expiresIn: 600)
+    }
+
+    func verifyEmailOTP(requestID: String, code: String) async throws -> AuthSession {
+        guard let pendingLoginEmail, pendingLoginEmail.requestID == requestID,
+              NumericInputValidation.asciiDigits(in: code) == code,
+              code.count == 6 else { throw DemoAPIError.invalidCode }
+        guard let userID = emailByUserID.first(where: { $0.value == pendingLoginEmail.email })?.key,
+              var returningProfile = family.members.first(where: { $0.id == userID }) else {
+            throw DemoAPIError.accountNotFound
+        }
+        self.pendingLoginEmail = nil
+        returningProfile.email = emailByUserID[userID]
+        returningProfile.hasEmail = true
+        returningProfile.family = hasFamily ? family : nil
+        profile = returningProfile
+        isAuthenticated = true
+        return demoSession
+    }
+
+    func requestEmailEnrollment(email: String) async throws -> OTPChallenge {
+        try requireAuthentication()
+        guard let email = EmailAddressValidation.normalized(email) else {
+            throw TextInputValidationError.invalidEmailAddress
+        }
+        guard !emailByUserID.contains(where: { $0.key != profile.id && $0.value == email }) else {
+            throw APIClientError.server(statusCode: 409, payload: APIErrorPayload(code: "email_already_in_use", message: nil))
+        }
+        let requestID = "demo-email-enrollment-" + UUID().uuidString
+        pendingEmailEnrollment = (requestID, email, profile.id)
+        return OTPChallenge(requestID: requestID, expiresIn: 600)
+    }
+
+    func verifyEmailEnrollment(requestID: String, code: String) async throws -> UserProfile {
+        try requireAuthentication()
+        guard let pendingEmailEnrollment,
+              pendingEmailEnrollment.actorID == profile.id,
+              pendingEmailEnrollment.requestID == requestID,
+              NumericInputValidation.asciiDigits(in: code) == code,
+              code.count == 6 else { throw DemoAPIError.invalidCode }
+        emailByUserID[profile.id] = pendingEmailEnrollment.email
+        profile.email = pendingEmailEnrollment.email
+        profile.hasEmail = true
+        recoverableMemberIDs.insert(profile.id)
+        self.pendingEmailEnrollment = nil
+        if let index = family.members.firstIndex(where: { $0.id == profile.id }) {
+            family.members[index].hasEmail = true
+        }
+        profile.family = hasFamily ? family : nil
+        return profile
     }
 
     func requestOTP(phoneNumber: String) throws -> OTPChallenge {
@@ -348,9 +484,9 @@ actor DemoAppAPI: AppAPI {
         self.activeRecoveryMemberID = nil
         recoveredProfile.family = family
         profile = recoveredProfile
-        if recoveredProfile.hasPhone != true {
+        if recoveredProfile.hasPhone != true && emailByUserID[recoveredProfile.id] == nil {
             // A one-time recovery code stops being an available recovery path
-            // once consumed. Phone enrollment remains durable.
+            // once consumed. Verified email enrollment remains durable.
             recoverableMemberIDs.remove(recoveredProfile.id)
         }
         isAuthenticated = true
@@ -359,12 +495,18 @@ actor DemoAppAPI: AppAPI {
 
     func fetchMe() throws -> UserProfile {
         try requireAuthentication()
-        return profile
+        var current = profile
+        current.email = emailByUserID[profile.id]
+        current.hasEmail = current.email != nil
+        return current
     }
 
     func updateProfile(displayName: String) throws -> UserProfile {
         try requireAuthentication()
         let displayName = try validatedName(displayName)
+        if profile.familyRole == .owner && family.name == "\(profile.displayName)さんの家族" {
+            family.name = "\(displayName)さんの家族"
+        }
         profile.displayName = displayName
         if let memberIndex = family.members.firstIndex(where: {
             $0.id == profile.id
@@ -373,6 +515,31 @@ actor DemoAppAPI: AppAPI {
         }
         profile.family = hasFamily ? family : nil
         updateAuthorName(displayName)
+        return profile
+    }
+
+    func updatePersonalMark(_ mark: String?) throws -> UserProfile {
+        try requireAuthentication()
+        guard mark == nil || PersonalMark.isValid(mark!) else { throw DemoAPIError.invalidInput }
+        profile.avatarMark = mark
+        if let index = family.members.firstIndex(where: { $0.id == profile.id }) {
+            family.members[index].avatarMark = mark
+        }
+        profile.family = hasFamily ? family : nil
+        for index in feedAnswers.indices where feedAnswers[index].author.id == profile.id {
+            feedAnswers[index].author.avatarMark = mark
+        }
+        for index in historyAnswers.indices where historyAnswers[index].author.id == profile.id {
+            historyAnswers[index].author.avatarMark = mark
+        }
+        if todayQuestion.answer?.author.id == profile.id { todayQuestion.answer?.author.avatarMark = mark }
+        for key in Array(commentsByAnswerID.keys) {
+            var comments = commentsByAnswerID[key] ?? []
+            for index in comments.indices where comments[index].author.id == profile.id {
+                comments[index].author.avatarMark = mark
+            }
+            commentsByAnswerID[key] = comments
+        }
         return profile
     }
 
@@ -403,6 +570,10 @@ actor DemoAppAPI: AppAPI {
         profile.displayName = organizerName
         profile.phoneNumber = nil
         profile.hasPhone = false
+        profile.email = nil
+        profile.hasEmail = false
+        profile.avatarMark = nil
+        emailByUserID.removeValue(forKey: profile.id)
         profile.managed = false
         profile.familyRole = .owner
         profile.joinedAt = Date()
@@ -554,6 +725,7 @@ actor DemoAppAPI: AppAPI {
             hasFamily = false
             pairingsByID = [:]
             pendingPhoneEnrollment = nil
+        pendingEmailEnrollment = nil
             activeRecoveryCode = nil
             activeRecoveryMemberID = nil
             notificationPreferences.familyID = nil
@@ -646,7 +818,7 @@ actor DemoAppAPI: AppAPI {
                 + UUID().uuidString.replacingOccurrences(of: "-", with: "")
         )
         let pairingURL = URL(
-            string: "https://kttprojects.conohawing.com/tsutsuura-api/api/invite/\(token)"
+            string: "https://toshizo.link/tsutsuura-api/api/invite/\(token)"
         )!
         let now = Date()
         let expiresAt = ProcessInfo.processInfo.arguments.contains(
@@ -744,7 +916,14 @@ actor DemoAppAPI: AppAPI {
             todayQuestion: todayQuestion,
             myAnswer: todayQuestion.answer,
             answers: hasFamily ? feedAnswers : [],
-            nextCursor: nil
+            nextCursor: nil,
+            todayAnsweredUserIDs: hasFamily
+                ? Array(Set(feedAnswers.filter { answer in
+                    answer.answerDate == todayQuestion.publishedOn
+                        && answer.questionID == todayQuestion.id
+                        && family.members.contains(where: { $0.id == answer.author.id })
+                }.map(\.author.id))).sorted()
+                : []
         )
     }
 
@@ -777,6 +956,14 @@ actor DemoAppAPI: AppAPI {
             throw DemoAPIError.invalidInput
         }
         try submission.validate()
+        if let existing = todayQuestion.answer {
+            guard existing.body == submission.body else {
+                throw APIClientError.server(statusCode: 409, payload: APIErrorPayload(
+                    code: "answer_immutable", message: "Answers cannot be changed."
+                ))
+            }
+            return existing
+        }
 
         mediaContentByURL.removeAll()
         var answerMedia: [AnswerMedia] = []
@@ -812,7 +999,8 @@ actor DemoAppAPI: AppAPI {
             author: AnswerAuthor(
                 id: profile.id,
                 displayName: profile.displayName,
-                avatarURL: profile.avatarURL
+                avatarURL: profile.avatarURL,
+                avatarMark: profile.avatarMark
             ),
             body: submission.body,
             createdAt: Date(),
@@ -831,71 +1019,25 @@ actor DemoAppAPI: AppAPI {
         return answer
     }
 
-    func updateAnswer(
-        answerID: String,
-        submission: AnswerSubmission
-    ) async throws -> Answer {
+    func updateAnswer(answerID: String, submission: AnswerSubmission) async throws -> Answer {
         try requireAuthentication()
-        guard var answer = answer(withID: answerID),
-              answer.author.id == profile.id else {
-            throw DemoAPIError.notFound
-        }
-        guard !submission.hasMedia else {
-            throw APIClientError.unsupportedOperation
-        }
-        guard UnicodeTextValidation.characterCount(
-            submission.body.trimmingCharacters(in: .whitespacesAndNewlines)
-        ) <= AnswerDraft.maximumBodyCharacterCount else {
-            throw DemoAPIError.invalidInput
-        }
-        if submission.body.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        ).isEmpty && answer.media.isEmpty {
-            throw DemoAPIError.invalidInput
-        }
-        answer.body = submission.body
-        answer.updatedAt = Date()
-        replaceAnswer(answer)
-        return answer
+        throw APIClientError.server(statusCode: 409, payload: APIErrorPayload(
+            code: "answer_immutable", message: "Answers cannot be changed."
+        ))
     }
 
     func deleteAnswer(answerID: String) async throws {
         try requireAuthentication()
-        guard let answer = answer(withID: answerID),
-              answer.author.id == profile.id else {
-            throw DemoAPIError.notFound
-        }
-        for media in answer.media {
-            mediaContentByURL[media.url] = nil
-        }
-        if todayQuestion.answer?.id == answerID {
-            todayQuestion.answer = nil
-        }
-        feedAnswers.removeAll(where: { $0.id == answerID })
-        historyAnswers.removeAll(where: { $0.id == answerID })
-        commentsByAnswerID[answerID] = nil
+        throw APIClientError.server(statusCode: 409, payload: APIErrorPayload(
+            code: "answer_immutable", message: "Answers cannot be changed."
+        ))
     }
 
-    func deleteAnswerMedia(
-        answerID: String,
-        mediaID: String
-    ) async throws -> Answer {
+    func deleteAnswerMedia(answerID: String, mediaID: String) async throws -> Answer {
         try requireAuthentication()
-        guard var answer = answer(withID: answerID),
-              answer.author.id == profile.id,
-              let media = answer.media.first(where: { $0.id == mediaID }) else {
-            throw DemoAPIError.notFound
-        }
-        guard !answer.body.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        ).isEmpty || answer.media.count > 1 else {
-            throw DemoAPIError.invalidInput
-        }
-        answer.media.removeAll(where: { $0.id == mediaID })
-        answer.updatedAt = Date()
-        mediaContentByURL[media.url] = nil
-        replaceAnswer(answer)
-        return answer
+        throw APIClientError.server(statusCode: 409, payload: APIErrorPayload(
+            code: "answer_immutable", message: "Answers cannot be changed."
+        ))
     }
 
     func fetchAnswerMedia(
@@ -1021,7 +1163,8 @@ actor DemoAppAPI: AppAPI {
             author: AnswerAuthor(
                 id: profile.id,
                 displayName: profile.displayName,
-                avatarURL: profile.avatarURL
+                avatarURL: profile.avatarURL,
+                avatarMark: profile.avatarMark
             ),
             body: body,
             createdAt: Date()
@@ -1119,6 +1262,11 @@ actor DemoAppAPI: AppAPI {
         return notificationPreferences
     }
 
+    func updateDeviceTimeZone(_ identifier: String) async throws {
+        try requireAuthentication()
+        notificationPreferences.timeZoneIdentifier = identifier
+    }
+
     func updateNotificationPreferences(
         _ preferences: NotificationPreferences
     ) async throws -> NotificationPreferences {
@@ -1162,6 +1310,7 @@ actor DemoAppAPI: AppAPI {
         reportsByCommentID = [:]
         pairingsByID = [:]
         pendingPhoneEnrollment = nil
+        pendingEmailEnrollment = nil
         activeRecoveryCode = nil
         activeRecoveryMemberID = nil
     }
@@ -1179,13 +1328,17 @@ actor DemoAppAPI: AppAPI {
 
     func signOut() {
         isAuthenticated = false
+        pendingEmailEnrollment = nil
     }
 
     private var demoSession: AuthSession {
-        AuthSession(
+        var current = profile
+        current.email = emailByUserID[profile.id]
+        current.hasEmail = current.email != nil
+        return AuthSession(
             accessToken: "demo-access-token",
             expiresAt: Date().addingTimeInterval(86_400),
-            user: profile
+            user: current
         )
     }
 
@@ -1218,7 +1371,8 @@ actor DemoAppAPI: AppAPI {
 
     private func isMemberRecoverable(_ memberID: String) -> Bool {
         guard recoverableMemberIDs.contains(memberID) else { return false }
-        if family.members.first(where: { $0.id == memberID })?.hasPhone == true {
+        if emailByUserID[memberID] != nil
+            || family.members.first(where: { $0.id == memberID })?.hasPhone == true {
             return true
         }
         if activeRecoveryMemberID == memberID {
@@ -1393,7 +1547,7 @@ private enum DemoAPIError: LocalizedError {
         case .invalidRecoveryCode:
             return "復旧コードが正しくないか、有効期限が切れています。"
         case .accountNotFound:
-            return "この電話番号に登録されたアカウントが見つかりません。"
+            return "登録済みのアカウントが見つかりません。入力した情報を確認してください。"
         }
     }
 }

@@ -9,6 +9,7 @@ import UIKit
 struct LifecyclePage<Content: View>: View {
     let title: String
     let onBack: () -> Void
+    var showsBackButton = true
     @ViewBuilder let content: () -> Content
 
     var body: some View {
@@ -17,23 +18,21 @@ struct LifecyclePage<Content: View>: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
-                    HStack(alignment: .center) {
-                        Button(action: onBack) {
-                            Label("戻る", systemImage: "chevron.left")
-                                .font(TsutsuuraTheme.bodyFont(size: 24))
-                                .foregroundStyle(.white)
-                                .frame(minHeight: 52)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 16) {
+                            if showsBackButton {
+                                backButton
+                                Spacer(minLength: 12)
+                            }
+                            pageTitle
+                                .fixedSize(horizontal: true, vertical: true)
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("lifecycle-back-button")
-
-                        Spacer(minLength: 12)
-
-                        Text(title)
-                            .font(TsutsuuraTheme.font(34))
-                            .foregroundStyle(.white)
-                            .multilineTextAlignment(.trailing)
-                            .fixedSize(horizontal: false, vertical: true)
+                        VStack(alignment: .leading, spacing: 12) {
+                            if showsBackButton { backButton }
+                            pageTitle
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
                     content()
@@ -46,7 +45,31 @@ struct LifecyclePage<Content: View>: View {
             .scrollDismissesKeyboard(.interactively)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 50, style: .continuous))
+    }
+
+    private var backButton: some View {
+        Button(action: onBack) {
+            Label {
+                Text("戻る")
+                    .font(TsutsuuraTheme.displayFont(24))
+            } icon: {
+                Image(systemName: "chevron.left")
+            }
+                .font(TsutsuuraTheme.bodyFont(size: 24))
+                .foregroundStyle(.white)
+                .fixedSize(horizontal: true, vertical: true)
+                .frame(minWidth: 64, minHeight: 52, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("lifecycle-back-button")
+    }
+
+    private var pageTitle: some View {
+        Text(title)
+            .font(TsutsuuraTheme.displayFont(34))
+            .foregroundStyle(.white)
+            .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -59,7 +82,7 @@ struct LifecycleField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(TsutsuuraTheme.bodyFont(size: 20))
+                .font(TsutsuuraTheme.displayFont(20))
                 .foregroundStyle(TsutsuuraTheme.ink)
 
             TextField(title, text: $text)
@@ -214,7 +237,7 @@ struct ManagedMemberEditScreen: View {
                 PaperPanel {
                     VStack(alignment: .leading, spacing: 14) {
                         Text("端末の復旧")
-                            .font(TsutsuuraTheme.bodyFont(size: 24, weight: .bold))
+                            .font(TsutsuuraTheme.displayFont(24))
                             .foregroundStyle(TsutsuuraTheme.ink)
                         Text("紛失・機種変更・誤ってログアウトしたときは、新しい一回限りの設定案内を発行します。以前の未使用案内は無効になります。")
                             .font(TsutsuuraTheme.bodyFont(size: 18))
@@ -235,7 +258,12 @@ struct ManagedMemberEditScreen: View {
             Button(role: .destructive) {
                 confirmsRemoval = true
             } label: {
-                Label("この家族を削除", systemImage: "person.crop.circle.badge.minus")
+                Label {
+                    Text("この家族を削除")
+                        .font(TsutsuuraTheme.displayFont(23))
+                } icon: {
+                    Image(systemName: "person.crop.circle.badge.minus")
+                }
                     .font(TsutsuuraTheme.bodyFont(size: 23, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, minHeight: 62)
@@ -272,7 +300,7 @@ struct OwnershipTransferScreen: View {
 
     var body: some View {
         LifecyclePage(title: "管理者を引き継ぐ", onBack: onBack) {
-            Text("引き継ぎ後は、選んだ方が家族名の変更や家族の削除を管理します。相手のiPhone設定を完了し、その端末で電話番号を登録するか復旧コードを保存しておいてください。管理対象の方は、引き継ぎと同時に独立したアカウントになります。")
+            Text("引き継ぎ後は、選んだ方が家族名の変更や家族の削除を管理します。相手のiPhone設定を完了し、その端末でメールを登録するか復旧コードを保存しておいてください。管理対象の方は、引き継ぎと同時に独立したアカウントになります。")
                 .font(TsutsuuraTheme.bodyFont(size: 20))
                 .foregroundStyle(.white)
                 .fixedSize(horizontal: false, vertical: true)
@@ -280,7 +308,7 @@ struct OwnershipTransferScreen: View {
             if candidates.isEmpty {
                 PaperPanel {
                     Text("引き継げる家族がまだいません。")
-                        .font(TsutsuuraTheme.bodyFont(size: 22))
+                        .font(TsutsuuraTheme.displayFont(22))
                         .foregroundStyle(TsutsuuraTheme.ink)
                         .padding(24)
                 }
@@ -334,7 +362,7 @@ struct AccountPrivacyScreen: View {
     let profile: UserProfile
     let isWorking: Bool
     let onBack: () -> Void
-    let onPhoneEnrollment: () -> Void
+    let onEmailEnrollment: () -> Void
     let onRecoveryCode: () -> Void
     let onExport: () -> Void
     let onPrivacy: () -> Void
@@ -345,31 +373,42 @@ struct AccountPrivacyScreen: View {
     @State private var confirmsDeletion = false
 
     var body: some View {
-        LifecyclePage(title: "アカウントとプライバシー", onBack: onBack) {
+        LifecyclePage(title: "機種変更・データ", onBack: onBack) {
+            Text("必要なときだけ開く設定です。毎日の回答は「戻る」から続けられます。")
+                .font(TsutsuuraTheme.bodyFont(size: 20))
+                .foregroundStyle(.white)
+                .fixedSize(horizontal: false, vertical: true)
+
             VStack(spacing: 12) {
+                settingsGroupTitle("新しいiPhoneに備える")
                 LifecycleNavigationButton(
-                    title: profile.hasPhone == true
-                        ? "復旧用の電話番号を変更"
-                        : "復旧用の電話番号を登録",
-                    subtitle: "機種変更やログアウトに備えます",
-                    icon: "phone.badge.checkmark",
-                    action: onPhoneEnrollment
+                    title: profile.hasEmail == true
+                        ? "登録したメールを変える"
+                        : "メールを登録する",
+                    subtitle: profile.email.map { "登録済み：\($0)" }
+                        ?? "メールの確認番号で、同じアカウントに戻れます",
+                    icon: "envelope.fill",
+                    action: onEmailEnrollment
                 )
-                .accessibilityIdentifier("phone-enrollment-navigation-button")
+                .accessibilityIdentifier("email-enrollment-navigation-button")
                 LifecycleNavigationButton(
-                    title: "復旧コードを作る",
-                    subtitle: "電話が使えないときの一回限りの予備キー",
+                    title: "予備の復旧コードを作る",
+                    subtitle: "メールが使えないときに戻るための番号",
                     icon: "key.horizontal.fill",
                     action: onRecoveryCode
                 )
                 .accessibilityIdentifier("recovery-code-navigation-button")
                 LifecycleNavigationButton(
-                    title: "自分のデータを書き出す",
-                    subtitle: "プロフィール・回答・コメントを確認できます",
+                    title: "自分の記録を保存する",
+                    subtitle: "これまでの回答やコメントをファイルに保存",
                     icon: "square.and.arrow.up",
                     action: onExport
                 )
                 .accessibilityIdentifier("account-export-navigation-button")
+            }
+
+            DisclosureGroup {
+                VStack(spacing: 12) {
                 LifecycleNavigationButton(
                     title: "プライバシー",
                     subtitle: "収集する情報と使い方",
@@ -388,12 +427,30 @@ struct AccountPrivacyScreen: View {
                     icon: "questionmark.circle.fill",
                     action: onHelp
                 )
+                }
+                .padding(.top, 12)
+            } label: {
+                Text("利用規約・お問い合わせ")
+                    .font(TsutsuuraTheme.bodyFont(size: 22, weight: .semibold))
+                    .frame(minHeight: 56)
             }
+            .tint(.white)
+            .foregroundStyle(.white)
 
+            DisclosureGroup {
+            Text("使うのをやめて、記録もすべて消したい場合だけ選んでください。")
+                .font(TsutsuuraTheme.bodyFont(size: 19))
+                .foregroundStyle(.white)
+                .padding(.vertical, 12)
             Button(role: .destructive) {
                 confirmsDeletion = true
             } label: {
-                Label("アカウントを削除", systemImage: "trash.fill")
+                Label {
+                    Text("アカウントを削除")
+                        .font(TsutsuuraTheme.displayFont(23))
+                } icon: {
+                    Image(systemName: "trash.fill")
+                }
                     .font(TsutsuuraTheme.bodyFont(size: 23, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, minHeight: 64)
@@ -402,6 +459,13 @@ struct AccountPrivacyScreen: View {
             }
             .disabled(isWorking)
             .accessibilityIdentifier("delete-account-button")
+            } label: {
+                Text("アカウントの削除")
+                    .font(TsutsuuraTheme.bodyFont(size: 22))
+                    .frame(minHeight: 56)
+            }
+            .tint(.white)
+            .foregroundStyle(.white)
         }
         .confirmationDialog(
             "アカウントを完全に削除しますか？",
@@ -415,6 +479,14 @@ struct AccountPrivacyScreen: View {
                 ? "ほかの家族がいる場合は、先に管理者を引き継ぐ必要があります。削除した回答やコメントは元に戻せません。"
                 : "自分の回答とコメント、すべてのログイン情報が削除されます。この操作は元に戻せません。")
         }
+    }
+
+    private func settingsGroupTitle(_ title: String) -> some View {
+        Text(title)
+            .font(TsutsuuraTheme.bodyFont(size: 24, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -434,10 +506,12 @@ struct AccountRecoveryScreen: View {
         LifecyclePage(title: "アカウントを復旧", onBack: onBack) {
             PaperPanel {
                 VStack(alignment: .leading, spacing: 14) {
-                    Label(
-                        "保存しておいた復旧コードを入力",
-                        systemImage: "key.horizontal.fill"
-                    )
+                    Label {
+                        Text("保存しておいた復旧コードを入力")
+                            .font(TsutsuuraTheme.displayFont(23))
+                    } icon: {
+                        Image(systemName: "key.horizontal.fill")
+                    }
                     .font(TsutsuuraTheme.bodyFont(size: 23, weight: .bold))
                     .foregroundStyle(TsutsuuraTheme.ink)
 
@@ -489,7 +563,7 @@ struct AccountRecoveryScreen: View {
             )
             .accessibilityIdentifier("recover-account-submit-button")
 
-            Text("コードがない場合は、電話番号でログインするか、家族の管理者にこのiPhone用の新しい設定案内を頼んでください。")
+            Text("コードがない場合は、登録したメールでログインするか、家族の管理者にこのiPhone用の新しい設定案内を頼んでください。")
                 .font(TsutsuuraTheme.bodyFont(size: 17))
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
@@ -511,7 +585,12 @@ struct RecoveryCodeScreen: View {
         LifecyclePage(title: "復旧コード", onBack: onBack) {
             PaperPanel {
                 VStack(alignment: .leading, spacing: 12) {
-                    Label("電話が使えないときの予備キー", systemImage: "lock.shield.fill")
+                    Label {
+                        Text("メールが使えないときの予備キー")
+                            .font(TsutsuuraTheme.displayFont(23))
+                    } icon: {
+                        Image(systemName: "lock.shield.fill")
+                    }
                         .font(TsutsuuraTheme.bodyFont(size: 23, weight: .bold))
                         .foregroundStyle(TsutsuuraTheme.ink)
                     Text("安全な場所へ保存してください。一回使うか新しいコードを作ると無効になり、有効期限は30日です。コードを知る人はアカウントを復旧できます。")
@@ -544,7 +623,12 @@ struct RecoveryCodeScreen: View {
                             #endif
                             copyFeedback = "復旧コードをコピーしました"
                         } label: {
-                            Label("コードをコピー", systemImage: "doc.on.doc.fill")
+                            Label {
+                                Text("コードをコピー")
+                                    .font(TsutsuuraTheme.displayFont(21))
+                            } icon: {
+                                Image(systemName: "doc.on.doc.fill")
+                            }
                                 .font(TsutsuuraTheme.bodyFont(size: 21, weight: .bold))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity, minHeight: 58)
@@ -606,10 +690,11 @@ struct LifecycleNavigationButton: View {
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 5) {
                         Text(title)
-                            .font(TsutsuuraTheme.bodyFont(size: 22, weight: .bold))
+                            .font(TsutsuuraTheme.bodyFont(size: 22, weight: .semibold))
                             .foregroundStyle(TsutsuuraTheme.ink)
+                            .fixedSize(horizontal: false, vertical: true)
                         Text(subtitle)
-                            .font(TsutsuuraTheme.bodyFont(size: 16))
+                            .font(TsutsuuraTheme.bodyFont(size: 18))
                             .foregroundStyle(TsutsuuraTheme.skyInk)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -618,7 +703,8 @@ struct LifecycleNavigationButton: View {
                         .foregroundStyle(TsutsuuraTheme.skyInk)
                         .accessibilityHidden(true)
                 }
-                .padding(18)
+                .padding(20)
+                .frame(minHeight: 88)
             }
             .contentShape(Rectangle())
         }
@@ -630,6 +716,7 @@ struct LifecycleNavigationButton: View {
 }
 
 struct AccountExportScreen: View {
+    @Environment(\.colorSchemeContrast) private var contrast
     let export: AccountExport?
     let isLoading: Bool
     let onBack: () -> Void
@@ -649,7 +736,12 @@ struct AccountExportScreen: View {
             if let export, let exportText {
                 PaperPanel {
                     VStack(alignment: .leading, spacing: 10) {
-                        Label("書き出しの準備ができました", systemImage: "checkmark.circle.fill")
+                        Label {
+                            Text("書き出しの準備ができました")
+                                .font(TsutsuuraTheme.displayFont(22))
+                        } icon: {
+                            Image(systemName: "checkmark.circle.fill")
+                        }
                             .font(TsutsuuraTheme.bodyFont(size: 22, weight: .bold))
                             .foregroundStyle(TsutsuuraTheme.greenDark)
                         Text("回答 \(export.answers.count)件・コメント \(export.comments.count)件")
@@ -667,26 +759,29 @@ struct AccountExportScreen: View {
                     subject: Text("つつうら 個人データ"),
                     message: Text("つつうらから書き出した個人データ（JSON）です。")
                 ) {
-                    Label("JSONを共有・保存", systemImage: "square.and.arrow.up")
-                        .font(TsutsuuraTheme.bodyFont(size: 24, weight: .bold))
+                    Label {
+                        Text("JSONを共有・保存")
+                            .font(TsutsuuraTheme.displayFont(24))
+                    } icon: {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                        .font(TsutsuuraTheme.bodyFont(24))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity, minHeight: 68)
-                        .background(TsutsuuraTheme.cyan)
+                        .background(TsutsuuraTheme.actionFill(TsutsuuraTheme.cyan, contrast: contrast))
                         .overlay(Rectangle().stroke(TsutsuuraTheme.cyanDark, lineWidth: 3))
                 }
-            } else {
-                ProgressView(isLoading ? "データを準備しています…" : "")
+            } else if isLoading {
+                ProgressView("データを準備しています…")
                     .font(TsutsuuraTheme.bodyFont(size: 20))
                     .foregroundStyle(.white)
                     .tint(.white)
-
-                if !isLoading {
-                    TextRaisedButton(
-                        title: "書き出しを準備",
-                        icon: "arrow.clockwise",
-                        action: onLoad
-                    )
-                }
+            } else {
+                TextRaisedButton(
+                    title: "書き出しを準備",
+                    icon: "arrow.clockwise",
+                    action: onLoad
+                )
             }
         }
         .task {
@@ -714,14 +809,14 @@ enum InformationDocument: String, CaseIterable, Identifiable {
         case .privacy:
             [
                 ("取り扱う情報", "アカウント情報、家族構成、回答、コメント、選んだ写真・音声、通知用端末情報を、機能提供に必要な範囲で取り扱います。"),
-                ("家族への公開", "回答・写真・音声・コメントは、参加している同じ家族のメンバーに表示されます。電話番号とログイン情報は家族には表示しません。"),
+                ("家族への公開", "回答・写真・音声・コメントは、参加している同じ家族のメンバーに表示されます。メールアドレスとログイン情報は家族には表示しません。"),
                 ("安全と選択", "通信は暗号化し、端末用の認証情報は安全な保存領域を使います。設定からデータの書き出しとアカウント削除を依頼できます。"),
             ]
         case .terms:
             [
                 ("大切に使う", "家族の同意とプライバシーを尊重し、本人の許可なく写真・音声・個人情報を投稿しないでください。"),
                 ("禁止事項", "他者への嫌がらせ、なりすまし、不正アクセス、違法な内容、サービス運営を妨げる利用は禁止します。"),
-                ("データと終了", "利用者は自分の投稿を編集・削除できます。家族の管理者は、管理者を引き継いだ後に退会できます。"),
+                ("データと終了", "回答やコメントは、送る前に内容を確認してください。アカウントは設定から削除できます。ほかの家族がいる場合、管理者は先に管理を引き継いでください。"),
             ]
         }
     }
@@ -737,7 +832,7 @@ struct InformationDocumentScreen: View {
                 PaperPanel {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(section.0)
-                            .font(TsutsuuraTheme.bodyFont(size: 23, weight: .bold))
+                            .font(TsutsuuraTheme.displayFont(23))
                             .foregroundStyle(TsutsuuraTheme.ink)
                         Text(section.1)
                             .font(TsutsuuraTheme.bodyFont(size: 19))
@@ -748,7 +843,22 @@ struct InformationDocumentScreen: View {
                 }
             }
 
-            Text("最終更新: 2026年9月1日")
+            if document == .privacy {
+                Link(destination: URL(string: "https://toshizo.link/tsutsuura-privacy.html")!) {
+                    Label("プライバシーポリシーを読む", systemImage: "safari")
+                        .font(TsutsuuraTheme.bodyFont(size: 22, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 14)
+                        .frame(maxWidth: .infinity, minHeight: 60)
+                        .overlay(Rectangle().stroke(.white, lineWidth: 2))
+                }
+                .accessibilityHint("ブラウザで全文を開きます")
+                .accessibilityIdentifier("privacy-policy-link")
+            }
+
+            Text(document == .privacy ? "最終更新: 2026年9月5日" : "最終更新: 2026年9月1日")
                 .font(TsutsuuraTheme.bodyFont(size: 16))
                 .foregroundStyle(.white)
         }
@@ -766,36 +876,58 @@ struct NotificationSettingsScreen: View {
     let onOpenSystemSettings: () -> Void
     let onSave: () -> Void
 
-    @State private var reminderDate = Date()
+    private var familyNotices: Binding<Bool> {
+        Binding(
+            get: { preferences.enabled || preferences.commentsEnabled || preferences.likesEnabled },
+            set: { receivesNotices in
+                preferences.enabled = receivesNotices
+                preferences.commentsEnabled = receivesNotices
+                preferences.likesEnabled = receivesNotices
+            }
+        )
+    }
+
+    private var pausesUntilTomorrow: Binding<Bool> {
+        Binding(
+            get: { (preferences.muteUntil ?? .distantPast) > Date() },
+            set: { pauses in
+                let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date().addingTimeInterval(86_400)
+                preferences.muteUntil = pauses
+                    ? Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrow)
+                    : nil
+            }
+        )
+    }
 
     var body: some View {
-        LifecyclePage(title: "通知", onBack: onBack) {
+        LifecyclePage(title: "お知らせを選ぶ", onBack: onBack) {
             PaperPanel {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("端末の通知")
-                        .font(TsutsuuraTheme.bodyFont(size: 23, weight: .bold))
+                    Text("iPhoneのお知らせ")
+                        .font(TsutsuuraTheme.bodyFont(size: 23, weight: .semibold))
                         .foregroundStyle(TsutsuuraTheme.ink)
                     Label(permissionDescription, systemImage: permissionIcon)
-                        .font(TsutsuuraTheme.bodyFont(size: 19))
+                        .font(TsutsuuraTheme.bodyFont(size: 21))
                         .foregroundStyle(TsutsuuraTheme.skyInk)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     if permissionState == .notDetermined {
-                        Text("許可すると、今日の質問や家族からの反応を見逃しにくくなります。通知は下で細かく選べます。")
-                            .font(TsutsuuraTheme.bodyFont(size: 17))
+                        Text("許可すると、アプリを閉じていてもお知らせが届きます。許可しなくても使えます。")
+                            .font(TsutsuuraTheme.bodyFont(size: 20))
                             .foregroundStyle(TsutsuuraTheme.skyInk)
                         TextRaisedButton(
-                            title: "通知を許可する",
-                            icon: "bell.badge.fill",
-                            height: 58,
-                            fontSize: 21,
+                            title: "お知らせを受け取る",
+                            icon: "bell.fill",
+                            height: 60,
+                            fontSize: 22,
                             action: onRequestPermission
                         )
                     } else if permissionState == .denied {
                         TextRaisedButton(
                             title: "iPhoneの設定を開く",
                             icon: "gearshape.fill",
-                            height: 58,
-                            fontSize: 21,
+                            height: 60,
+                            fontSize: 22,
                             action: onOpenSystemSettings
                         )
                     }
@@ -804,86 +936,78 @@ struct NotificationSettingsScreen: View {
             }
 
             PaperPanel {
-                VStack(spacing: 4) {
-                    notificationToggle("家族の活動", isOn: $preferences.enabled)
-                    notificationToggle("コメント", isOn: $preferences.commentsEnabled)
-                    notificationToggle("いいね", isOn: $preferences.likesEnabled)
+                VStack(alignment: .leading, spacing: 16) {
+                    notificationToggle("今日の質問", isOn: $preferences.dailyReminderEnabled)
+                        .accessibilityIdentifier("notification-daily-toggle")
+                    Text("質問は日本時間の朝9時〜夜7時に公開します。質問のお知らせは、この端末の地域の日中に届きます。海外では時差があるため、ホームで時刻を確認できます。")
+                        .font(TsutsuuraTheme.bodyFont(size: 20))
+                        .foregroundStyle(TsutsuuraTheme.skyInk)
+                        .fixedSize(horizontal: false, vertical: true)
                     Divider()
-                    notificationToggle("毎日の質問リマインダー", isOn: $preferences.dailyReminderEnabled)
-
-                    if preferences.dailyReminderEnabled {
-                        DatePicker(
-                            "通知する時刻",
-                            selection: $reminderDate,
-                            displayedComponents: .hourAndMinute
-                        )
-                        .font(TsutsuuraTheme.bodyFont(size: 19))
-                        .foregroundStyle(TsutsuuraTheme.ink)
-                        .padding(.vertical, 10)
-                        .onChange(of: reminderDate) { _, newValue in
-                            preferences.dailyReminderTime = Self.timeFormatter
-                                .string(from: newValue)
-                        }
-                    }
-
-                    Divider()
-                    Menu {
-                        Button("ミュートしない") { preferences.muteUntil = nil }
-                        Button("1時間") { preferences.muteUntil = Date().addingTimeInterval(3_600) }
-                        Button("明日まで") { preferences.muteUntil = Date().addingTimeInterval(86_400) }
-                        Button("1週間") { preferences.muteUntil = Date().addingTimeInterval(604_800) }
-                    } label: {
-                        HStack {
-                            Text("一時的にミュート")
-                            Spacer()
-                            Text(muteDescription)
-                                .foregroundStyle(TsutsuuraTheme.skyInk)
-                            Image(systemName: "chevron.up.chevron.down")
-                                .accessibilityHidden(true)
-                        }
-                        .font(TsutsuuraTheme.bodyFont(size: 19))
-                        .foregroundStyle(TsutsuuraTheme.ink)
-                        .frame(minHeight: 52)
-                    }
+                    notificationToggle("家族からのお知らせ", isOn: familyNotices)
+                        .accessibilityIdentifier("notification-family-toggle")
+                    Text("家族の回答、いいね、コメントが届いたときにお知らせします。")
+                        .font(TsutsuuraTheme.bodyFont(size: 20))
+                        .foregroundStyle(TsutsuuraTheme.skyInk)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(22)
+                .padding(24)
             }
 
+            DisclosureGroup {
+                PaperPanel {
+                    VStack(alignment: .leading, spacing: 12) {
+                        notificationToggle("家族が回答したとき", isOn: $preferences.enabled)
+                        notificationToggle("コメントが届いたとき", isOn: $preferences.commentsEnabled)
+                        notificationToggle("いいねが届いたとき", isOn: $preferences.likesEnabled)
+                        Divider()
+                        notificationToggle("明日の朝9時まで休む", isOn: pausesUntilTomorrow)
+                        if let muteUntil = preferences.muteUntil, muteUntil > Date() {
+                            Text("\(Self.muteFormatter.string(from: muteUntil))まで、お知らせを止めています。")
+                                .font(TsutsuuraTheme.bodyFont(size: 19))
+                                .foregroundStyle(TsutsuuraTheme.skyInk)
+                        }
+                    }
+                    .padding(22)
+                }
+                .padding(.top, 12)
+            } label: {
+                Text("お知らせを細かく選ぶ")
+                    .font(TsutsuuraTheme.bodyFont(size: 22, weight: .semibold))
+                    .frame(minHeight: 56)
+            }
+            .tint(.white)
+            .foregroundStyle(.white)
+            .accessibilityIdentifier("notification-details")
+
             TextRaisedButton(
-                title: isSaving ? "保存中…" : "通知設定を保存",
+                title: isSaving ? "保存中…" : "この設定を保存",
                 icon: "checkmark",
-                height: 66,
-                fontSize: 24,
+                height: 68,
+                fontSize: 25,
                 action: onSave
             )
             .disabled(isSaving)
-        }
-        .onAppear {
-            if let date = Self.timeFormatter.date(
-                from: preferences.dailyReminderTime
-            ) {
-                reminderDate = date
-            }
+            .accessibilityIdentifier("notification-save-button")
         }
     }
 
-    @ViewBuilder
     private func notificationToggle(_ title: String, isOn: Binding<Bool>) -> some View {
         Toggle(title, isOn: isOn)
-            .font(TsutsuuraTheme.bodyFont(size: 19))
+            .font(TsutsuuraTheme.bodyFont(size: 22, weight: .semibold))
             .foregroundStyle(TsutsuuraTheme.ink)
             .tint(TsutsuuraTheme.greenDark)
-            .frame(minHeight: 50)
+            .frame(minHeight: 58)
     }
 
     private var permissionDescription: String {
         switch permissionState {
-        case .notDetermined: "まだ許可を選んでいません"
-        case .denied: "iPhoneの設定で通知がオフです"
-        case .authorized: "iPhoneの通知が許可されています"
-        case .provisional: "通知センターへ静かに届きます"
-        case .ephemeral: "通知が一時的に許可されています"
-        case .unavailable: "この端末では通知状態を確認できません"
+        case .notDetermined: "お知らせを受け取るか選べます"
+        case .denied: "iPhoneでお知らせがオフになっています"
+        case .authorized: "お知らせを受け取れます"
+        case .provisional: "音を鳴らさずに届きます"
+        case .ephemeral: "一時的にお知らせを受け取れます"
+        case .unavailable: "この端末では設定を確認できません"
         }
     }
 
@@ -891,23 +1015,10 @@ struct NotificationSettingsScreen: View {
         permissionState == .denied ? "bell.slash.fill" : "bell.fill"
     }
 
-    private var muteDescription: String {
-        guard let muteUntil = preferences.muteUntil,
-              muteUntil > Date() else { return "オフ" }
-        return Self.muteFormatter.string(from: muteUntil) + "まで"
-    }
-
-    private static let timeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "HH:mm"
-        return formatter
-    }()
-
     private static let muteFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "M/d H:mm"
+        formatter.dateFormat = "M月d日 H:mm"
         return formatter
     }()
 }
@@ -964,23 +1075,25 @@ struct AnswerEditorScreen: View {
                 PaperPanel {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("写真・音声")
-                            .font(TsutsuuraTheme.bodyFont(size: 22, weight: .bold))
+                            .font(TsutsuuraTheme.displayFont(22))
                             .foregroundStyle(TsutsuuraTheme.ink)
                         ForEach(Array(answer.media.enumerated()), id: \.element.id) { index, media in
                             HStack {
-                                Label(
-                                    media.kind == .photo
+                                Label {
+                                    Text(media.kind == .photo
                                         ? "写真 \(index + 1)"
-                                        : "音声の回答",
-                                    systemImage: media.kind == .photo ? "photo" : "waveform"
-                                )
+                                        : "音声の回答")
+                                        .font(TsutsuuraTheme.displayFont(19))
+                                } icon: {
+                                    Image(systemName: media.kind == .photo ? "photo" : "waveform")
+                                }
                                 .font(TsutsuuraTheme.bodyFont(size: 19))
                                 .foregroundStyle(TsutsuuraTheme.ink)
                                 Spacer()
                                 Button("削除", role: .destructive) {
                                     pendingMediaDeletion = media
                                 }
-                                .font(TsutsuuraTheme.bodyFont(size: 18, weight: .bold))
+                                .font(TsutsuuraTheme.displayFont(18))
                                 .frame(minWidth: 60, minHeight: 44)
                             }
                         }
@@ -1005,7 +1118,7 @@ struct AnswerEditorScreen: View {
             Button("回答を削除", role: .destructive) {
                 confirmsAnswerDeletion = true
             }
-            .font(TsutsuuraTheme.bodyFont(size: 22, weight: .bold))
+            .font(TsutsuuraTheme.displayFont(22))
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity, minHeight: 58)
             .background(TsutsuuraTheme.coral)
@@ -1039,76 +1152,35 @@ struct AnswerEditorScreen: View {
     }
 }
 
-struct CommentEditorScreen: View {
-    let comment: Comment
-    @Binding var bodyText: String
-    let isSaving: Bool
-    let onBack: () -> Void
-    let onSave: () -> Void
-
-    var body: some View {
-        LifecyclePage(title: "コメントを編集", onBack: onBack) {
-            PaperPanel {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("コメント")
-                        .font(TsutsuuraTheme.bodyFont(size: 21, weight: .bold))
-                        .foregroundStyle(TsutsuuraTheme.ink)
-                    TextEditor(text: $bodyText)
-                        .font(TsutsuuraTheme.bodyFont(size: 23))
-                        .foregroundStyle(TsutsuuraTheme.ink)
-                        .scrollContentBackground(.hidden)
-                        .frame(minHeight: 180)
-                        .padding(10)
-                        .background(.white.opacity(0.70))
-                        .overlay(Rectangle().stroke(TsutsuuraTheme.skyInk, lineWidth: 2))
-                        .onChange(of: bodyText) { _, value in
-                            if UnicodeTextValidation.characterCount(value)
-                                > Comment.maximumBodyCharacterCount {
-                                bodyText = UnicodeTextValidation.clamped(
-                                    value,
-                                    maximumLength: Comment.maximumBodyCharacterCount
-                                )
-                            }
-                        }
-                    Text("\(UnicodeTextValidation.characterCount(bodyText)) / \(Comment.maximumBodyCharacterCount)文字")
-                        .font(TsutsuuraTheme.bodyFont(size: 16))
-                        .foregroundStyle(TsutsuuraTheme.skyInk)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                }
-                .padding(24)
-            }
-
-            TextRaisedButton(
-                title: isSaving ? "保存中…" : "変更を保存",
-                icon: "checkmark",
-                height: 66,
-                fontSize: 24,
-                action: onSave
-            )
-            .disabled(
-                bodyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    || bodyText == comment.body
-                    || isSaving
-            )
-        }
-    }
-}
-
-// MARK: - History controls
-
 struct HistoryFilterScreen: View {
     @Binding var query: HistoryQuery
     let members: [UserProfile]
     let onBack: () -> Void
     let onApply: () -> Void
 
+    @State private var draftQuery: HistoryQuery
     @State private var usesStartDate = false
     @State private var usesEndDate = false
     @State private var startDate = Date()
     @State private var endDate = Date()
 
+    init(
+        query: Binding<HistoryQuery>,
+        members: [UserProfile],
+        onBack: @escaping () -> Void,
+        onApply: @escaping () -> Void
+    ) {
+        _query = query
+        _draftQuery = State(initialValue: query.wrappedValue)
+        self.members = members
+        self.onBack = onBack
+        self.onApply = onApply
+    }
+
     private var hasInvalidDateRange: Bool {
-        usesStartDate && usesEndDate && startDate > endDate
+        usesStartDate && usesEndDate
+            && Calendar.current.compare(startDate, to: endDate, toGranularity: .day)
+                == .orderedDescending
     }
 
     var body: some View {
@@ -1116,16 +1188,16 @@ struct HistoryFilterScreen: View {
             PaperPanel {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("表示する回答")
-                        .font(TsutsuuraTheme.bodyFont(size: 22, weight: .bold))
+                        .font(TsutsuuraTheme.displayFont(22))
                         .foregroundStyle(TsutsuuraTheme.ink)
-                    Picker("範囲", selection: $query.scope) {
+                    Picker("範囲", selection: $draftQuery.scope) {
                         Text("自分の回答").tag(HistoryScope.mine)
                         Text("家族全員").tag(HistoryScope.family)
                     }
                     .pickerStyle(.segmented)
 
-                    if query.scope == .family {
-                        Picker("家族", selection: $query.authorID) {
+                    if draftQuery.scope == .family {
+                        Picker("家族", selection: $draftQuery.authorID) {
                             Text("全員").tag(String?.none)
                             ForEach(members) { member in
                                 Text(member.displayName).tag(String?.some(member.id))
@@ -1140,10 +1212,12 @@ struct HistoryFilterScreen: View {
             PaperPanel {
                 VStack(spacing: 10) {
                     Toggle("開始日を指定", isOn: $usesStartDate)
+                        .font(TsutsuuraTheme.displayFont(19))
                     if usesStartDate {
                         DatePicker("開始日", selection: $startDate, displayedComponents: .date)
                     }
                     Toggle("終了日を指定", isOn: $usesEndDate)
+                        .font(TsutsuuraTheme.displayFont(19))
                     if usesEndDate {
                         DatePicker("終了日", selection: $endDate, displayedComponents: .date)
                     }
@@ -1161,11 +1235,11 @@ struct HistoryFilterScreen: View {
             }
 
             Button("条件をすべて解除") {
-                query = HistoryQuery(scope: query.scope)
+                draftQuery = HistoryQuery(scope: draftQuery.scope)
                 usesStartDate = false
                 usesEndDate = false
             }
-            .font(TsutsuuraTheme.bodyFont(size: 20, weight: .bold))
+            .font(TsutsuuraTheme.displayFont(20))
             .foregroundStyle(.white)
             .frame(minHeight: 50)
 
@@ -1175,28 +1249,29 @@ struct HistoryFilterScreen: View {
                 height: 66,
                 fontSize: 24
             ) {
-                query.startDate = usesStartDate
+                draftQuery.startDate = usesStartDate
                     ? Self.dateFormatter.string(from: startDate)
                     : nil
-                query.endDate = usesEndDate
+                draftQuery.endDate = usesEndDate
                     ? Self.dateFormatter.string(from: endDate)
                     : nil
+                query = draftQuery
                 onApply()
             }
             .disabled(hasInvalidDateRange)
         }
-        .onChange(of: query.scope) { _, scope in
+        .onChange(of: draftQuery.scope) { _, scope in
             if scope == .mine {
-                query.authorID = nil
+                draftQuery.authorID = nil
             }
         }
         .onAppear {
-            if let value = query.startDate,
+            if let value = draftQuery.startDate,
                let date = Self.dateFormatter.date(from: value) {
                 usesStartDate = true
                 startDate = date
             }
-            if let value = query.endDate,
+            if let value = draftQuery.endDate,
                let date = Self.dateFormatter.date(from: value) {
                 usesEndDate = true
                 endDate = date
@@ -1219,129 +1294,262 @@ struct HelpScreen: View {
     let isManagedUser: Bool
     let onBack: () -> Void
     let onReplayOnboarding: () -> Void
-    @State private var showsWalkthrough = false
 
-    private var topics: [(String, String, String)] {
-        var result = [
-            ("回答する", "text.bubble.fill", "家族タブの「回答する」から、文章・声・写真で今日の出来事を残せます。送信後も自分の回答から編集・削除できます。"),
-            ("声で回答する", "waveform", "音声認識とマイクの許可が必要です。許可しない場合も、いつでも文章で回答できます。"),
-            ("写真を追加する", "photo.on.rectangle", "1回の回答に4枚まで。写真は同じ家族だけに表示されます。"),
-            ("いいね・コメント", "heart.bubble.fill", "家族の回答に反応できます。自分のコメントは編集・削除できます。困った内容は報告できます。"),
-            ("通知", "bell.fill", "質問、コメント、いいねを個別に選べます。通知を一時的に止めることもできます。"),
+    private let essentials: [(String, String, String)] = [
+        ("1. 今日の質問を見る", "sun.max.fill", "家族みんなで、日本の日付の質問に答えます。日本時間の朝9時〜夜7時に公開し、その日の出来事を聞く質問は日本時間の夕方5時以降です。ホームには海外の端末の時刻も表示します。"),
+        ("2. 回答を送る", "text.bubble.fill", "「回答する」を押し、ひとこと書くか、声で話します。送る前に内容を確認しましょう。送った回答は編集・削除できません。"),
+        ("3. 家族の回答を読む", "person.3.fill", "「家族」でみんなの回答を、「あなた」で自分の回答を読めます。上の四角は、家族ひとりにつきひとつ。日本の日付で同じ質問に答えた人の分に色がつきます。"),
+    ]
+
+    private var moreTopics: [(String, String, String)] {
+        var topics = [
+            ("いいね・コメント", "heart.fill", "家族の回答に「いいね」を押したり、「コメント」から返事を書いたりできます。同じ家族の中だけに表示されます。"),
+            ("声で回答する", "waveform", "「声で回答」を押し、マイクと音声認識を許可します。話した言葉が文字になるので、送る前に確認できます。文字で入力することもできます。"),
+            ("写真を追加する", "photo.on.rectangle", "回答には写真を4枚まで添えられます。写真も同じ家族だけに見えます。"),
+            ("あなたのしるし", "pencil.tip.crop.circle", "はじめに全員が、自分のしるしを指でかきます。丸や線だけでも大丈夫です。かいたしるしは名前の横に表示され、「設定」の「あなたのしるし」でかき直せます。"),
+            ("前の回答を探す", "magnifyingglass", "「あなた」の検索欄に、質問や回答に入っている言葉を入れます。検索をやめるときは、入力した言葉を消します。"),
+            ("お知らせを選ぶ", "bell.fill", "「設定」から「お知らせを選ぶ」を開きます。今日の質問や、家族からの反応を受け取るか選べます。通知を許可しなくてもアプリは使えます。"),
+            ("前の画面に戻る", "chevron.left", "「戻る」を押します。画面の左端から右へ指を動かして戻ることもできます。"),
         ]
-        if isManagedUser {
-            result.append(("端末を復旧する", "iphone.gen3", "先に設定で復旧コードを作って安全な場所に保存します。コードがない場合は、ご家族の管理者に新しい一回限りの設定案内を送ってもらってください。"))
-        } else {
-            result.append(("家族の端末を復旧する", "person.badge.key.fill", "家族の設定で対象の方を選び、「復旧用の設定案内を作る」を使います。古い未使用案内は無効になります。"))
-        }
-        return result
+        topics.append(isManagedUser
+            ? ("iPhoneを変えるとき", "iphone", "「設定」の「機種変更・データの保存」でメールを登録するか、復旧コードを作って保存します。難しいときは、ご家族に新しい設定番号を送ってもらってください。")
+            : ("家族のiPhoneを準備する", "iphone", "「設定」の「家族を追加・確認する」で、ご家族を選びます。機種変更のときは「復旧用の設定案内を作る」から、新しい設定番号を送れます。"))
+        return topics
     }
 
     var body: some View {
-        LifecyclePage(title: "使い方・ヘルプ", onBack: onBack) {
-            ForEach(Array(topics.enumerated()), id: \.offset) { _, topic in
-                PaperPanel {
-                    HStack(alignment: .top, spacing: 15) {
-                        Image(systemName: topic.1)
-                            .font(.system(size: 28, weight: .semibold))
-                            .foregroundStyle(TsutsuuraTheme.cyanDark)
-                            .frame(width: 38)
-                            .accessibilityHidden(true)
-                        VStack(alignment: .leading, spacing: 7) {
-                            Text(topic.0)
-                                .font(TsutsuuraTheme.bodyFont(size: 22, weight: .bold))
-                                .foregroundStyle(TsutsuuraTheme.ink)
-                            Text(topic.2)
-                                .font(TsutsuuraTheme.bodyFont(size: 18))
-                                .foregroundStyle(TsutsuuraTheme.skyInk)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    .padding(22)
-                }
+        LifecyclePage(title: "使い方", onBack: onBack) {
+            TextRaisedButton(
+                title: "ひとつずつ案内を見る",
+                icon: "play.circle.fill",
+                height: 68,
+                fontSize: 24,
+                action: onReplayOnboarding
+            )
+            .accessibilityIdentifier("replay-essentials-button")
+
+            ForEach(Array(essentials.enumerated()), id: \.offset) { _, topic in
+                topicCard(topic)
             }
 
-            TextRaisedButton(
-                title: "最初の案内をもう一度見る",
-                icon: "play.circle.fill",
-                height: 64,
-                fontSize: 22,
-                action: {
-                    onReplayOnboarding()
-                    showsWalkthrough = true
+            DisclosureGroup {
+                VStack(spacing: 18) {
+                    ForEach(Array(moreTopics.enumerated()), id: \.offset) { _, topic in
+                        topicCard(topic)
+                    }
                 }
-            )
+                .padding(.top, 16)
+            } label: {
+                Text("写真・声・設定など")
+                    .font(TsutsuuraTheme.bodyFont(size: 24, weight: .semibold))
+                    .frame(minHeight: 58)
+            }
+            .tint(.white)
+            .foregroundStyle(.white)
 
-            Link(destination: URL(string: "mailto:support@toshizo.link?subject=Tsutsuura%20Support")!) {
+            Link(destination: URL(string: "mailto:general@toshizo.link?subject=Tsutsuura%20Support")!) {
                 Label("メールで問い合わせる", systemImage: "envelope.fill")
-                    .font(TsutsuuraTheme.bodyFont(size: 22, weight: .bold))
+                    .font(TsutsuuraTheme.bodyFont(size: 22, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, minHeight: 60)
                     .overlay(Rectangle().stroke(.white, lineWidth: 2))
             }
         }
-        .sheet(isPresented: $showsWalkthrough) {
-            OnboardingReplaySheet {
-                showsWalkthrough = false
+
+    }
+
+    private func topicCard(_ topic: (String, String, String)) -> some View {
+        PaperPanel {
+            HStack(alignment: .top, spacing: 15) {
+                Image(systemName: topic.1)
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundStyle(TsutsuuraTheme.cyanDark)
+                    .frame(width: 38)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(topic.0)
+                        .font(TsutsuuraTheme.bodyFont(size: 24, weight: .semibold))
+                        .foregroundStyle(TsutsuuraTheme.ink)
+                        .accessibilityAddTraits(.isHeader)
+                    Text(topic.2)
+                        .font(TsutsuuraTheme.bodyFont(size: 21))
+                        .foregroundStyle(TsutsuuraTheme.skyInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
+            .padding(22)
         }
     }
 }
 
-private struct OnboardingReplaySheet: View {
+/// Shared by first setup and Help after the required personal mark is saved.
+struct EssentialsWalkthroughScreen: View {
+    let onBack: () -> Void
     let onFinished: () -> Void
-    @State private var page = 0
+    var onPersonalize: (() -> Void)? = nil
+    var completionTitle = "つつうらをはじめる"
 
-    private let pages: [(String, String, String)] = [
-        ("家族で一日ひとつ", "sun.max.fill", "毎日の質問に答えると、離れていても小さな出来事を分かち合えます。"),
-        ("好きな方法で回答", "text.bubble.fill", "文章・声・写真から、その日に合う方法を選べます。"),
-        ("家族だけで会話", "person.3.fill", "回答へのいいねやコメントは、同じ家族の中だけに表示されます。"),
-        ("困ったときも安心", "lifepreserver.fill", "設定のヘルプ、通知、復旧、データ管理はいつでも設定から開けます。"),
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Binding private var page: Int
+    @AccessibilityFocusState private var focusedPage: Int?
+
+    init(
+        page: Binding<Int>,
+        onBack: @escaping () -> Void,
+        onFinished: @escaping () -> Void,
+        onPersonalize: (() -> Void)? = nil,
+        completionTitle: String = "つつうらをはじめる"
+    ) {
+        _page = page
+        self.onBack = onBack
+        self.onFinished = onFinished
+        self.onPersonalize = onPersonalize
+        self.completionTitle = completionTitle
+    }
+
+    private let pages: [(title: String, icon: String, body: String, example: String, note: String)] = [
+        ("一日ひとつ、家族に近況を", "sun.max.fill", "日本時間の朝9時〜夜7時に、家族みんなへ同じ質問を公開します。海外では、ホームにこの端末の時刻も表示します。", "最近、おいしかったものは？", "その日の出来事を聞く質問は、日本時間の夕方5時以降です。質問のお知らせは、この端末の地域の日中に届きます。"),
+        ("ひとことから、答えてみる", "text.bubble.fill", "「回答する」を押して、文字を入力するか、声で話します。写真も添えられます。", "家族と食べたおにぎりです。", "送る前に確認しましょう。送った回答は編集・削除できません。"),
+        ("「家族」と「あなた」を選ぶ", "person.3.fill", "「家族」はみんなの回答。「あなた」は自分の回答です。家族に、いいねやコメントで返事をしましょう。", "四角ひとつが、家族ひとり", "上の四角は、日本の日付で同じ質問に答えた人の分に色がつきます。回答は同じ家族だけに見えます。"),
+        ("準備ができました", "checkmark.circle.fill", "わからなくなったら、「設定」の「使い方を見る」を開けます。通知や、あなたのしるしも設定で変えられます。", "あなたがかいた「しるし」が目印です", "名前の横のしるしは、あなたがかいた絵です。「設定」から、いつでもかき直せます。"),
     ]
 
     var body: some View {
         ZStack {
             DottedBackdrop()
-            VStack(spacing: 24) {
-                TabView(selection: $page) {
-                    ForEach(Array(pages.enumerated()), id: \.offset) { index, item in
-                        VStack(spacing: 24) {
-                            Image(systemName: item.1)
-                                .font(.system(size: 58, weight: .semibold))
-                                .foregroundStyle(TsutsuuraTheme.cyan)
-                                .accessibilityHidden(true)
-                            Text(item.0)
-                                .font(TsutsuuraTheme.font(38))
-                                .foregroundStyle(.white)
-                                .multilineTextAlignment(.center)
-                            Text(item.2)
-                                .font(TsutsuuraTheme.bodyFont(size: 22))
-                                .foregroundStyle(.white)
-                                .multilineTextAlignment(.center)
-                                .fixedSize(horizontal: false, vertical: true)
+            VStack(spacing: 16) {
+                HStack {
+                    if page > 0 {
+                        Button(action: onBack) {
+                            Label("前へ", systemImage: "chevron.left")
+                                .frame(minHeight: 52)
                         }
-                        .padding(36)
-                        .tag(index)
+                        .accessibilityIdentifier("essentials-previous-button")
                     }
+                    Spacer()
+                    Text("\(page + 1) / \(pages.count)")
+                        .accessibilityLabel("案内、\(pages.count)つのうち\(page + 1)つ目")
+                    Spacer()
+                    Button("あとで見る", action: onFinished)
+                        .frame(minHeight: 52)
+                        .accessibilityIdentifier("onboarding-replay-close-button")
                 }
-                .tabViewStyle(.page(indexDisplayMode: .always))
+                .font(TsutsuuraTheme.bodyFont(size: 19, weight: .semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 24)
+
+                GeometryReader { viewport in
+                    ZStack(alignment: .topLeading) {
+                        ForEach(pages.indices, id: \.self) { index in
+                            guidePage(at: index)
+                                .frame(width: viewport.size.width, height: viewport.size.height)
+                                .offset(x: CGFloat(index - page) * viewport.size.width)
+                                .allowsHitTesting(page == index)
+                                .accessibilityHidden(page != index)
+                        }
+                    }
+                    .clipped()
+                    .animation(
+                        TsutsuuraMotion.respectingReduceMotion(reduceMotion, TsutsuuraMotion.navigation),
+                        value: page
+                    )
+                }
 
                 TextRaisedButton(
-                    title: page == pages.count - 1 ? "案内を閉じる" : "次へ",
+                    title: page == pages.count - 1 ? completionTitle : "次へ",
                     icon: page == pages.count - 1 ? "checkmark" : "arrow.right",
-                    height: 64,
-                    fontSize: 23
+                    height: 68,
+                    fontSize: 25
                 ) {
-                    if page == pages.count - 1 {
-                        onFinished()
-                    } else {
-                        page += 1
-                    }
+                    if page == pages.count - 1 { onFinished() }
+                    else { changePage(to: page + 1) }
                 }
-                .padding(.horizontal, 32)
-                .padding(.bottom, 30)
+                .accessibilityIdentifier("essentials-next-button")
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
             }
+            .padding(.top, 12)
         }
-        .presentationDragIndicator(.visible)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onChange(of: page) { _, newPage in
+            focusedPage = newPage
+        }
+    }
+
+    private func guidePage(at index: Int) -> some View {
+        ScrollView {
+            VStack(spacing: 22) {
+                Image(systemName: pages[index].icon)
+                    .font(.system(size: 48, weight: .semibold))
+                    .foregroundStyle(TsutsuuraTheme.cyan)
+                    .accessibilityHidden(true)
+                Text(pages[index].title)
+                    .font(TsutsuuraTheme.bodyFont(size: 34, weight: .bold))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityFocused($focusedPage, equals: index)
+                    .accessibilityIdentifier("essentials-title")
+                Text(pages[index].body)
+                    .font(TsutsuuraTheme.bodyFont(size: 24))
+                    .foregroundStyle(.white)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineSpacing(5)
+
+                PaperPanel {
+                    VStack(alignment: .leading, spacing: 18) {
+                        if index < 2 {
+                            Text(index == 0 ? "質問の例" : "回答の例")
+                                .font(TsutsuuraTheme.bodyFont(size: 19, weight: .semibold))
+                                .foregroundStyle(TsutsuuraTheme.cyanDark)
+                        }
+                        Text(pages[index].example)
+                            .font(TsutsuuraTheme.bodyFont(size: 25, weight: .semibold))
+                            .foregroundStyle(TsutsuuraTheme.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if index == 2 {
+                            HStack(spacing: 10) {
+                                ForEach(0..<3) { memberIndex in
+                                    Rectangle()
+                                        .fill(memberIndex < 2 ? TsutsuuraTheme.greenDark : TsutsuuraTheme.skyMuted.opacity(0.25))
+                                        .frame(height: 40)
+                                        .overlay {
+                                            if memberIndex < 2 {
+                                                Image(systemName: "checkmark")
+                                                    .foregroundStyle(.white)
+                                            }
+                                        }
+                                }
+                            }
+                            .accessibilityLabel("3人家族の例。2人が回答しました")
+                        }
+                        Text(pages[index].note)
+                            .font(TsutsuuraTheme.bodyFont(size: 21))
+                            .foregroundStyle(TsutsuuraTheme.skyInk)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(24)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if index == pages.count - 1, let onPersonalize {
+                    TextRaisedButton(
+                        title: "しるしをかき直す",
+                        icon: "pencil.tip.crop.circle",
+                        height: 64,
+                        fontSize: 22,
+                        action: onPersonalize
+                    )
+                    .accessibilityIdentifier("essentials-personalize-button")
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+        }
+    }
+
+    private func changePage(to nextPage: Int) {
+        guard pages.indices.contains(nextPage) else { return }
+        page = nextPage
     }
 }

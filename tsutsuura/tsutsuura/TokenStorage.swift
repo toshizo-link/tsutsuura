@@ -5,6 +5,7 @@ protocol TokenStoring: Sendable {
     func readToken() async throws -> String?
     func writeToken(_ token: String) async throws
     func clearToken() async throws
+    func clearToken(ifMatching expectedToken: String) async throws
 }
 
 enum KeychainTokenStoreError: Error, Equatable {
@@ -213,6 +214,11 @@ actor KeychainTokenStore: TokenStoring {
         }
     }
 
+    func clearToken(ifMatching expectedToken: String) throws {
+        guard try readToken() == expectedToken else { return }
+        try clearToken()
+    }
+
     private var baseQuery: [String: Any] {
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -242,6 +248,11 @@ actor InMemoryTokenStore: TokenStoring {
     }
 
     func clearToken() {
+        token = nil
+    }
+
+    func clearToken(ifMatching expectedToken: String) {
+        guard token == expectedToken else { return }
         token = nil
     }
 }

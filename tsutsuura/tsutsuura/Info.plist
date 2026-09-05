@@ -3,7 +3,7 @@
 <plist version="1.0">
 	<dict>
 		<key>API_BASE_URL</key>
-		<string>https://kttprojects.conohawing.com/tsutsuura-api/api</string>
+		<string>https://toshizo.link/tsutsuura-api/api</string>
 		<key>CFBundleDisplayName</key>
 		<string>つつうら</string>
 		<key>ITSAppUsesNonExemptEncryption</key>

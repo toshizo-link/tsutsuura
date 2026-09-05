@@ -46,6 +46,10 @@ struct APIRequestRetryPolicy: Equatable, Sendable {
 
 protocol AppAPI: Sendable {
     func hasStoredSession() async throws -> Bool
+    func requestEmailOTP(email: String) async throws -> OTPChallenge
+    func verifyEmailOTP(requestID: String, code: String) async throws -> AuthSession
+    func requestEmailEnrollment(email: String) async throws -> OTPChallenge
+    func verifyEmailEnrollment(requestID: String, code: String) async throws -> UserProfile
     func requestOTP(phoneNumber: String) async throws -> OTPChallenge
     func verifyOTP(requestID: String, code: String) async throws -> AuthSession
     func requestPhoneEnrollment(phoneNumber: String) async throws -> OTPChallenge
@@ -54,6 +58,7 @@ protocol AppAPI: Sendable {
     func recoverAccount(code: String) async throws -> AuthSession
     func fetchMe() async throws -> UserProfile
     func updateProfile(displayName: String) async throws -> UserProfile
+    func updatePersonalMark(_ mark: String?) async throws -> UserProfile
     func fetchFamily() async throws -> FamilySummary
     func renameFamily(name: String) async throws -> FamilySummary
     func createOrganizerFamily(
@@ -85,6 +90,9 @@ protocol AppAPI: Sendable {
         questionID: String,
         submission: AnswerSubmission
     ) async throws -> Answer
+    func submitAnswer(
+        questionID: String, questionDate: String?, submission: AnswerSubmission
+    ) async throws -> Answer
     func updateAnswer(
         answerID: String,
         submission: AnswerSubmission
@@ -113,6 +121,7 @@ protocol AppAPI: Sendable {
         details: String?
     ) async throws -> CommentReport
     func fetchNotificationPreferences() async throws -> NotificationPreferences
+    func updateDeviceTimeZone(_ identifier: String) async throws
     func updateNotificationPreferences(
         _ preferences: NotificationPreferences
     ) async throws -> NotificationPreferences
@@ -127,6 +136,26 @@ protocol AppAPI: Sendable {
 }
 
 extension AppAPI {
+    func updateDeviceTimeZone(_ identifier: String) async throws {
+        throw APIClientError.unsupportedOperation
+    }
+
+    func requestEmailOTP(email: String) async throws -> OTPChallenge {
+        throw APIClientError.unsupportedOperation
+    }
+    func verifyEmailOTP(requestID: String, code: String) async throws -> AuthSession {
+        throw APIClientError.unsupportedOperation
+    }
+    func requestEmailEnrollment(email: String) async throws -> OTPChallenge {
+        throw APIClientError.unsupportedOperation
+    }
+    func verifyEmailEnrollment(requestID: String, code: String) async throws -> UserProfile {
+        throw APIClientError.unsupportedOperation
+    }
+
+    func updatePersonalMark(_ mark: String?) async throws -> UserProfile {
+        throw APIClientError.unsupportedOperation
+    }
     func fetchAnswer(answerID: String) async throws -> Answer {
         throw APIClientError.unsupportedOperation
     }
@@ -189,6 +218,12 @@ extension AppAPI {
             questionID: questionID,
             body: submission.body
         )
+    }
+
+    func submitAnswer(
+        questionID: String, questionDate: String?, submission: AnswerSubmission
+    ) async throws -> Answer {
+        try await submitAnswer(questionID: questionID, submission: submission)
     }
 
     func fetchAnswerMedia(
@@ -350,12 +385,20 @@ extension APIClientError: LocalizedError {
             switch payload?.code {
             case "auth_provider_unavailable":
                 return "現在この認証方法は利用できません。しばらくしてからもう一度お試しください。"
+            case "invalid_email":
+                return "メールアドレスを確認してください。"
+            case "email_already_in_use":
+                return "このメールアドレスは別のアカウントで使われています。"
+            case "email_already_enrolled":
+                return "このメールアドレスは登録済みです。"
+            case "email_delivery_failed":
+                return "確認メールを送れませんでした。少し待ってから、もう一度お試しください。"
             case "invalid_phone":
                 return "電話番号を確認してください。"
             case "invalid_otp":
                 return "認証コードが正しくありません。"
             case "account_not_found":
-                return "この電話番号に登録されたアカウントが見つかりません。"
+                return "登録済みのアカウントが見つかりません。入力した情報を確認してください。"
             case "phone_already_in_use":
                 return "この電話番号は別のアカウントで使われています。"
             case "phone_enrollment_required":
@@ -402,6 +445,14 @@ extension APIClientError: LocalizedError {
                 return "新しい管理者の端末で、電話番号を登録するか復旧コードを保存してから引き継いでください。"
             case "answer_not_found":
                 return "回答が見つかりません。"
+            case "answer_immutable":
+                return "送った回答は変更できません。続きはコメントで伝えられます。"
+            case "question_changed":
+                return "質問が新しくなりました。ホームに戻って、今日の質問を確認してください。入力した内容は残っています。"
+            case "question_not_published":
+                return "今日の質問は、表示されている時刻に届きます。"
+            case "not_found", "endpoint_not_found":
+                return "この機能の準備がまだ完了していません。時間をおいてお試しください。"
             case "comment_not_found":
                 return "コメントが見つかりません。"
             case "comment_already_reported":
@@ -418,7 +469,10 @@ extension APIClientError: LocalizedError {
         case .decoding:
             return "サーバーからの応答を読み取れませんでした。"
         case .transport(let error):
-            return error.localizedDescription
+            if (error as? URLError)?.code == .notConnectedToInternet {
+                return "インターネットにつながっていません。接続を確認してください。"
+            }
+            return "通信できませんでした。もう一度お試しください。"
         }
     }
 }
@@ -431,6 +485,8 @@ actor DefaultAppAPI: AppAPI {
     // Lifecycle leave/delete tombstones are intentionally absent: they remain
     // durable until the client can reconcile the committed server receipt.
     private static let boundedMutationOperations: Set<String> = [
+        "email.otp.verify",
+        "email.enrollment.verify",
         "otp.verify",
         "phone.enrollment.verify",
         "family.create",
@@ -520,6 +576,91 @@ actor DefaultAppAPI: AppAPI {
     func hasStoredSession() async throws -> Bool {
         try await reconcilePendingLifecycleMutations()
         return try await tokenStore.readToken()?.isEmpty == false
+    }
+
+    func requestEmailOTP(email: String) async throws -> OTPChallenge {
+        guard let email = EmailAddressValidation.normalized(
+            email
+        ) else {
+            throw TextInputValidationError.invalidEmailAddress
+        }
+        let endpoint = Endpoint<OTPChallenge>(
+            method: .post,
+            path: ["v1", "auth", "email", "request"],
+            body: RequestEmailCodeBody(email: email),
+            requiresAuthorization: false
+        )
+        return try await send(endpoint)
+    }
+
+    func verifyEmailOTP(requestID: String, code: String) async throws -> AuthSession {
+        let mutation = try persistentMutationKey(
+            operation: "email.otp.verify",
+            fingerprint: requestID + "\u{0}" + code
+        )
+        do {
+            let session: AuthSession = try await send(Endpoint(
+                method: .post,
+                path: ["v1", "auth", "email", "verify"],
+                body: VerifyEmailCodeBody(requestID: requestID, code: code),
+                requiresAuthorization: false,
+                idempotencyKey: mutation.value,
+                isSafelyRetryable: true
+            ))
+            try await tokenStore.writeToken(session.accessToken)
+            clearPersistentMutationKey(mutation)
+            return session
+        } catch {
+            clearPersistentMutationKeyIfDefinitive(mutation, after: error)
+            throw error
+        }
+    }
+
+    func requestEmailEnrollment(
+        email: String
+    ) async throws -> OTPChallenge {
+        guard let email = EmailAddressValidation.normalized(
+            email
+        ) else {
+            throw TextInputValidationError.invalidEmailAddress
+        }
+        return try await send(
+            Endpoint<OTPChallenge>(
+                method: .post,
+                path: ["v1", "me", "email", "request"],
+                body: RequestEmailCodeBody(email: email)
+            )
+        )
+    }
+
+    func verifyEmailEnrollment(
+        requestID: String,
+        code: String
+    ) async throws -> UserProfile {
+        let token = try await tokenStore.readToken()
+        let actorFingerprint = token.map(Self.authorizationFingerprint) ?? ""
+        let mutation = try persistentMutationKey(
+            operation: "email.enrollment.verify",
+            fingerprint: actorFingerprint + "\u{0}" + requestID + "\u{0}" + code,
+            authorizationToken: token
+        )
+        do {
+            let response: UserProfileResponse = try await send(Endpoint(
+                method: .post,
+                path: ["v1", "me", "email", "verify"],
+                body: VerifyEmailCodeBody(
+                    requestID: requestID,
+                    code: code
+                ),
+                idempotencyKey: mutation.value,
+                isSafelyRetryable: true
+            ))
+            clearPersistentMutationKey(mutation)
+            return response.user
+        } catch {
+            clearPersistentMutationKeyIfDefinitive(mutation, after: error)
+            throw error
+        }
     }
 
     func requestOTP(phoneNumber: String) async throws -> OTPChallenge {
@@ -658,6 +799,22 @@ actor DefaultAppAPI: AppAPI {
                 body: UpdateProfileBody(displayName: displayName)
             )
         )
+        return response.user
+    }
+
+    func updatePersonalMark(_ mark: String?) async throws -> UserProfile {
+        struct MarkBody: Encodable {
+            let avatarMark: String?
+            enum CodingKeys: String, CodingKey { case avatarMark }
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                if let avatarMark { try container.encode(avatarMark, forKey: .avatarMark) }
+                else { try container.encodeNil(forKey: .avatarMark) }
+            }
+        }
+        let response: UserProfileResponse = try await send(Endpoint(
+            method: .patch, path: ["v1", "me"], body: MarkBody(avatarMark: mark)
+        ))
         return response.user
     }
 
@@ -986,6 +1143,12 @@ actor DefaultAppAPI: AppAPI {
         questionID: String,
         submission: AnswerSubmission
     ) async throws -> Answer {
+        try await submitAnswer(questionID: questionID, questionDate: nil, submission: submission)
+    }
+
+    func submitAnswer(
+        questionID: String, questionDate: String?, submission: AnswerSubmission
+    ) async throws -> Answer {
         try submission.validate()
 
         let endpoint: Endpoint<SubmittedAnswerResponse>
@@ -995,13 +1158,13 @@ actor DefaultAppAPI: AppAPI {
                 // POST requests, not multipart PUT requests.
                 method: .post,
                 path: ["v1", "questions", "today", "answer"],
-                multipartBody: try MultipartFormData(submission: submission)
+                multipartBody: try MultipartFormData(submission: submission, questionID: questionID, questionDate: questionDate)
             )
         } else {
             endpoint = Endpoint(
                 method: .put,
                 path: ["v1", "questions", "today", "answer"],
-                body: SubmitAnswerBody(body: submission.body)
+                body: SubmitAnswerBody(body: submission.body, questionId: questionID, questionDate: questionDate)
             )
         }
 
@@ -1129,7 +1292,10 @@ actor DefaultAppAPI: AppAPI {
                 (try? decoder.decode(APIErrorEnvelope.self, from: data).error)
                 ?? (try? decoder.decode(APIErrorPayload.self, from: data))
             if response.statusCode == 401 {
-                try? await tokenStore.clearToken()
+                if let authorization = request.value(forHTTPHeaderField: "Authorization"),
+                   authorization.hasPrefix("Bearer ") {
+                    try? await tokenStore.clearToken(ifMatching: String(authorization.dropFirst(7)))
+                }
                 throw APIClientError.unauthorized
             }
             throw APIClientError.server(
@@ -1343,6 +1509,16 @@ actor DefaultAppAPI: AppAPI {
             )
         )
         return response.preferences
+    }
+
+    func updateDeviceTimeZone(_ identifier: String) async throws {
+        let _: NotificationPreferencesResponse = try await send(
+            Endpoint(
+                method: .patch,
+                path: ["v1", "me", "timezone"],
+                body: DeviceTimeZoneBody(timeZoneIdentifier: identifier)
+            )
+        )
     }
 
     func updateNotificationPreferences(
@@ -1877,7 +2053,10 @@ actor DefaultAppAPI: AppAPI {
                 (try? decoder.decode(APIErrorEnvelope.self, from: data).error)
                 ?? (try? decoder.decode(APIErrorPayload.self, from: data))
             if response.statusCode == 401 {
-                try? await tokenStore.clearToken()
+                if let authorization = request.value(forHTTPHeaderField: "Authorization"),
+                   authorization.hasPrefix("Bearer ") {
+                    try? await tokenStore.clearToken(ifMatching: String(authorization.dropFirst(7)))
+                }
                 throw APIClientError.unauthorized
             }
             throw APIClientError.server(
@@ -2032,7 +2211,16 @@ actor DefaultAppAPI: AppAPI {
         }
 
         var request = URLRequest(url: url)
-        request.httpMethod = endpoint.method.rawValue
+        // The shared host's front-end firewall blocks native mutation verbs
+        // before PHP runs. The API accepts these logical methods over POST.
+        // Retry decisions still use endpoint.method, preserving their semantics.
+        switch endpoint.method {
+        case .patch, .put, .delete:
+            request.httpMethod = HTTPMethod.post.rawValue
+            request.setValue(endpoint.method.rawValue, forHTTPHeaderField: "X-HTTP-Method-Override")
+        case .get, .post:
+            request.httpMethod = endpoint.method.rawValue
+        }
         request.timeoutInterval = endpoint.multipartBody == nil ? 30 : 120
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let idempotencyKey = endpoint.idempotencyKey {
@@ -2178,9 +2366,13 @@ private struct MultipartFormData: Sendable {
     let boundary: String
     let data: Data
 
-    init(submission: AnswerSubmission) throws {
+    init(submission: AnswerSubmission, questionID: String, questionDate: String?) throws {
         boundary = "tsutsuura-\(UUID().uuidString)"
         var encoded = Data()
+        Self.appendTextPart(name: "questionId", value: questionID, boundary: boundary, to: &encoded)
+        if let questionDate {
+            Self.appendTextPart(name: "questionDate", value: questionDate, boundary: boundary, to: &encoded)
+        }
 
         Self.appendTextPart(
             name: "body",
@@ -2391,6 +2583,10 @@ private struct CommentReportResponse: Decodable, Sendable {
             report = try CommentReport(from: decoder)
         }
     }
+}
+
+private struct DeviceTimeZoneBody: Encodable, Sendable {
+    let timeZoneIdentifier: String
 }
 
 private struct NotificationPreferencesResponse: Decodable, Sendable {
