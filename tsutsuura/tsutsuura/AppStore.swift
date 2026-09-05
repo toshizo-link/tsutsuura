@@ -1225,15 +1225,21 @@ final class AppStore: ObservableObject {
         treatMissingAsHandled: Bool
     ) async -> Bool {
         guard !question.isLoading else { return false }
+        let requestedGeneration = authenticationGeneration
         question.isLoading = true
         question.errorMessage = nil
-        defer { question.isLoading = false }
+        defer {
+            if authenticationGeneration == requestedGeneration { question.isLoading = false }
+        }
 
         do {
-            receiveTodayQuestion(try await api.fetchTodayQuestion())
+            let loadedQuestion = try await api.fetchTodayQuestion()
+            guard authenticationGeneration == requestedGeneration, !Task.isCancelled else { return false }
+            receiveTodayQuestion(loadedQuestion)
             return question.pendingQuestion == nil
         } catch {
-            guard !isCancelledRequest(error) else { return false }
+            guard authenticationGeneration == requestedGeneration,
+                  !Task.isCancelled, !isCancelledRequest(error) else { return false }
             if treatMissingAsHandled,
                isTerminalPushDestinationError(error) {
                 let message = "この質問は終了したか、現在は表示できません。"
@@ -1592,6 +1598,7 @@ final class AppStore: ObservableObject {
         answerID: String,
         loadMore: Bool = false
     ) async -> PushDestinationResolution {
+        let requestedGeneration = authenticationGeneration
         var thread = commentThreads[answerID] ?? CommentThreadState()
         guard !thread.isLoading else { return .retryable }
         if loadMore, thread.nextCursor == nil { return .ready }
@@ -1605,7 +1612,13 @@ final class AppStore: ObservableObject {
                 answerID: answerID,
                 cursor: loadMore ? thread.nextCursor : nil
             )
+            guard authenticationGeneration == requestedGeneration else { return .retryable }
             thread = commentThreads[answerID] ?? thread
+            if Task.isCancelled {
+                thread.isLoading = false
+                commentThreads[answerID] = thread
+                return .retryable
+            }
             if loadMore {
                 thread.comments = mergedComments(
                     thread.comments,
@@ -1619,8 +1632,13 @@ final class AppStore: ObservableObject {
             commentThreads[answerID] = thread
             return .ready
         } catch {
+            guard authenticationGeneration == requestedGeneration else { return .retryable }
             thread = commentThreads[answerID] ?? thread
             thread.isLoading = false
+            if Task.isCancelled || isCancelledRequest(error) {
+                commentThreads[answerID] = thread
+                return .retryable
+            }
             thread.errorMessage = userFacingMessage(for: error)
             commentThreads[answerID] = thread
             handleAuthenticatedError(error)
@@ -1943,14 +1961,20 @@ final class AppStore: ObservableObject {
 
     func loadNotificationPreferences() async {
         guard !notificationPreferences.isLoading else { return }
+        let generation = authenticationGeneration
         notificationPreferences.isLoading = true
         notificationPreferences.errorMessage = nil
-        defer { notificationPreferences.isLoading = false }
+        defer {
+            if generation == authenticationGeneration { notificationPreferences.isLoading = false }
+        }
 
         do {
-            notificationPreferences.preferences = try await api
-                .fetchNotificationPreferences()
+            let preferences = try await api.fetchNotificationPreferences()
+            guard generation == authenticationGeneration, !Task.isCancelled else { return }
+            notificationPreferences.preferences = preferences
         } catch {
+            guard generation == authenticationGeneration,
+                  !Task.isCancelled, !isCancelledRequest(error) else { return }
             handleAuthenticatedError(error)
             notificationPreferences.errorMessage = userFacingMessage(for: error)
         }
@@ -1961,16 +1985,22 @@ final class AppStore: ObservableObject {
         _ preferences: NotificationPreferences
     ) async -> Bool {
         guard !notificationPreferences.isSaving else { return false }
+        let generation = authenticationGeneration
         notificationPreferences.isSaving = true
         notificationPreferences.errorMessage = nil
-        defer { notificationPreferences.isSaving = false }
+        defer {
+            if generation == authenticationGeneration { notificationPreferences.isSaving = false }
+        }
 
         do {
-            notificationPreferences.preferences = try await api
-                .updateNotificationPreferences(preferences)
+            let saved = try await api.updateNotificationPreferences(preferences)
+            guard generation == authenticationGeneration, !Task.isCancelled else { return false }
+            notificationPreferences.preferences = saved
             haptics.success()
             return true
         } catch {
+            guard generation == authenticationGeneration,
+                  !Task.isCancelled, !isCancelledRequest(error) else { return false }
             handleAuthenticatedError(error)
             notificationPreferences.errorMessage = userFacingMessage(for: error)
             haptics.error()
@@ -2101,8 +2131,10 @@ final class AppStore: ObservableObject {
         answerID: String,
         targetCommentID: String? = nil
     ) async -> Bool {
+        let requestedGeneration = authenticationGeneration
         do {
             let answer = try await api.fetchAnswer(answerID: answerID)
+            guard authenticationGeneration == requestedGeneration, !Task.isCancelled else { return false }
             if home.feed == nil {
                 home.feed = HomeFeed(answers: [answer])
             } else if let index = home.feed?.answers.firstIndex(where: {
@@ -2115,7 +2147,9 @@ final class AppStore: ObservableObject {
             var thread = commentThreads[answer.id] ?? CommentThreadState()
             thread.focusedCommentID = nil
             commentThreads[answer.id] = thread
-            switch await performCommentLoad(answerID: answer.id) {
+            let commentResolution = await performCommentLoad(answerID: answer.id)
+            guard authenticationGeneration == requestedGeneration, !Task.isCancelled else { return false }
+            switch commentResolution {
             case .ready:
                 break
             case .terminal:
@@ -2136,10 +2170,12 @@ final class AppStore: ObservableObject {
                 let nextCursor = commentThreads[answer.id]?.nextCursor,
                 nextCursor != previousCursor {
                     previousCursor = nextCursor
-                    switch await performCommentLoad(
+                    let pageResolution = await performCommentLoad(
                         answerID: answer.id,
                         loadMore: true
-                    ) {
+                    )
+                    guard authenticationGeneration == requestedGeneration, !Task.isCancelled else { return false }
+                    switch pageResolution {
                     case .ready:
                         break
                     case .terminal:
@@ -2166,6 +2202,8 @@ final class AppStore: ObservableObject {
             path = [.home, .comments(answerID: answer.id)]
             return true
         } catch {
+            guard authenticationGeneration == requestedGeneration,
+                  !Task.isCancelled, !isCancelledRequest(error) else { return false }
             if isTerminalPushDestinationError(error) {
                 globalErrorMessage = "この回答は削除されたか、現在は表示できません。"
                 return true

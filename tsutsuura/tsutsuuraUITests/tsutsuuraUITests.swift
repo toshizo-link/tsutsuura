@@ -1287,10 +1287,85 @@ final class tsutsuuraUITests: XCTestCase {
         XCTAssertTrue(waitUntilLabelEquals("一日ひとつ、家族に近況を", for: title, timeout: 3))
         for _ in 0..<3 { next.tap() }
         XCTAssertTrue(waitUntilLabelEquals("準備ができました", for: title, timeout: 3))
-        XCTAssertTrue(app.staticTexts["名前の横に、指でかいた絵をつけられます。かかずに名前の一文字を使っても大丈夫です。"].exists)
+        XCTAssertTrue(app.staticTexts["名前の横のしるしは、あなたがかいた絵です。「設定」から、いつでもかき直せます。"].exists)
         attachScreenshot(of: app, named: "essentials-last-step")
         next.tap()
         XCTAssertTrue(app.buttons["replay-essentials-button"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testFinalOnboardingOffersNotificationsAndCanStartWithoutPermission() throws {
+        let app = launchNotificationGuide(response: "authorized")
+        let optIn = app.buttons["essentials-notification-opt-in"]
+        XCTAssertTrue(scrollToHittable(optIn, in: app))
+        XCTAssertTrue(optIn.isEnabled)
+        XCTAssertFalse(app.staticTexts["essentials-notification-authorized"].exists,
+                       "Simply opening the guide must not request notification permission.")
+        attachScreenshot(of: app, named: "onboarding-notification-choice")
+        let finish = app.buttons["essentials-next-button"]
+        XCTAssertTrue(finish.isHittable, "Finishing must remain available without opting in.")
+        finish.tap()
+        XCTAssertTrue(app.buttons["replay-essentials-button"].waitForExistence(timeout: 5))
+        app.buttons["replay-essentials-button"].tap()
+        advanceToFinalGuidePage(in: app)
+        XCTAssertTrue(scrollToHittable(optIn, in: app), "Skipping must not record an authorization choice.")
+        optIn.tap()
+        let allowed = app.descendants(matching: .any).matching(identifier: "essentials-notification-authorized").firstMatch
+        XCTAssertTrue(allowed.waitForExistence(timeout: 5))
+        XCTAssertFalse(optIn.exists, "A granted permission must not prompt again.")
+        finish.tap()
+        XCTAssertTrue(app.buttons["replay-essentials-button"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testDecliningNotificationPermissionKeepsOnboardingUsable() throws {
+        let app = launchNotificationGuide(response: "denied")
+        let optIn = app.buttons["essentials-notification-opt-in"]
+        XCTAssertTrue(scrollToHittable(optIn, in: app))
+        optIn.tap()
+        let settings = app.buttons["essentials-notification-settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        XCTAssertFalse(optIn.exists, "A denied permission must not immediately prompt again.")
+        let finish = app.buttons["essentials-next-button"]
+        XCTAssertTrue(finish.isHittable)
+        finish.tap()
+        XCTAssertTrue(app.buttons["replay-essentials-button"].waitForExistence(timeout: 5))
+        app.buttons["replay-essentials-button"].tap()
+        advanceToFinalGuidePage(in: app)
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        XCTAssertFalse(optIn.exists)
+    }
+
+    @MainActor
+    private func launchNotificationGuide(response: String) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchEnvironment["UI_TESTING"] = "1"
+        app.launchEnvironment["TSUTSUURA_DEMO_MODE"] = "authenticated"
+        app.launchEnvironment["TSUTSUURA_TEST_PUSH_AUTHORIZATION"] = "notDetermined"
+        app.launchEnvironment["TSUTSUURA_TEST_PUSH_RESPONSE"] = response
+        app.launch()
+        openSettings(in: app)
+        let help = app.buttons["help-button"]
+        XCTAssertTrue(scrollToHittable(help, in: app))
+        help.tap()
+        app.buttons["replay-essentials-button"].tap()
+        advanceToFinalGuidePage(in: app)
+        return app
+    }
+
+    @MainActor
+    private func advanceToFinalGuidePage(in app: XCUIApplication) {
+        let title = app.staticTexts["essentials-title"]
+        let titles = ["一日ひとつ、家族に近況を", "ひとことから、答えてみる", "「家族」と「あなた」を選ぶ", "準備ができました"]
+        for index in 0..<3 {
+            XCTAssertTrue(waitUntilLabelEquals(titles[index], for: title, timeout: 5))
+            let next = app.buttons["essentials-next-button"]
+            XCTAssertTrue(waitUntilHittable(next, timeout: 3))
+            next.tap()
+            if !waitUntilLabelEquals(titles[index + 1], for: title, timeout: 3),
+               title.label == titles[index], next.isHittable { next.tap() }
+        }
+        XCTAssertTrue(waitUntilLabelEquals(titles[3], for: title, timeout: 5))
     }
 
     @MainActor

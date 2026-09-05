@@ -20,6 +20,7 @@ struct ContentView: View {
     @State private var showAnswerSuccess = false
     @State private var localErrorMessage: String?
     @State private var pushRegistration = PushRegistrationCoordinator()
+    @State private var pushDestinations = PushDestinationCoordinator()
     @State private var settingsDisplayName = ""
     @State private var otpIssuedAt: Date?
     @State private var otpResendAvailableAt: Date?
@@ -30,6 +31,7 @@ struct ContentView: View {
     @State private var answerEditorDraft = ""
     @State private var notificationDraft = NotificationPreferences()
     @State private var pushAuthorizationState: PushAuthorizationState = .unavailable
+    @State private var isRequestingPushPermission = false
     @State private var informationDocument: InformationDocument?
 
     init(store: AppStore? = nil) {
@@ -136,7 +138,10 @@ struct ContentView: View {
             if phase == .active, case .signedIn = store.session {
                 refreshPushRegistrationIfAuthorized()
                 Task { await store.synchronizeDeviceTimeZone() }
-                Task { await store.refreshHomeInBackground(includingHistory: selectedTab == .profile) }
+                Task {
+                    await store.refreshHomeInBackground(includingHistory: selectedTab == .profile)
+                    await consumePendingPushDestination()
+                }
             }
         }
         .onOpenURL(perform: handleIncomingURL)
@@ -193,6 +198,7 @@ struct ContentView: View {
                 return
             }
             registerPushTokenIfPossible()
+            Task { await consumePendingPushDestination() }
         }
     }
 
@@ -865,6 +871,10 @@ struct ContentView: View {
                     onPersonalize: {
                         pushRoute(.personalMark)
                     },
+                    permissionState: pushAuthorizationState,
+                    isRequestingPermission: isRequestingPushPermission,
+                    onRequestPermission: requestPushPermission,
+                    onOpenSystemSettings: openAppSettings,
                     completionTitle: store.path.contains(.help) ? "案内を閉じる" : "つつうらをはじめる"
                 )
 
@@ -1585,7 +1595,12 @@ struct ContentView: View {
     }
 
     private func requestPushPermission() {
-        Task { await refreshPushAuthorization(requestPermission: true) }
+        guard !isRequestingPushPermission else { return }
+        isRequestingPushPermission = true
+        Task {
+            defer { isRequestingPushPermission = false }
+            await refreshPushAuthorization(requestPermission: true)
+        }
     }
 
     private func refreshPushRegistrationIfAuthorized() {
@@ -1595,7 +1610,7 @@ struct ContentView: View {
     private func refreshPushAuthorization(requestPermission: Bool = false) async {
         guard case .signedIn(let profile) = store.session else { return }
         pushRegistration.setUserID(profile.id)
-        let state = await pushRegistration.refreshAuthorization {
+        let state = await pushRegistration.refreshAuthorization(requestsPermission: requestPermission) {
             if requestPermission {
                 return await PushNotificationRegistration.requestAuthorizationIfNeeded()
             }
@@ -1688,12 +1703,17 @@ struct ContentView: View {
     }
 
     private func consumePendingPushDestination() async {
-        guard case .signedIn = store.session,
-              !store.requiresPersonalMarkSetup,
-              let destination = await PendingPushDestinationStore.shared.peek()
-        else {
-            return
-        }
+        await pushDestinations.consume(
+            from: PendingPushDestinationStore.shared,
+            isAvailable: {
+                guard case .signedIn = store.session else { return false }
+                return !store.requiresPersonalMarkSetup
+            },
+            open: openPushDestination
+        )
+    }
+
+    private func openPushDestination(_ destination: AppPushDestination) async -> Bool {
         let didOpen: Bool
         switch destination {
         case .todayQuestion(let expectedQuestionID):
@@ -1716,9 +1736,7 @@ struct ContentView: View {
                 targetCommentID: commentID
             )
         }
-        if didOpen {
-            await PendingPushDestinationStore.shared.acknowledge(destination)
-        }
+        return didOpen
     }
 
     private static let historyDateFormatter: DateFormatter = {

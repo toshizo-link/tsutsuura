@@ -1387,6 +1387,10 @@ struct EssentialsWalkthroughScreen: View {
     let onBack: () -> Void
     let onFinished: () -> Void
     var onPersonalize: (() -> Void)? = nil
+    let permissionState: PushAuthorizationState
+    let isRequestingPermission: Bool
+    let onRequestPermission: () -> Void
+    let onOpenSystemSettings: () -> Void
     var completionTitle = "つつうらをはじめる"
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -1398,12 +1402,20 @@ struct EssentialsWalkthroughScreen: View {
         onBack: @escaping () -> Void,
         onFinished: @escaping () -> Void,
         onPersonalize: (() -> Void)? = nil,
+        permissionState: PushAuthorizationState,
+        isRequestingPermission: Bool,
+        onRequestPermission: @escaping () -> Void,
+        onOpenSystemSettings: @escaping () -> Void,
         completionTitle: String = "つつうらをはじめる"
     ) {
         _page = page
         self.onBack = onBack
         self.onFinished = onFinished
         self.onPersonalize = onPersonalize
+        self.permissionState = permissionState
+        self.isRequestingPermission = isRequestingPermission
+        self.onRequestPermission = onRequestPermission
+        self.onOpenSystemSettings = onOpenSystemSettings
         self.completionTitle = completionTitle
     }
 
@@ -1411,7 +1423,7 @@ struct EssentialsWalkthroughScreen: View {
         ("一日ひとつ、家族に近況を", "sun.max.fill", "日本時間の朝9時〜夜7時に、家族みんなへ同じ質問を公開します。海外では、ホームにこの端末の時刻も表示します。", "最近、おいしかったものは？", "その日の出来事を聞く質問は、日本時間の夕方5時以降です。質問のお知らせは、この端末の地域の日中に届きます。"),
         ("ひとことから、答えてみる", "text.bubble.fill", "「回答する」を押して、文字を入力するか、声で話します。写真も添えられます。", "家族と食べたおにぎりです。", "送る前に確認しましょう。送った回答は編集・削除できません。"),
         ("「家族」と「あなた」を選ぶ", "person.3.fill", "「家族」はみんなの回答。「あなた」は自分の回答です。家族に、いいねやコメントで返事をしましょう。", "四角ひとつが、家族ひとり", "上の四角は、日本の日付で同じ質問に答えた人の分に色がつきます。回答は同じ家族だけに見えます。"),
-        ("準備ができました", "checkmark.circle.fill", "わからなくなったら、「設定」の「使い方を見る」を開けます。通知や、あなたのしるしも設定で変えられます。", "あなたがかいた「しるし」が目印です", "名前の横のしるしは、あなたがかいた絵です。「設定」から、いつでもかき直せます。"),
+        ("準備ができました", "checkmark.circle.fill", "わからなくなったら、「設定」の「使い方を見る」で、いつでもこの案内を読めます。", "あなたがかいた「しるし」が目印です", "名前の横のしるしは、あなたがかいた絵です。「設定」から、いつでもかき直せます。"),
     ]
 
     var body: some View {
@@ -1496,6 +1508,10 @@ struct EssentialsWalkthroughScreen: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .lineSpacing(5)
 
+                if index == pages.count - 1 {
+                    notificationOptIn
+                }
+
                 PaperPanel {
                     VStack(alignment: .leading, spacing: 18) {
                         if index < 2 {
@@ -1545,6 +1561,60 @@ struct EssentialsWalkthroughScreen: View {
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
+        }
+    }
+
+    private var notificationOptIn: some View {
+        PaperPanel {
+            VStack(alignment: .leading, spacing: 18) {
+                Label("家族からのお知らせ", systemImage: "bell.fill")
+                    .font(TsutsuuraTheme.bodyFont(size: 25, weight: .semibold))
+                    .foregroundStyle(TsutsuuraTheme.ink)
+                Text("新しい質問や、家族の回答・返事に気づけます。お知らせを受け取らなくても、アプリを使えます。")
+                    .font(TsutsuuraTheme.bodyFont(size: 21))
+                    .foregroundStyle(TsutsuuraTheme.skyInk)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                switch permissionState {
+                case .notDetermined:
+                    TextRaisedButton(
+                        title: isRequestingPermission ? "確認しています" : "お知らせを受け取る",
+                        icon: "bell.fill",
+                        height: 64,
+                        fontSize: 22,
+                        action: onRequestPermission
+                    )
+                    .disabled(isRequestingPermission)
+                    .accessibilityIdentifier("essentials-notification-opt-in")
+                case .denied:
+                    Text("受け取るには、iPhoneの設定で通知を許可してください。あとからでも変更できます。")
+                        .font(TsutsuuraTheme.bodyFont(size: 21))
+                        .foregroundStyle(TsutsuuraTheme.skyInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                    TextRaisedButton(
+                        title: "iPhoneの設定を開く",
+                        icon: "gearshape.fill",
+                        height: 64,
+                        fontSize: 22,
+                        action: onOpenSystemSettings
+                    )
+                    .accessibilityIdentifier("essentials-notification-settings")
+                case .authorized, .provisional, .ephemeral:
+                    Label("お知らせは許可されています", systemImage: "checkmark.circle.fill")
+                        .font(TsutsuuraTheme.bodyFont(size: 22, weight: .semibold))
+                        .foregroundStyle(TsutsuuraTheme.greenDark)
+                        .accessibilityIdentifier("essentials-notification-authorized")
+                    Text("受け取る種類は「設定」で選べます。")
+                        .font(TsutsuuraTheme.bodyFont(size: 21))
+                        .foregroundStyle(TsutsuuraTheme.skyInk)
+                case .unavailable:
+                    Text("お知らせは、あとから「設定」で選べます。")
+                        .font(TsutsuuraTheme.bodyFont(size: 21))
+                        .foregroundStyle(TsutsuuraTheme.skyInk)
+                }
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
