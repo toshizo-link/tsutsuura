@@ -1,0 +1,32 @@
+- banner:
+  - link "Apple Developer":
+    - /url: /
+    - generic: Apple Developer
+  - generic: Takami Marsh 
+  - generic: Takami Marsh - 34NS8XN5F9
+  - text: 
+  - heading "Certificates, Identifiers & Profiles" [level=1]
+- main:
+  - link " All Keys":
+    - /url: /account/resources/authkeys/list
+  - heading "Register a New Key" [level=2]
+  - button "Back"
+  - button "Register" [active]
+  - generic: Key Name
+  - text: Tsutsuura Push
+  - generic: Key Usage Description (optional)
+  - list:
+    - generic: Enable
+    - generic: Name
+    - generic: Description
+    - checkbox "Apple Push Notifications service (APNs)" [checked] [disabled]
+    - img "Apple Push Notifications service (APNs)"
+    - text: Apple Push Notifications service (APNs)
+    - paragraph: Establish connectivity between your notification server and the Apple Push Notification service. One key is used for all of your apps.
+- contentinfo:
+  - paragraph: Copyright © 2026 Apple Inc. All rights reserved.
+  - list:
+    - link "Terms of Use":
+      - /url: https://www.apple.com/legal/terms/site.html
+    - link "Privacy Policy":
+      - /url: https://www.apple.com/privacy/

@@ -1,0 +1,10 @@
+{
+    "mode": "deploy",
+    "status": "installed",
+    "installedAt": "2026-09-05T22:02:01+00:00",
+    "schedulerSHA256": "0286f520f384ebe3df9fcdec69e488966bd20a4060f641969899eabdb0374409",
+    "backupDirectory": "/home/c8629971/apps/tsutsuura/storage/push-code-backups/20260905T220201Z-f1cbc83a",
+    "changesMade": true,
+    "environmentDatabaseMediaUnmodified": true,
+    "pushSent": false
+}

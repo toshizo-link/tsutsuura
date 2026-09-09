@@ -1,0 +1,136 @@
+- banner "App Store Connect":
+  - heading "App Store Connect" [level=1]:
+    - link "App Store Connect":
+      - /url: /
+  - navigation "Global":
+    - list:
+      - link "Apps":
+        - /url: /apps
+      - link "Trends":
+        - /url: /trends
+      - link "Reports":
+        - /url: /itc/payments_and_financial_reports
+      - link "Business":
+        - /url: /business
+      - link "Users and Access":
+        - /url: /access/users
+  - button "Takami Marsh Takami Marsh Account name menu":
+    - generic: Takami Marsh
+    - generic: Takami Marsh
+- button "Apps menu, Tsutsuura, selected":
+  - generic "Tsutsuura":
+    - img "Tsutsuura"
+  - generic: Tsutsuura
+- navigation "Apps":
+  - list:
+    - link "Distribution":
+      - /url: /apps/6800383132/distribution
+    - link "Analytics":
+      - /url: /apps/6800383132/analytics
+    - link "TestFlight":
+      - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight
+    - link "Xcode Cloud":
+      - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/ci
+- main:
+  - text: iOS App 1.0
+  - heading "Media Manager" [level=2]
+  - navigation:
+    - link "iPhone":
+      - /url: /apps/6800383132/distribution/ios/version/inflight/media-manager/iphone
+    - link "iPad":
+      - /url: /apps/6800383132/distribution/ios/version/inflight/media-manager/ipad
+    - link "Apple Watch":
+      - /url: /apps/6800383132/distribution/ios/version/inflight/media-manager/apple-watch
+    - link "iMessage App":
+      - /url: /apps/6800383132/distribution/ios/version/inflight/media-manager/imessages
+  - button "Japanese" [disabled]
+  - button "?"
+  - paragraph: Adding accurate screenshots of your app on the newest devices can help you represent the app’s user experience. Keep in mind that we’ll use these screenshots for all iOS display sizes and localizations. Screenshots are only required for iOS apps, and only the first 3 will be used on the app installation sheets.
+  - alert
+  - button "iPhone 6.9\" Display" [expanded]:
+    - generic: iPhone
+    - generic: 6.9" Display
+  - region "iPhone 6.9\" Display":
+    - tabpanel:
+      - list "App Previews from 6.9\" Display"
+      - list "Screenshots from 6.9\" Display":
+        - button "Screenshot store-01-family.png":
+        - button "Delete":
+        - button "Screenshot store-02-answer.png":
+        - button "Delete":
+        - button "Screenshot store-03-history.png":
+        - button "Delete":
+        - button "Screenshot store-04-personal-mark.png":
+        - button "Delete":
+      - paragraph: 0 of 3 App Previews
+      - paragraph: 4 of 10 Screenshots
+      - paragraph:
+        - button "Choose File" [active]
+      - paragraph:
+        - button "Delete All"
+  - alert
+  - generic: iPhone
+  - generic: 6.5" Display
+  - region:
+    - tabpanel:
+      - paragraph: Using 6.9" Display
+      - paragraph:
+        - button "Edit"
+      - list "App Previews from Japanese 6.9\" Display"
+      - list "Screenshots from Japanese 6.9\" Display":
+        - img "Screenshot store-01-family.png":
+        - img "Screenshot store-02-answer.png":
+        - img "Screenshot store-03-history.png":
+        - img "Screenshot store-04-personal-mark.png":
+      - paragraph: 0 of 3 App Previews
+      - paragraph: 4 of 10 Screenshots
+      - paragraph:
+        - button "Choose File" [disabled]
+      - paragraph:
+        - button "Delete All" [disabled]
+  - alert
+  - button "iPhone 6.3\" Display":
+    - generic: iPhone
+    - generic: 6.3" Display
+  - region "iPhone 6.3\" Display"
+  - alert
+  - button "iPhone 6.1\" Display":
+    - generic: iPhone
+    - generic: 6.1" Display
+  - region "iPhone 6.1\" Display"
+  - alert
+  - button "iPhone 5.5\" Display":
+    - generic: iPhone
+    - generic: 5.5" Display
+  - region "iPhone 5.5\" Display"
+  - alert
+  - button "iPhone 4.7\" Display":
+    - generic: iPhone
+    - generic: 4.7" Display
+  - region "iPhone 4.7\" Display"
+  - alert
+  - button "iPhone 4\" Display":
+    - generic: iPhone
+    - generic: 4" Display
+  - region "iPhone 4\" Display"
+  - alert
+  - button "iPhone 3.5\" Display":
+    - generic: iPhone
+    - generic: 3.5" Display
+  - region "iPhone 3.5\" Display"
+- contentinfo:
+  - list:
+    - link "App Store Connect":
+      - /url: /apps
+  - list:
+    - listitem: Copyright © 2026 Apple Inc. All rights reserved. |
+    - link "Terms of Service":
+      - /url: /WebObjects/iTunesConnect.woa/wa/termsOfService
+    - text: "|"
+    - link "Privacy Policy":
+      - /url: https://www.apple.com/legal/privacy
+    - text: "|"
+    - link "Contact Us":
+      - /url: /contact-us
+- log
+- log

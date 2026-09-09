@@ -1,0 +1,32 @@
+{
+  "id": 33994819669,
+  "html_url": "https://github.com/toshizo-link/tsutsuura/actions/runs/33994819669",
+  "head_sha": "46395223386f9ca11be87dd2de4d4a3f2ca98396",
+  "head_branch": "codex/appstore-build16",
+  "path": ".github/workflows/supported-build16.yml",
+  "event": "push",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-09-05T22:03:50Z",
+  "updated_at": "2026-09-05T22:05:43Z",
+  "run_attempt": 1,
+  "artifact": {
+    "id": 9977746549,
+    "name": "tsutsuura-16-unsigned-46395223386f9ca11be87dd2de4d4a3f2ca98396",
+    "size_in_bytes": 5571328,
+    "digest": "sha256:68c44356fd426dd586f1c99979eba52b73615147e1eededd1754b76d07d21dd9",
+    "created_at": "2026-09-05T22:05:39Z",
+    "expired": false,
+    "workflow_run": {
+      "id": 33994819669,
+      "repository_id": 1186072092,
+      "head_repository_id": 1186072092,
+      "head_branch": "codex/appstore-build16",
+      "head_sha": "46395223386f9ca11be87dd2de4d4a3f2ca98396"
+    }
+  },
+  "worktree": "/tmp/tsutsuura-appstore-build16",
+  "cloudRoot": "/tmp/tsutsuura-cloud16",
+  "signingStarted": false,
+  "uploadStarted": false
+}

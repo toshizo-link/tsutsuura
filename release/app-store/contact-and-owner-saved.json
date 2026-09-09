@@ -1,0 +1,15 @@
+{
+  "capturedAt": "2026-09-05T20:33:55.837Z",
+  "appId": "6800383132",
+  "submissionAuthorized": true,
+  "reviewContactSaved": true,
+  "reviewContactVerified": "visual check after reload",
+  "copyright": "2026 AlexanderTakami Marsh",
+  "privacyPolicyOperator": "AlexanderTakami Marsh",
+  "privacyPageReadyLocally": true,
+  "privacyPagePublished": false,
+  "selectedBuild": "13",
+  "preparedBuild": "14",
+  "reviewSubmissionMade": false,
+  "remainingValidation": "\n  - paragraph: \"The items below are required to start the review process:\"\n  - list:\n    - text: You must enter a Privacy Policy URL in\n    - link \"App Privacy\":\n      - /url: ../../privacy\n    - text: .\n  - paragraph: "
+}

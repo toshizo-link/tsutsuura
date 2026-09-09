@@ -1,0 +1,20 @@
+{
+  "files": {
+    "finalization.swift": "501c69873133fef9e190f4822acf3691eca7a74e1f872b26e9b4225218274880",
+    "results.json": "0fad33c759f79d0daca89a3b239f9c2a81a4fda891d26f0eea54493ab72aeed6",
+    "run.log": "05ec3d8c3d1ac9ccb4bc668990c9c666319cd527701f949818585d190c054622",
+    "README.md": "e0039898f56e68968bdece3e857ad1bb4847e5f6d4f03956ee09b5c7c406bbb1",
+    "before-close-192000.m4a": "fdd2ae7de9ca25536406f37407249984bd47bb96cc052a3458bfeabde19160cb",
+    "before-close-2400.m4a": "8a4190fa4b98804fd4c43c8140a710d8fef590612e713b2f76aa4488337b0f64",
+    "before-close-24000.m4a": "8e1c513e5a660b96f381f4da8c67aa3b150c5bf937672acca07a8ac835c611b0",
+    "after-close-192000.m4a": "a10deb14aac520fe5650818b14e83d1e202a34b789d78c20570ba286e09bf47a",
+    "after-close-2400.m4a": "d8aadfd5d307f49fc99a34674a1cf94e05f3662cfe7e95e5f1d84f0580613267",
+    "after-close-24000.m4a": "43a36edd9f643dcab7748308bc7a92c1ad6e6f7e7d83adeea40e4d13ea570f3c",
+    "deinit-control.m4a": "a10deb14aac520fe5650818b14e83d1e202a34b789d78c20570ba286e09bf47a"
+  },
+  "sourceChanges": false,
+  "microphoneUsed": false,
+  "simulatorUsed": false,
+  "userAudioRead": false,
+  "reproductionType": "Explicitly retained tap-style closure; no assertion that every AVAudioEngine removeTap retains one"
+}

@@ -1,0 +1,64 @@
+{
+  "locale": "ja",
+  "width": 1320,
+  "height": 2868,
+  "format": "PNG RGB, no alpha",
+  "type": "App Store screenshot compositions",
+  "design": {
+    "background": "#2B2B2B",
+    "squareDots": "#414141",
+    "accent": "#2FADD7",
+    "shadow": "#1D5D73",
+    "paper": "#D7F0F7",
+    "headingFont": "Kaisotai-Next-UP-B",
+    "bodyFont": "Japanese system sans"
+  },
+  "pages": [
+    {
+      "source": "screenshots/store-01-family.png",
+      "headline": [
+        "離れていても、",
+        "家族のそばに。"
+      ],
+      "subline": "一日ひとつの質問で、毎日を分かち合う。",
+      "sourceSHA256": "04bc20d2113858d278c9e6755df99ab7690ded72506b89297a268ac63e2edd04"
+    },
+    {
+      "source": "screenshots/store-02-answer.png",
+      "headline": [
+        "文字でも、声でも。",
+        "あなたのペースで。"
+      ],
+      "subline": "写真を添えて、今日のひとこと。",
+      "sourceSHA256": "6f32aaaf25e765671cd7ebb79beaa27bc52be1e0a8ae314bd2f98cf8e23a4ab1"
+    },
+    {
+      "source": "screenshots/store-03-history.png",
+      "headline": [
+        "何気ない毎日が、",
+        "家族の思い出に。"
+      ],
+      "subline": "過去の回答を、いつでも振り返る。",
+      "sourceSHA256": "0c45ea76b7a495949273af448f6599e5ade01d9bbf9a088d424568f168011ff2"
+    },
+    {
+      "source": "screenshots/store-04-personal-mark.png",
+      "headline": [
+        "自分でかく、",
+        "あなただけのしるし。"
+      ],
+      "subline": "丸や線だけでも、あなたらしく。",
+      "sourceSHA256": "f2cdc75fecd372e12c6adeaec6b84ecf157a34f95911e6ef99e221be4f5389e7"
+    }
+  ],
+  "constraints": [
+    "Preserve real app screenshot content and aspect ratio",
+    "Use square frame and regular dot texture",
+    "No new app UI or unsupported feature claims",
+    "Inspect Japanese text before upload"
+  ],
+  "references": [
+    "https://developer.apple.com/app-store/review/guidelines/#accurate-metadata",
+    "https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/"
+  ]
+}

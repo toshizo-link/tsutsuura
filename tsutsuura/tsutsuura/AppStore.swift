@@ -7,8 +7,23 @@ enum PushDestinationResolution: Equatable, Sendable {
     case retryable
 }
 
+struct NavigationVisit: Equatable, Sendable {
+    fileprivate let revision: UInt64
+    fileprivate let path: [AppRoute]
+}
+
 struct AuthFeatureState: Equatable, Sendable {
     var phoneNumber = ""
+    var verificationCode = ""
+    var challenge: OTPChallenge?
+    var expiresAt: Date? = nil
+    var canReplayExpiredAttempt = false
+    var isSubmitting = false
+    var errorMessage: String?
+}
+
+struct EmailVerificationFeatureState: Equatable, Sendable {
+    var email = ""
     var verificationCode = ""
     var challenge: OTPChallenge?
     var expiresAt: Date? = nil
@@ -43,6 +58,7 @@ struct HomeFeatureState: Equatable, Sendable {
 
 struct QuestionFeatureState: Equatable, Sendable {
     var question: Question?
+    var pendingQuestion: Question?
     var answerDraft = AnswerDraft()
     var isLoading = false
     var isSubmitting = false
@@ -129,6 +145,18 @@ struct AccountFeatureState: Equatable, Sendable {
 
 @MainActor
 final class AppStore: ObservableObject {
+    private struct PersistedEmailVerificationChallenge: Codable {
+        let email: String
+        let requestID: String
+        let expiresAt: Date
+        let actorUserID: String?
+        /// Empty means the actor had no email when enrollment started; nil
+        /// is reserved for login records and records written by older builds.
+        let actorEmailAtRequest: String?
+        let attemptStartedAt: Date?
+        let replayUntil: Date?
+    }
+
     private struct PersistedVerificationChallenge: Codable {
         let phoneNumber: String
         let requestID: String
@@ -142,7 +170,13 @@ final class AppStore: ObservableObject {
     }
 
     @Published private(set) var session: SessionState = .restoring
-    @Published var path: [AppRoute] = []
+    @Published var path: [AppRoute] = [] {
+        didSet {
+            if path != oldValue { navigationRevision &+= 1 }
+        }
+    }
+    @Published var emailAuth = EmailVerificationFeatureState()
+    @Published var emailEnrollment = EmailVerificationFeatureState()
     @Published var auth = AuthFeatureState()
     @Published var phoneEnrollment = PhoneEnrollmentFeatureState()
     @Published var recovery = RecoveryFeatureState()
@@ -155,15 +189,27 @@ final class AppStore: ObservableObject {
     @Published var answerOwnership = AnswerOwnershipFeatureState()
     @Published var notificationPreferences = NotificationPreferencesFeatureState()
     @Published var account = AccountFeatureState()
+    @Published var contentSafety = ContentSafetyState()
     @Published private(set) var globalErrorMessage: String?
     @Published private(set) var canRetrySessionRestore = false
+    @Published private(set) var personalMarkRequirementIsConfirmed = false
+    @Published private(set) var isCheckingPersonalMarkRequirement = false
+    @Published private(set) var personalMarkRequirementError: String?
 
     private let api: any AppAPI
     private let haptics: any HapticProviding
     private let verificationDefaults: UserDefaults?
     private let now: @Sendable () -> Date
     private var historyGeneration = 0
+    private var authenticationGeneration = 0
+    private let deviceTimeZoneSynchronizer = DeviceTimeZoneSynchronizer()
+    private var personalMarkVerificationGeneration: Int?
+    private var navigationRevision: UInt64 = 0
 
+    private static let emailLoginChallengeStorageKey =
+        "jp.tsutsuura.pending-email-login-verification.v1"
+    private static let emailEnrollmentChallengeStorageKey =
+        "jp.tsutsuura.pending-email-enrollment-verification.v1"
     private static let loginChallengeStorageKey =
         "jp.tsutsuura.pending-login-verification.v1"
     private static let enrollmentChallengeStorageKey =
@@ -183,17 +229,35 @@ final class AppStore: ObservableObject {
         self.now = now
     }
 
+    func navigationVisit() -> NavigationVisit {
+        NavigationVisit(revision: navigationRevision, path: path)
+    }
+
+    /// Saving may continue after Back. Only the visit that started it may
+    /// dismiss itself; reopening the same route creates a different visit.
+    func finishSave(
+        from visit: NavigationVisit,
+        operation: () async -> Bool
+    ) async -> Bool {
+        let didSave = await operation()
+        return didSave && navigationVisit() == visit
+    }
+
     static func live(
         configuration: APIConfiguration? = nil
     ) throws -> AppStore {
         let resolvedConfiguration = try configuration ?? .fromInfoDictionary()
         return AppStore(
             api: DefaultAppAPI(configuration: resolvedConfiguration),
-            verificationDefaults: .standard
+            verificationDefaults: UserDefaults(
+                suiteName: resolvedConfiguration.verificationStorageSuiteName
+            )
         )
     }
 
     func restoreSession() async {
+        authenticationGeneration += 1
+        resetPersonalMarkRequirement()
         session = .restoring
         globalErrorMessage = nil
         canRetrySessionRestore = false
@@ -224,10 +288,13 @@ final class AppStore: ObservableObject {
             clearVerificationChallenge(
                 storageKey: Self.loginChallengeStorageKey
             )
+            clearVerificationChallenge(storageKey: Self.emailLoginChallengeStorageKey)
+            personalMarkRequirementIsConfirmed = true
             session = .signedIn(user)
             path = [.home]
             await refreshHome()
             restorePendingEnrollmentChallenge(for: user)
+            restorePendingEmailEnrollmentChallenge(for: user)
         } catch {
             if isUnauthorized(error) {
                 transitionToSignedOut()
@@ -238,6 +305,209 @@ final class AppStore: ObservableObject {
                 canRetrySessionRestore = true
                 presentGlobalError(error)
             }
+        }
+    }
+
+    @discardableResult
+    func requestEmailOTP() async -> Bool {
+        guard let email = EmailAddressValidation.normalized(
+            emailAuth.email
+        ), !emailAuth.isSubmitting else { return false }
+
+        emailAuth.isSubmitting = true
+        emailAuth.errorMessage = nil
+        defer { emailAuth.isSubmitting = false }
+
+        do {
+            let challenge = try await api.requestEmailOTP(email: email)
+            emailAuth.email = email
+            emailAuth.challenge = challenge
+            emailAuth.verificationCode = ""
+            emailAuth.expiresAt = now().addingTimeInterval(
+                TimeInterval(challenge.expiresIn)
+            )
+            persistEmailVerificationChallenge(
+                email: email,
+                challenge: challenge,
+                expiresAt: emailAuth.expiresAt,
+                actorUserID: nil,
+                actorEmailAtRequest: nil,
+                storageKey: Self.emailLoginChallengeStorageKey
+            )
+            session = .awaitingEmailVerification(email: email)
+            path = [
+                .emailVerification(
+                    email: email,
+                    requestID: challenge.requestID
+                )
+            ]
+            haptics.impact()
+            return true
+        } catch {
+            emailAuth.errorMessage = userFacingMessage(for: error)
+            haptics.error()
+            return false
+        }
+    }
+
+    func verifyEmailOTP() async {
+        guard let requestID = emailAuth.challenge?.requestID,
+              emailAuth.verificationCode.count == 6,
+              NumericInputValidation.asciiDigits(in: emailAuth.verificationCode) == emailAuth.verificationCode,
+              !emailAuth.isSubmitting else {
+            return
+        }
+
+        emailAuth.isSubmitting = true
+        emailAuth.errorMessage = nil
+        emailAuth.canReplayExpiredAttempt = true
+        markEmailVerificationAttemptStarted(
+            storageKey: Self.emailLoginChallengeStorageKey
+        )
+        defer { emailAuth.isSubmitting = false }
+
+        do {
+            let authenticatedSession = try await api.verifyEmailOTP(
+                requestID: requestID,
+                code: emailAuth.verificationCode
+            )
+            await finishAuthentication(authenticatedSession)
+        } catch {
+            if isDefinitiveVerificationFailure(error) {
+                emailAuth.canReplayExpiredAttempt = false
+                markEmailVerificationAttemptDefinitivelyResolved(
+                    storageKey: Self.emailLoginChallengeStorageKey
+                )
+            }
+            emailAuth.errorMessage = userFacingMessage(for: error)
+            haptics.error()
+        }
+    }
+
+    func cancelEmailOTP() {
+        guard !emailAuth.isSubmitting else { return }
+        clearVerificationChallenge(storageKey: Self.emailLoginChallengeStorageKey)
+        emailAuth.verificationCode = ""
+        emailAuth.challenge = nil
+        emailAuth.errorMessage = nil
+        session = .signedOut
+        path = [.onboarding, .emailEntry]
+    }
+
+    @discardableResult
+    func requestEmailEnrollment() async -> Bool {
+        guard case .signedIn(let requestingActor) = session,
+              let email = EmailAddressValidation.normalized(
+                emailEnrollment.email
+              ),
+              !emailEnrollment.isSubmitting else {
+            return false
+        }
+
+        emailEnrollment.isSubmitting = true
+        emailEnrollment.errorMessage = nil
+        defer { emailEnrollment.isSubmitting = false }
+
+        do {
+            let challenge = try await api.requestEmailEnrollment(
+                email: email
+            )
+            guard case .signedIn(let currentActor) = session,
+                  currentActor.id == requestingActor.id else { return false }
+            emailEnrollment.email = email
+            emailEnrollment.challenge = challenge
+            emailEnrollment.expiresAt = now().addingTimeInterval(
+                TimeInterval(challenge.expiresIn)
+            )
+            emailEnrollment.verificationCode = ""
+            let actorUserID = requestingActor.id
+            let actorEmailAtRequest = requestingActor.email ?? ""
+            persistEmailVerificationChallenge(
+                email: email,
+                challenge: challenge,
+                expiresAt: emailEnrollment.expiresAt,
+                actorUserID: actorUserID,
+                actorEmailAtRequest: actorEmailAtRequest,
+                storageKey: Self.emailEnrollmentChallengeStorageKey
+            )
+            let route = AppRoute.emailEnrollmentVerification(
+                email: email,
+                requestID: challenge.requestID
+            )
+            if case .emailEnrollmentVerification = path.last {
+                path[path.count - 1] = route
+            } else {
+                path.append(route)
+            }
+            haptics.impact()
+            return true
+        } catch {
+            handleAuthenticatedError(error)
+            emailEnrollment.errorMessage = userFacingMessage(for: error)
+            haptics.error()
+            return false
+        }
+    }
+
+    @discardableResult
+    func verifyEmailEnrollment() async -> Bool {
+        guard case .signedIn(let verifyingActor) = session,
+              let requestID = emailEnrollment.challenge?.requestID,
+              emailEnrollment.verificationCode.count == 6,
+              NumericInputValidation.asciiDigits(in: emailEnrollment.verificationCode) == emailEnrollment.verificationCode,
+              !emailEnrollment.isSubmitting else {
+            return false
+        }
+
+        emailEnrollment.isSubmitting = true
+        emailEnrollment.errorMessage = nil
+        emailEnrollment.canReplayExpiredAttempt = true
+        markEmailVerificationAttemptStarted(
+            storageKey: Self.emailEnrollmentChallengeStorageKey
+        )
+        defer { emailEnrollment.isSubmitting = false }
+
+        do {
+            let profile = try await api.verifyEmailEnrollment(
+                requestID: requestID,
+                code: emailEnrollment.verificationCode
+            )
+            guard case .signedIn(let currentActor) = session,
+                  currentActor.id == verifyingActor.id, profile.id == verifyingActor.id else {
+                return false
+            }
+            applyCurrentUserProfile(profile)
+            clearVerificationChallenge(
+                storageKey: Self.emailEnrollmentChallengeStorageKey
+            )
+            emailEnrollment = EmailVerificationFeatureState()
+            while let route = path.last, route.isEmailEnrollmentRoute {
+                path.removeLast()
+            }
+            haptics.success()
+            return true
+        } catch {
+            if isDefinitiveVerificationFailure(error) {
+                emailEnrollment.canReplayExpiredAttempt = false
+                markEmailVerificationAttemptDefinitivelyResolved(
+                    storageKey: Self.emailEnrollmentChallengeStorageKey
+                )
+            }
+            handleAuthenticatedError(error)
+            emailEnrollment.errorMessage = userFacingMessage(for: error)
+            haptics.error()
+            return false
+        }
+    }
+
+    func cancelEmailEnrollment() {
+        guard !emailEnrollment.isSubmitting else { return }
+        clearVerificationChallenge(
+            storageKey: Self.emailEnrollmentChallengeStorageKey
+        )
+        emailEnrollment = EmailVerificationFeatureState()
+        while let route = path.last, route.isEmailEnrollmentRoute {
+            path.removeLast()
         }
     }
 
@@ -503,6 +773,8 @@ final class AppStore: ObservableObject {
                 familyName: familyName
             )
             canRetrySessionRestore = false
+            authenticationGeneration += 1
+            resetPersonalMarkRequirement()
             session = .signedIn(authenticatedSession.user)
             auth = AuthFeatureState()
             path = [.familySetup]
@@ -781,6 +1053,8 @@ final class AppStore: ObservableObject {
             // to preview the now-consumed invite a second time.
             familySetup.pairingCode = ""
             familySetup.pairingToken = nil
+            authenticationGeneration += 1
+            resetPersonalMarkRequirement()
             session = .signedIn(authenticatedSession.user)
             path = [.pairingReady]
             haptics.success()
@@ -815,17 +1089,50 @@ final class AppStore: ObservableObject {
         await refreshHome()
     }
 
-    func refreshHome() async {
-        guard !home.isLoading else { return }
+    func refreshHome(inBackground: Bool = false) async {
+        await loadContentSafety(inBackground: true)
+        guard !home.isLoading, !home.isLoadingMore else { return }
+        let safetyRevision = contentSafety.revision
+        let previousFeed = home.feed
+        let previousSession = session
+        let requestedGeneration = authenticationGeneration
         home.isLoading = true
-        home.errorMessage = nil
-        defer { home.isLoading = false }
+        if !inBackground { home.errorMessage = nil }
+        defer { if authenticationGeneration == requestedGeneration { home.isLoading = false } }
 
         do {
             async let profileRequest = api.fetchMe()
             async let feedRequest = api.fetchHome(cursor: nil)
             let (profile, feed) = try await (profileRequest, feedRequest)
-            home.feed = feed
+            try Task.checkCancellation()
+            guard authenticationGeneration == requestedGeneration, safetyRevision == contentSafety.revision else { return }
+            // A successful mark save must win over an older /me snapshot,
+            // including the initial foreground refresh during first setup.
+            if case .signedIn(let previousProfile) = previousSession,
+               case .signedIn(let currentProfile) = session,
+               previousProfile.id != currentProfile.id
+                || previousProfile.avatarMark != currentProfile.avatarMark { return }
+            // A local answer/reaction or another account change wins over a
+            // background request that started before that change.
+            if inBackground, home.feed != previousFeed || session != previousSession { return }
+            var refreshedFeed = feed
+            if inBackground, let previousFeed,
+               previousFeed.family?.id == feed.family?.id,
+               previousFeed.answers.count > feed.answers.count,
+               feed.nextCursor != nil {
+                let currentMembers = Set(feed.family?.members.map(\.id) ?? [])
+                let refreshedIDs = Set(feed.answers.map(\.id))
+                let hasCompleteRoster = currentMembers.count == feed.family?.memberCount
+                let olderAnswers = previousFeed.answers.filter {
+                    !refreshedIDs.contains($0.id)
+                        && (!hasCompleteRoster || currentMembers.contains($0.author.id))
+                }
+                refreshedFeed.answers = mergedAnswers(feed.answers, appending: olderAnswers)
+                refreshedFeed.nextCursor = previousFeed.nextCursor
+            }
+            refreshedFeed.answers = uniqueAnswers(refreshedFeed.answers)
+            home.feed = refreshedFeed
+            home.errorMessage = nil
             if let family = feed.family {
                 applyFamily(family)
             }
@@ -836,11 +1143,25 @@ final class AppStore: ObservableObject {
             applyCurrentUserProfile(profile)
             synchronizeCurrentFamilyRole()
             if let todayQuestion = feed.todayQuestion {
-                question.question = todayQuestion
+                receiveTodayQuestion(todayQuestion)
             }
         } catch {
+            guard !Task.isCancelled, !isCancelledRequest(error) else { return }
+            guard authenticationGeneration == requestedGeneration else { return }
+            if inBackground, session != previousSession { return }
             handleAuthenticatedError(error)
-            home.errorMessage = userFacingMessage(for: error)
+            if !inBackground { home.errorMessage = userFacingMessage(for: error) }
+        }
+    }
+
+    /// Quiet updates preserve the current query, already loaded pages, drafts,
+    /// and scroll positions. Foreground view tasks own the ten-second cadence.
+    func refreshHomeInBackground(includingHistory: Bool) async {
+        guard case .signedIn = session else { return }
+        await refreshHome(inBackground: true)
+        guard !Task.isCancelled, case .signedIn = session else { return }
+        if includingHistory, history.hasLoaded {
+            await loadHistory(inBackground: true)
         }
     }
 
@@ -856,22 +1177,27 @@ final class AppStore: ObservableObject {
     }
 
     func loadMoreHomeAnswers() async {
+        let generation = authenticationGeneration
+        let revision = contentSafety.revision
         guard let cursor = home.feed?.nextCursor,
-              !home.isLoadingMore else {
+              !home.isLoadingMore, !home.isLoading else {
             return
         }
         home.isLoadingMore = true
         home.errorMessage = nil
-        defer { home.isLoadingMore = false }
+        defer { if generation == authenticationGeneration { home.isLoadingMore = false } }
 
         do {
             let nextPage = try await api.fetchHome(cursor: cursor)
+            guard generation == authenticationGeneration, revision == contentSafety.revision else { return }
             home.feed?.answers = mergedAnswers(
                 home.feed?.answers ?? [],
                 appending: nextPage.answers
             )
             home.feed?.nextCursor = nextPage.nextCursor
         } catch {
+            guard generation == authenticationGeneration, revision == contentSafety.revision else { return }
+            guard !isCancelledRequest(error) else { return }
             handleAuthenticatedError(error)
             home.errorMessage = userFacingMessage(for: error)
         }
@@ -907,14 +1233,21 @@ final class AppStore: ObservableObject {
         treatMissingAsHandled: Bool
     ) async -> Bool {
         guard !question.isLoading else { return false }
+        let requestedGeneration = authenticationGeneration
         question.isLoading = true
         question.errorMessage = nil
-        defer { question.isLoading = false }
+        defer {
+            if authenticationGeneration == requestedGeneration { question.isLoading = false }
+        }
 
         do {
-            question.question = try await api.fetchTodayQuestion()
-            return true
+            let loadedQuestion = try await api.fetchTodayQuestion()
+            guard authenticationGeneration == requestedGeneration, !Task.isCancelled else { return false }
+            receiveTodayQuestion(loadedQuestion)
+            return question.pendingQuestion == nil
         } catch {
+            guard authenticationGeneration == requestedGeneration,
+                  !Task.isCancelled, !isCancelledRequest(error) else { return false }
             if treatMissingAsHandled,
                isTerminalPushDestinationError(error) {
                 let message = "この質問は終了したか、現在は表示できません。"
@@ -930,7 +1263,13 @@ final class AppStore: ObservableObject {
     }
 
     func submitAnswer() async {
+        let generation = authenticationGeneration
+        guard question.pendingQuestion == nil else {
+            question.errorMessage = "新しい質問が届きました。前の下書きは残っています。「新しい質問を確認」を押してください。"
+            return
+        }
         guard let questionID = question.question?.id,
+              question.question?.canAnswer == true,
               !question.answerDraft.isEmpty,
               !question.isSubmitting else {
             return
@@ -938,16 +1277,37 @@ final class AppStore: ObservableObject {
 
         question.isSubmitting = true
         question.errorMessage = nil
-        defer { question.isSubmitting = false }
+        defer { if generation == authenticationGeneration { question.isSubmitting = false } }
 
         do {
             let submission = try question.answerDraft.submission()
             let answer = try await api.submitAnswer(
                 questionID: questionID,
+                questionDate: question.question?.publishedOn,
                 submission: submission
             )
-            question.question?.answer = answer
+            guard generation == authenticationGeneration else { return }
+            for media in answer.media {
+                contentSafety.mediaOwners[media.id] = SafetyMediaOwner(answerID: answer.id, authorID: answer.author.id)
+            }
             question.answerDraft.removeAll()
+            updateHomeAnswerProgress(for: answer, isAnswered: true)
+            guard contentSafety.allows(answer) else {
+                if question.question?.id == questionID {
+                    question.question?.answer = nil
+                    question.question?.hasAnswered = true
+                    question.question?.answerHidden = true
+                }
+                if home.feed?.todayQuestion?.id == questionID {
+                    home.feed?.todayQuestion?.answer = nil
+                    home.feed?.todayQuestion?.hasAnswered = true
+                    home.feed?.todayQuestion?.answerHidden = true
+                    home.feed?.myAnswer = nil
+                }
+                invalidateSafetyMedia()
+                return
+            }
+            question.question?.answer = answer
             if home.feed?.todayQuestion?.id == questionID {
                 home.feed?.todayQuestion?.answer = answer
                 home.feed?.myAnswer = answer
@@ -970,10 +1330,40 @@ final class AppStore: ObservableObject {
             }
             haptics.success()
         } catch {
+            guard generation == authenticationGeneration else { return }
             handleAuthenticatedError(error)
             question.errorMessage = userFacingMessage(for: error)
             haptics.error()
         }
+    }
+
+    private func sanitizedQuestion(_ candidate: Question?) -> Question? {
+        guard var result = candidate else { return nil }
+        if let answer = result.answer, !contentSafety.allows(answer) {
+            result.answer = nil
+            result.hasAnswered = true
+            result.answerHidden = true
+        }
+        return result
+    }
+
+    private func receiveTodayQuestion(_ candidate: Question) {
+        guard let incoming = sanitizedQuestion(candidate) else { return }
+        if let current = question.question, !question.answerDraft.isEmpty,
+           current.id != incoming.id || current.publishedOn != incoming.publishedOn {
+            question.pendingQuestion = incoming
+            return
+        }
+        question.question = incoming
+        question.pendingQuestion = nil
+    }
+
+    func acceptNewQuestionDiscardingDraft() {
+        guard let pending = question.pendingQuestion else { return }
+        question.answerDraft = AnswerDraft()
+        question.question = pending
+        question.pendingQuestion = nil
+        question.errorMessage = nil
     }
 
     @discardableResult
@@ -1106,26 +1496,200 @@ final class AppStore: ObservableObject {
     func fetchAnswerMedia(
         _ media: AnswerMedia
     ) async throws -> AnswerMediaContent {
+        let generation = authenticationGeneration
+        guard contentSafety.allowsMedia(id: media.id) else { throw CancellationError() }
         do {
-            return try await api.fetchAnswerMedia(media)
+            let content = try await api.fetchAnswerMedia(media)
+            guard generation == authenticationGeneration,
+                  contentSafety.allowsMedia(id: media.id) else { throw CancellationError() }
+            return content
         } catch {
-            handleAuthenticatedError(error)
+            if generation == authenticationGeneration, !isCancelledRequest(error) { handleAuthenticatedError(error) }
             throw error
         }
     }
 
-    func loadHistory(loadMore: Bool = false) async {
+    @discardableResult
+    func loadContentSafety(inBackground: Bool = false) async -> Bool {
+        guard case .signedIn = session, !contentSafety.isLoading else { return false }
+        let generation = authenticationGeneration
+        let revision = contentSafety.revision
+        contentSafety.isLoading = true
+        defer { if generation == authenticationGeneration { contentSafety.isLoading = false } }
+        do {
+            let snapshot = try await api.fetchContentSafety()
+            guard generation == authenticationGeneration, revision == contentSafety.revision,
+                  !Task.isCancelled else { return false }
+            let previous = contentSafety
+            contentSafety.blockedUsers = snapshot.users
+            contentSafety.hiddenUserIDs = Set(snapshot.hiddenUserIds).union(snapshot.users.map(\.id))
+            contentSafety.hiddenAnswerIDs = Set(snapshot.hiddenAnswerIds)
+            contentSafety.hiddenCommentIDs = Set(snapshot.hiddenCommentIds)
+            contentSafety.errorMessage = nil
+            if previous.hiddenUserIDs != contentSafety.hiddenUserIDs
+                || previous.hiddenAnswerIDs != contentSafety.hiddenAnswerIDs
+                || previous.hiddenCommentIDs != contentSafety.hiddenCommentIDs {
+                contentSafety.revision += 1
+                pruneSafetyContent()
+            }
+            return true
+        } catch {
+            guard generation == authenticationGeneration, revision == contentSafety.revision,
+                  !isCancelledRequest(error) else { return false }
+            if !inBackground { contentSafety.errorMessage = userFacingMessage(for: error) }
+            return false
+        }
+    }
+
+    @discardableResult
+    func reportAnswer(answerID: String, reason: CommentReportReason) async -> Bool {
+        guard let answer = answer(withID: answerID), case .signedIn(let actor) = session,
+              answer.author.id != actor.id, !contentSafety.isWorking else { return false }
+        let generation = authenticationGeneration
+        contentSafety.isWorking = true
+        contentSafety.errorMessage = nil
+        contentSafety.feedback = nil
+        defer { if generation == authenticationGeneration { contentSafety.isWorking = false } }
+        do {
+            _ = try await api.reportAnswer(answerID: answerID, reason: reason, details: nil)
+            guard generation == authenticationGeneration else { return false }
+            contentSafety.hiddenAnswerIDs.insert(answerID)
+            contentSafety.revision += 1
+            contentSafety.feedback = "報告を送り、この回答を非表示にしました。"
+            pruneSafetyContent()
+            haptics.success()
+            await loadContentSafety(inBackground: true)
+            return true
+        } catch {
+            guard generation == authenticationGeneration else { return false }
+            contentSafety.errorMessage = userFacingMessage(for: error)
+            handleAuthenticatedError(error)
+            haptics.error()
+            return false
+        }
+    }
+
+    @discardableResult
+    func blockUser(_ author: AnswerAuthor) async -> Bool {
+        guard case .signedIn(let actor) = session, actor.id != author.id,
+              !contentSafety.isWorking else { return false }
+        let generation = authenticationGeneration
+        contentSafety.isWorking = true
+        contentSafety.errorMessage = nil
+        contentSafety.feedback = nil
+        defer { if generation == authenticationGeneration { contentSafety.isWorking = false } }
+        do {
+            try await api.blockUser(userID: author.id)
+            guard generation == authenticationGeneration else { return false }
+            contentSafety.hiddenUserIDs.insert(author.id)
+            if let member = home.feed?.family?.members.first(where: { $0.id == author.id }),
+               !contentSafety.blockedUsers.contains(where: { $0.id == author.id }) {
+                contentSafety.blockedUsers.append(member)
+            }
+            contentSafety.revision += 1
+            contentSafety.feedback = "ブロックしました。設定から解除できます。"
+            pruneSafetyContent()
+            haptics.success()
+            await loadContentSafety(inBackground: true)
+            return true
+        } catch {
+            guard generation == authenticationGeneration else { return false }
+            contentSafety.errorMessage = userFacingMessage(for: error)
+            handleAuthenticatedError(error)
+            haptics.error()
+            return false
+        }
+    }
+
+    @discardableResult
+    func unblockUser(userID: String) async -> Bool {
+        guard case .signedIn = session, !contentSafety.isWorking else { return false }
+        let generation = authenticationGeneration
+        contentSafety.isWorking = true
+        contentSafety.errorMessage = nil
+        contentSafety.feedback = nil
+        defer { if generation == authenticationGeneration { contentSafety.isWorking = false } }
+        do {
+            try await api.unblockUser(userID: userID)
+            guard generation == authenticationGeneration else { return false }
+            contentSafety.revision += 1
+            invalidateSafetyMedia()
+            while contentSafety.isLoading {
+                try await Task.sleep(for: .milliseconds(20))
+                guard generation == authenticationGeneration else { return false }
+            }
+            guard await loadContentSafety() else {
+                contentSafety.errorMessage = "解除を保存しました。一覧を更新すると表示に反映されます。"
+                return false
+            }
+            guard generation == authenticationGeneration else { return false }
+            await refreshHome()
+            await loadHistory()
+            haptics.success()
+            return true
+        } catch {
+            guard generation == authenticationGeneration else { return false }
+            contentSafety.errorMessage = userFacingMessage(for: error)
+            handleAuthenticatedError(error)
+            haptics.error()
+            return false
+        }
+    }
+
+    private func invalidateSafetyMedia() {
+        AnswerMediaViewCache.clear()
+        NotificationCenter.default.post(name: .contentSafetyDidChange, object: nil)
+    }
+
+    private func pruneSafetyContent() {
+        var answers = (home.feed?.answers ?? []) + history.answers
+        answers += [home.feed?.myAnswer, home.feed?.todayQuestion?.answer, question.question?.answer, question.pendingQuestion?.answer].compactMap { $0 }
+        let hiddenAnswers = answers.filter { !contentSafety.allows($0) }
+        for answer in answers {
+            for media in answer.media {
+                contentSafety.mediaOwners[media.id] = SafetyMediaOwner(answerID: answer.id, authorID: answer.author.id)
+            }
+        }
+        let inaccessibleAnswerIDs = Set(hiddenAnswers.map(\.id)).union(contentSafety.hiddenAnswerIDs)
+        home.feed?.answers.removeAll { !contentSafety.allows($0) }
+        history.answers.removeAll { !contentSafety.allows($0) }
+        if let answer = home.feed?.myAnswer, !contentSafety.allows(answer) { home.feed?.myAnswer = nil }
+        home.feed?.todayQuestion = sanitizedQuestion(home.feed?.todayQuestion)
+        question.question = sanitizedQuestion(question.question)
+        question.pendingQuestion = sanitizedQuestion(question.pendingQuestion)
+        for id in Array(commentThreads.keys) {
+            if inaccessibleAnswerIDs.contains(id) {
+                commentThreads[id] = nil
+            } else {
+                commentThreads[id]?.comments.removeAll { !contentSafety.allows($0) }
+                if let focused = commentThreads[id]?.focusedCommentID,
+                   contentSafety.hiddenCommentIDs.contains(focused) {
+                    commentThreads[id]?.focusedCommentID = nil
+                }
+            }
+        }
+        path.removeAll { route in
+            if case .comments(let id) = route { return inaccessibleAnswerIDs.contains(id) }
+            return false
+        }
+        invalidateSafetyMedia()
+    }
+
+    func loadHistory(loadMore: Bool = false, inBackground: Bool = false) async {
         guard !history.isLoading, !history.isLoadingMore else { return }
         if loadMore, history.nextCursor == nil { return }
 
+        let requestedSafetyRevision = contentSafety.revision
         let requestedQuery = history.query
         let requestedGeneration = historyGeneration
+        let previousAnswers = history.answers
+        let previousCursor = history.nextCursor
         if loadMore {
             history.isLoadingMore = true
         } else {
             history.isLoading = true
         }
-        history.errorMessage = nil
+        if !inBackground { history.errorMessage = nil }
         defer {
             if requestedGeneration == historyGeneration {
                 if loadMore {
@@ -1141,24 +1705,32 @@ final class AppStore: ObservableObject {
                 query: requestedQuery,
                 cursor: loadMore ? history.nextCursor : nil
             )
-            guard requestedGeneration == historyGeneration,
-                  history.query == requestedQuery else {
+            guard requestedGeneration == historyGeneration, requestedSafetyRevision == contentSafety.revision,
+                  history.query == requestedQuery, !Task.isCancelled else {
                 return
             }
+            if inBackground, history.answers != previousAnswers { return }
+            let preservesOlderPages = inBackground
+                && previousAnswers.count > page.answers.count && page.nextCursor != nil
             if loadMore {
                 history.answers = mergedAnswers(
                     history.answers,
                     appending: page.answers
                 )
+            } else if preservesOlderPages {
+                let refreshedIDs = Set(page.answers.map(\.id))
+                history.answers = mergedAnswers(page.answers, appending: previousAnswers.filter { !refreshedIDs.contains($0.id) })
             } else {
                 history.answers = uniqueAnswers(page.answers)
             }
-            history.nextCursor = page.nextCursor
+            history.nextCursor = preservesOlderPages ? previousCursor : page.nextCursor
             history.hasLoaded = true
+            history.errorMessage = nil
         } catch {
-            guard requestedGeneration == historyGeneration else { return }
+            guard requestedGeneration == historyGeneration, requestedSafetyRevision == contentSafety.revision,
+                  !Task.isCancelled, !isCancelledRequest(error) else { return }
             handleAuthenticatedError(error)
-            history.errorMessage = userFacingMessage(for: error)
+            if !inBackground { history.errorMessage = userFacingMessage(for: error) }
         }
     }
 
@@ -1178,10 +1750,11 @@ final class AppStore: ObservableObject {
         query.limit = HistoryQuery.normalizedLimit(query.limit)
         guard history.query != query else { return }
         historyGeneration += 1
-        // Keep the last successful page visible until the newly selected
-        // filters load successfully. A transient GET failure should not erase
-        // a usable local history cache.
+        // A result belongs to its query. Showing an old page under a new
+        // search term makes a failed or pending request look like a match.
         history.query = query
+        history.answers = []
+        history.hasLoaded = false
         history.nextCursor = nil
         history.isLoading = false
         history.isLoadingMore = false
@@ -1237,6 +1810,10 @@ final class AppStore: ObservableObject {
         answerID: String,
         loadMore: Bool = false
     ) async -> PushDestinationResolution {
+        let requestedGeneration = authenticationGeneration
+        let safetyRevision = contentSafety.revision
+        guard !contentSafety.hiddenAnswerIDs.contains(answerID),
+              answer(withID: answerID).map(contentSafety.allows) != false else { return .terminal }
         var thread = commentThreads[answerID] ?? CommentThreadState()
         guard !thread.isLoading else { return .retryable }
         if loadMore, thread.nextCursor == nil { return .ready }
@@ -1250,7 +1827,18 @@ final class AppStore: ObservableObject {
                 answerID: answerID,
                 cursor: loadMore ? thread.nextCursor : nil
             )
+            guard authenticationGeneration == requestedGeneration else { return .retryable }
+            guard safetyRevision == contentSafety.revision else {
+                commentThreads[answerID]?.isLoading = false
+                return .retryable
+            }
+            guard !contentSafety.hiddenAnswerIDs.contains(answerID), answer(withID: answerID).map(contentSafety.allows) != false else { return .terminal }
             thread = commentThreads[answerID] ?? thread
+            if Task.isCancelled {
+                thread.isLoading = false
+                commentThreads[answerID] = thread
+                return .retryable
+            }
             if loadMore {
                 thread.comments = mergedComments(
                     thread.comments,
@@ -1264,8 +1852,17 @@ final class AppStore: ObservableObject {
             commentThreads[answerID] = thread
             return .ready
         } catch {
+            guard authenticationGeneration == requestedGeneration else { return .retryable }
+            guard safetyRevision == contentSafety.revision else {
+                commentThreads[answerID]?.isLoading = false
+                return .retryable
+            }
             thread = commentThreads[answerID] ?? thread
             thread.isLoading = false
+            if Task.isCancelled || isCancelledRequest(error) {
+                commentThreads[answerID] = thread
+                return .retryable
+            }
             thread.errorMessage = userFacingMessage(for: error)
             commentThreads[answerID] = thread
             handleAuthenticatedError(error)
@@ -1285,6 +1882,8 @@ final class AppStore: ObservableObject {
     }
 
     func postComment(answerID: String) async {
+        let generation = authenticationGeneration
+        let parentAnswer = answer(withID: answerID)
         var thread = commentThreads[answerID] ?? CommentThreadState()
         let body = thread.draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !body.isEmpty,
@@ -1292,6 +1891,7 @@ final class AppStore: ObservableObject {
                 <= Comment.maximumBodyCharacterCount,
               !thread.isPosting else { return }
 
+        guard !contentSafety.hiddenAnswerIDs.contains(answerID), parentAnswer.map(contentSafety.allows) != false else { return  }
         thread.isPosting = true
         thread.errorMessage = nil
         commentThreads[answerID] = thread
@@ -1301,6 +1901,12 @@ final class AppStore: ObservableObject {
                 answerID: answerID,
                 body: body
             )
+            guard generation == authenticationGeneration,
+                  !contentSafety.hiddenAnswerIDs.contains(answerID),
+                  parentAnswer.map(contentSafety.allows) != false else {
+                if generation == authenticationGeneration { commentThreads[answerID]?.isPosting = false }
+                return
+            }
             thread = commentThreads[answerID] ?? thread
             thread.comments = mergedComments(
                 thread.comments,
@@ -1312,6 +1918,12 @@ final class AppStore: ObservableObject {
             incrementCommentCount(answerID: answerID)
             haptics.success()
         } catch {
+            guard generation == authenticationGeneration,
+                  !contentSafety.hiddenAnswerIDs.contains(answerID),
+                  parentAnswer.map(contentSafety.allows) != false else {
+                if generation == authenticationGeneration { commentThreads[answerID]?.isPosting = false }
+                return
+            }
             thread = commentThreads[answerID] ?? thread
             thread.isPosting = false
             thread.errorMessage = userFacingMessage(for: error)
@@ -1327,7 +1939,10 @@ final class AppStore: ObservableObject {
         parentCommentID: String,
         body: String
     ) async -> Bool {
+        let generation = authenticationGeneration
+        let parentAnswer = answer(withID: answerID)
         var thread = commentThreads[answerID] ?? CommentThreadState()
+        let parentComment = thread.comments.first { $0.id == parentCommentID }
         let body = body.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !body.isEmpty,
               UnicodeTextValidation.characterCount(body)
@@ -1336,6 +1951,7 @@ final class AppStore: ObservableObject {
               !thread.isMutating else {
             return false
         }
+        guard !contentSafety.hiddenAnswerIDs.contains(answerID), parentAnswer.map(contentSafety.allows) != false, !contentSafety.hiddenCommentIDs.contains(parentCommentID), parentComment.map(contentSafety.allows) != false else { return false }
         thread.isPosting = true
         thread.errorMessage = nil
         commentThreads[answerID] = thread
@@ -1346,6 +1962,13 @@ final class AppStore: ObservableObject {
                 parentCommentID: parentCommentID,
                 body: body
             )
+            guard generation == authenticationGeneration,
+                  !contentSafety.hiddenAnswerIDs.contains(answerID),
+                  parentAnswer.map(contentSafety.allows) != false, !contentSafety.hiddenCommentIDs.contains(parentCommentID),
+                  parentComment.map(contentSafety.allows) != false else {
+                if generation == authenticationGeneration { commentThreads[answerID]?.isPosting = false }
+                return false
+            }
             thread = commentThreads[answerID] ?? thread
             thread.comments = mergedComments(
                 thread.comments,
@@ -1357,6 +1980,13 @@ final class AppStore: ObservableObject {
             haptics.success()
             return true
         } catch {
+            guard generation == authenticationGeneration,
+                  !contentSafety.hiddenAnswerIDs.contains(answerID),
+                  parentAnswer.map(contentSafety.allows) != false, !contentSafety.hiddenCommentIDs.contains(parentCommentID),
+                  parentComment.map(contentSafety.allows) != false else {
+                if generation == authenticationGeneration { commentThreads[answerID]?.isPosting = false }
+                return false
+            }
             thread = commentThreads[answerID] ?? thread
             thread.isPosting = false
             thread.errorMessage = userFacingMessage(for: error)
@@ -1416,6 +2046,7 @@ final class AppStore: ObservableObject {
         reason: CommentReportReason,
         details: String? = nil
     ) async -> Bool {
+        let generation = authenticationGeneration
         var thread = commentThreads[answerID] ?? CommentThreadState()
         let normalizedDetails = details?.trimmingCharacters(
             in: .whitespacesAndNewlines
@@ -1424,7 +2055,11 @@ final class AppStore: ObservableObject {
             UnicodeTextValidation.characterCount($0)
                 <= CommentReport.maximumDetailsCharacterCount
         }) ?? true,
-        !thread.isMutating else { return false }
+        !thread.isMutating, !contentSafety.isWorking else { return false }
+        contentSafety.isWorking = true
+        contentSafety.errorMessage = nil
+        contentSafety.feedback = nil
+        defer { if generation == authenticationGeneration { contentSafety.isWorking = false } }
         thread.isMutating = true
         thread.errorMessage = nil
         commentThreads[answerID] = thread
@@ -1435,16 +2070,24 @@ final class AppStore: ObservableObject {
                 reason: reason,
                 details: normalizedDetails
             )
+            guard generation == authenticationGeneration else { return false }
+            contentSafety.hiddenCommentIDs.insert(commentID)
+            contentSafety.revision += 1
+            contentSafety.feedback = "報告を送り、このコメントを非表示にしました。"
             thread = commentThreads[answerID] ?? thread
             thread.reportsByCommentID[commentID] = report
             thread.isMutating = false
             commentThreads[answerID] = thread
+            pruneSafetyContent()
+            await loadContentSafety(inBackground: true)
             haptics.success()
             return true
         } catch {
+            guard generation == authenticationGeneration else { return false }
             thread = commentThreads[answerID] ?? thread
             thread.isMutating = false
             thread.errorMessage = userFacingMessage(for: error)
+            contentSafety.errorMessage = userFacingMessage(for: error)
             commentThreads[answerID] = thread
             handleAuthenticatedError(error)
             haptics.error()
@@ -1490,6 +2133,7 @@ final class AppStore: ObservableObject {
 
         do {
             let profile = try await api.updateProfile(displayName: trimmedName)
+            if let family = profile.family { applyFamily(family) }
             applyCurrentUserProfile(profile)
             applyDisplayName(profile.displayName, toUserID: profile.id)
             haptics.success()
@@ -1502,6 +2146,83 @@ final class AppStore: ObservableObject {
         }
     }
 
+    var requiresPersonalMarkSetup: Bool {
+        guard case .signedIn(let profile) = session else { return false }
+        return !personalMarkRequirementIsConfirmed
+            || PersonalMarkRequirement.requiresSetup(for: profile)
+    }
+
+    /// Authentication receipts can replay an older profile snapshot. Resolve
+    /// the current server profile before asking an existing member to redraw.
+    func confirmPersonalMarkRequirement() async {
+        guard case .signedIn(let actor) = session,
+              !personalMarkRequirementIsConfirmed,
+              personalMarkVerificationGeneration != authenticationGeneration else { return }
+        let generation = authenticationGeneration
+        personalMarkVerificationGeneration = generation
+        isCheckingPersonalMarkRequirement = true
+        personalMarkRequirementError = nil
+        defer {
+            if personalMarkVerificationGeneration == generation {
+                personalMarkVerificationGeneration = nil
+                isCheckingPersonalMarkRequirement = false
+            }
+        }
+        do {
+            let profile = try await api.fetchMe()
+            guard case .signedIn(let current) = session,
+                  current.id == actor.id, profile.id == actor.id,
+                  generation == authenticationGeneration else { return }
+            personalMarkRequirementIsConfirmed = true
+            applyCurrentUserProfile(profile)
+        } catch {
+            guard !Task.isCancelled, !isCancelledRequest(error),
+                  case .signedIn(let current) = session,
+                  current.id == actor.id, generation == authenticationGeneration else { return }
+            handleAuthenticatedError(error)
+            personalMarkRequirementError = userFacingMessage(for: error)
+        }
+    }
+
+    private func resetPersonalMarkRequirement() {
+        personalMarkRequirementIsConfirmed = false
+        isCheckingPersonalMarkRequirement = false
+        personalMarkRequirementError = nil
+        personalMarkVerificationGeneration = nil
+    }
+
+    @discardableResult
+    func updatePersonalMark(_ mark: String?) async -> Bool {
+        guard case .signedIn(let actor) = session,
+              PersonalMarkRequirement.hasDrawing(mark) else { return false }
+        let generation = authenticationGeneration
+        let previousErrorMessage = globalErrorMessage
+        do {
+            let profile = try await api.updatePersonalMark(mark)
+            guard case .signedIn(let current) = session,
+                  current.id == actor.id, profile.id == actor.id,
+                  generation == authenticationGeneration,
+                  profile.avatarMark == mark,
+                  PersonalMarkRequirement.hasDrawing(profile.avatarMark) else { return false }
+            if globalErrorMessage == previousErrorMessage {
+                globalErrorMessage = nil
+            }
+            if let family = profile.family { applyFamily(family) }
+            personalMarkRequirementIsConfirmed = true
+            applyCurrentUserProfile(profile)
+            applyPersonalMark(profile.avatarMark, toUserID: profile.id)
+            haptics.success()
+            return true
+        } catch {
+            guard !Task.isCancelled, !isCancelledRequest(error),
+                  case .signedIn(let current) = session,
+                  current.id == actor.id, generation == authenticationGeneration else { return false }
+            handleAuthenticatedError(error)
+            presentGlobalError(error)
+            return false
+        }
+    }
+
     func setNotificationPermissionStatus(
         _ status: NotificationPermissionStatus
     ) {
@@ -1510,14 +2231,20 @@ final class AppStore: ObservableObject {
 
     func loadNotificationPreferences() async {
         guard !notificationPreferences.isLoading else { return }
+        let generation = authenticationGeneration
         notificationPreferences.isLoading = true
         notificationPreferences.errorMessage = nil
-        defer { notificationPreferences.isLoading = false }
+        defer {
+            if generation == authenticationGeneration { notificationPreferences.isLoading = false }
+        }
 
         do {
-            notificationPreferences.preferences = try await api
-                .fetchNotificationPreferences()
+            let preferences = try await api.fetchNotificationPreferences()
+            guard generation == authenticationGeneration, !Task.isCancelled else { return }
+            notificationPreferences.preferences = preferences
         } catch {
+            guard generation == authenticationGeneration,
+                  !Task.isCancelled, !isCancelledRequest(error) else { return }
             handleAuthenticatedError(error)
             notificationPreferences.errorMessage = userFacingMessage(for: error)
         }
@@ -1528,16 +2255,22 @@ final class AppStore: ObservableObject {
         _ preferences: NotificationPreferences
     ) async -> Bool {
         guard !notificationPreferences.isSaving else { return false }
+        let generation = authenticationGeneration
         notificationPreferences.isSaving = true
         notificationPreferences.errorMessage = nil
-        defer { notificationPreferences.isSaving = false }
+        defer {
+            if generation == authenticationGeneration { notificationPreferences.isSaving = false }
+        }
 
         do {
-            notificationPreferences.preferences = try await api
-                .updateNotificationPreferences(preferences)
+            let saved = try await api.updateNotificationPreferences(preferences)
+            guard generation == authenticationGeneration, !Task.isCancelled else { return false }
+            notificationPreferences.preferences = saved
             haptics.success()
             return true
         } catch {
+            guard generation == authenticationGeneration,
+                  !Task.isCancelled, !isCancelledRequest(error) else { return false }
             handleAuthenticatedError(error)
             notificationPreferences.errorMessage = userFacingMessage(for: error)
             haptics.error()
@@ -1584,15 +2317,61 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// This background update never changes notification switches or presents
+    /// an error banner. A later foreground event retries a failed sync.
+    func synchronizeDeviceTimeZone(
+        _ identifier: String = TimeZone.autoupdatingCurrent.identifier
+    ) async {
+        guard case .signedIn(let profile) = session else {
+            deviceTimeZoneSynchronizer.reset()
+            return
+        }
+        let identity = DeviceTimeZoneSynchronizer.Identity(
+            userID: profile.id,
+            sessionGeneration: authenticationGeneration,
+            timeZoneIdentifier: identifier
+        )
+        await deviceTimeZoneSynchronizer.synchronize(identity: identity) { [weak self] request in
+            guard let self,
+                  case .signedIn(let currentProfile) = session,
+                  currentProfile.id == request.userID,
+                  authenticationGeneration == request.sessionGeneration else { return false }
+            do {
+                try await api.updateDeviceTimeZone(request.timeZoneIdentifier)
+                guard case .signedIn(let currentProfile) = session,
+                      currentProfile.id == request.userID,
+                      authenticationGeneration == request.sessionGeneration else { return false }
+                notificationPreferences.preferences?.timeZoneIdentifier = request.timeZoneIdentifier
+                return true
+            } catch {
+                guard !Task.isCancelled, !isCancelledRequest(error),
+                      case .signedIn(let currentProfile) = session,
+                      currentProfile.id == request.userID,
+                      authenticationGeneration == request.sessionGeneration else { return false }
+                handleAuthenticatedError(error)
+                return false
+            }
+        }
+    }
+
     @discardableResult
     func registerPushToken(
         _ token: String,
         environment: PushEnvironment
     ) async -> Bool {
+        guard case .signedIn(let requestedProfile) = session else { return false }
+        let requestedGeneration = authenticationGeneration
         do {
             try await api.registerPushToken(token, environment: environment)
+            guard case .signedIn(let currentProfile) = session,
+                  currentProfile.id == requestedProfile.id,
+                  authenticationGeneration == requestedGeneration else { return false }
             return true
         } catch {
+            guard !Task.isCancelled, !isCancelledRequest(error),
+                  case .signedIn(let currentProfile) = session,
+                  currentProfile.id == requestedProfile.id,
+                  authenticationGeneration == requestedGeneration else { return false }
             handleAuthenticatedError(error)
             presentGlobalError(error)
             return false
@@ -1622,8 +2401,11 @@ final class AppStore: ObservableObject {
         answerID: String,
         targetCommentID: String? = nil
     ) async -> Bool {
+        let requestedGeneration = authenticationGeneration
         do {
             let answer = try await api.fetchAnswer(answerID: answerID)
+            guard authenticationGeneration == requestedGeneration, !Task.isCancelled else { return false }
+            guard contentSafety.allows(answer) else { return true }
             if home.feed == nil {
                 home.feed = HomeFeed(answers: [answer])
             } else if let index = home.feed?.answers.firstIndex(where: {
@@ -1636,7 +2418,9 @@ final class AppStore: ObservableObject {
             var thread = commentThreads[answer.id] ?? CommentThreadState()
             thread.focusedCommentID = nil
             commentThreads[answer.id] = thread
-            switch await performCommentLoad(answerID: answer.id) {
+            let commentResolution = await performCommentLoad(answerID: answer.id)
+            guard authenticationGeneration == requestedGeneration, !Task.isCancelled else { return false }
+            switch commentResolution {
             case .ready:
                 break
             case .terminal:
@@ -1657,10 +2441,12 @@ final class AppStore: ObservableObject {
                 let nextCursor = commentThreads[answer.id]?.nextCursor,
                 nextCursor != previousCursor {
                     previousCursor = nextCursor
-                    switch await performCommentLoad(
+                    let pageResolution = await performCommentLoad(
                         answerID: answer.id,
                         loadMore: true
-                    ) {
+                    )
+                    guard authenticationGeneration == requestedGeneration, !Task.isCancelled else { return false }
+                    switch pageResolution {
                     case .ready:
                         break
                     case .terminal:
@@ -1687,6 +2473,8 @@ final class AppStore: ObservableObject {
             path = [.home, .comments(answerID: answer.id)]
             return true
         } catch {
+            guard authenticationGeneration == requestedGeneration,
+                  !Task.isCancelled, !isCancelledRequest(error) else { return false }
             if isTerminalPushDestinationError(error) {
                 globalErrorMessage = "この回答は削除されたか、現在は表示できません。"
                 return true
@@ -1699,6 +2487,8 @@ final class AppStore: ObservableObject {
 
     func dismissPresentedErrors(commentAnswerID: String? = nil) {
         globalErrorMessage = nil
+        emailAuth.errorMessage = nil
+        emailEnrollment.errorMessage = nil
         auth.errorMessage = nil
         phoneEnrollment.errorMessage = nil
         recovery.errorMessage = nil
@@ -1731,9 +2521,13 @@ final class AppStore: ObservableObject {
     }
 
     private func finishAuthentication(_ authenticatedSession: AuthSession) async {
+        authenticationGeneration += 1
+        resetPersonalMarkRequirement()
         canRetrySessionRestore = false
         clearVerificationChallenge(storageKey: Self.loginChallengeStorageKey)
+        clearVerificationChallenge(storageKey: Self.emailLoginChallengeStorageKey)
         session = .signedIn(authenticatedSession.user)
+        emailAuth = EmailVerificationFeatureState()
         auth = AuthFeatureState()
         path = [.home]
         haptics.success()
@@ -1741,12 +2535,18 @@ final class AppStore: ObservableObject {
     }
 
     private func transitionToSignedOut() {
+        authenticationGeneration += 1
+        resetPersonalMarkRequirement()
+        deviceTimeZoneSynchronizer.reset()
         let pendingPairingToken = familySetup.pairingToken
         canRetrySessionRestore = false
         session = .signedOut
         clearVerificationChallenge(
             storageKey: Self.enrollmentChallengeStorageKey
         )
+        clearVerificationChallenge(storageKey: Self.emailEnrollmentChallengeStorageKey)
+        emailAuth = EmailVerificationFeatureState()
+        emailEnrollment = EmailVerificationFeatureState()
         auth = AuthFeatureState()
         phoneEnrollment = PhoneEnrollmentFeatureState()
         recovery = RecoveryFeatureState()
@@ -1754,6 +2554,8 @@ final class AppStore: ObservableObject {
         question = QuestionFeatureState()
         history = HistoryFeatureState()
         commentThreads = [:]
+        contentSafety = ContentSafetyState()
+        invalidateSafetyMedia()
         familySetup = FamilySetupFeatureState()
         familyLifecycle = FamilyLifecycleFeatureState()
         answerOwnership = AnswerOwnershipFeatureState()
@@ -1761,10 +2563,196 @@ final class AppStore: ObservableObject {
         account = AccountFeatureState()
         historyGeneration += 1
         familySetup.pairingToken = pendingPairingToken
+        if pendingPairingToken == nil, restorePendingEmailLoginChallenge() {
+            return
+        }
         if pendingPairingToken == nil, restorePendingLoginChallenge() {
             return
         }
         path = pendingPairingToken == nil ? [.onboarding] : [.pairingEntry]
+    }
+
+    private func persistEmailVerificationChallenge(
+        email: String,
+        challenge: OTPChallenge,
+        expiresAt: Date?,
+        actorUserID: String?,
+        actorEmailAtRequest: String?,
+        storageKey: String
+    ) {
+        guard let verificationDefaults, let expiresAt else { return }
+        let record = PersistedEmailVerificationChallenge(
+            email: email,
+            requestID: challenge.requestID,
+            expiresAt: expiresAt,
+            actorUserID: actorUserID,
+            actorEmailAtRequest: actorEmailAtRequest,
+            attemptStartedAt: nil,
+            replayUntil: nil
+        )
+        guard let data = try? JSONEncoder().encode(record) else { return }
+        verificationDefaults.set(data, forKey: storageKey)
+    }
+
+    private func persistedEmailVerificationChallenge(
+        storageKey: String
+    ) -> PersistedEmailVerificationChallenge? {
+        guard let verificationDefaults,
+              let data = verificationDefaults.data(forKey: storageKey),
+              let record = try? JSONDecoder().decode(
+                  PersistedEmailVerificationChallenge.self,
+                  from: data
+              ),
+              !record.email.isEmpty,
+              !record.requestID.isEmpty else {
+            verificationDefaults?.removeObject(forKey: storageKey)
+            return nil
+        }
+        let isChallengeLive = record.expiresAt > now()
+        let isInterruptedAttemptRecoverable = record.attemptStartedAt != nil
+            && (record.replayUntil ?? .distantPast) > now()
+        guard isChallengeLive || isInterruptedAttemptRecoverable else {
+            verificationDefaults.removeObject(forKey: storageKey)
+            return nil
+        }
+        return record
+    }
+
+    private func markEmailVerificationAttemptStarted(storageKey: String) {
+        guard let verificationDefaults,
+              let data = verificationDefaults.data(forKey: storageKey),
+              let record = try? JSONDecoder().decode(
+                  PersistedEmailVerificationChallenge.self,
+                  from: data
+              ) else {
+            return
+        }
+        let updated = PersistedEmailVerificationChallenge(
+            email: record.email,
+            requestID: record.requestID,
+            expiresAt: record.expiresAt,
+            actorUserID: record.actorUserID,
+            actorEmailAtRequest: record.actorEmailAtRequest,
+            attemptStartedAt: now(),
+            replayUntil: now().addingTimeInterval(
+                Self.verificationReplayRetention
+            )
+        )
+        guard let encoded = try? JSONEncoder().encode(updated) else { return }
+        verificationDefaults.set(encoded, forKey: storageKey)
+    }
+
+    private func markEmailVerificationAttemptDefinitivelyResolved(
+        storageKey: String
+    ) {
+        guard let verificationDefaults,
+              let data = verificationDefaults.data(forKey: storageKey),
+              let record = try? JSONDecoder().decode(
+                  PersistedEmailVerificationChallenge.self,
+                  from: data
+              ) else {
+            return
+        }
+        guard record.expiresAt > now() else {
+            verificationDefaults.removeObject(forKey: storageKey)
+            return
+        }
+        let updated = PersistedEmailVerificationChallenge(
+            email: record.email,
+            requestID: record.requestID,
+            expiresAt: record.expiresAt,
+            actorUserID: record.actorUserID,
+            actorEmailAtRequest: record.actorEmailAtRequest,
+            attemptStartedAt: nil,
+            replayUntil: nil
+        )
+        guard let encoded = try? JSONEncoder().encode(updated) else { return }
+        verificationDefaults.set(encoded, forKey: storageKey)
+    }
+
+    @discardableResult
+    private func restorePendingEmailLoginChallenge() -> Bool {
+        guard let record = persistedEmailVerificationChallenge(
+            storageKey: Self.emailLoginChallengeStorageKey
+        ), record.actorUserID == nil else {
+            return false
+        }
+        let remaining = max(
+            1,
+            Int(ceil(record.expiresAt.timeIntervalSince(now())))
+        )
+        emailAuth = EmailVerificationFeatureState(
+            email: record.email,
+            verificationCode: "",
+            challenge: OTPChallenge(
+                requestID: record.requestID,
+                expiresIn: remaining
+            ),
+            expiresAt: record.expiresAt,
+            canReplayExpiredAttempt: record.attemptStartedAt != nil
+        )
+        session = .awaitingEmailVerification(email: record.email)
+        path = [
+            .emailVerification(
+                email: record.email,
+                requestID: record.requestID
+            )
+        ]
+        return true
+    }
+
+    private func restorePendingEmailEnrollmentChallenge(for user: UserProfile) {
+        guard let record = persistedEmailVerificationChallenge(
+            storageKey: Self.emailEnrollmentChallengeStorageKey
+        ) else {
+            return
+        }
+        guard record.actorUserID == user.id else {
+            clearVerificationChallenge(
+                storageKey: Self.emailEnrollmentChallengeStorageKey
+            )
+            return
+        }
+        // A fetched profile with an email means enrollment committed even if
+        // the process died before the verification screen cleared its record.
+        let fetchedEmail = Self.canonicalEmail(user.email ?? "")
+        let enrollmentHasCompleted: Bool
+        if let actorEmailAtRequest = record.actorEmailAtRequest {
+            let previousEmail = Self.canonicalEmail(actorEmailAtRequest)
+            enrollmentHasCompleted = fetchedEmail != previousEmail
+                || (previousEmail.isEmpty && user.hasEmail == true)
+        } else {
+            // Backward-compatible self-heal for a record written before the
+            // previous-email snapshot existed.
+            enrollmentHasCompleted = !fetchedEmail.isEmpty
+                && fetchedEmail == Self.canonicalEmail(record.email)
+        }
+        if enrollmentHasCompleted {
+            clearVerificationChallenge(
+                storageKey: Self.emailEnrollmentChallengeStorageKey
+            )
+            return
+        }
+        let remaining = max(
+            1,
+            Int(ceil(record.expiresAt.timeIntervalSince(now())))
+        )
+        emailEnrollment = EmailVerificationFeatureState(
+            email: record.email,
+            verificationCode: "",
+            challenge: OTPChallenge(
+                requestID: record.requestID,
+                expiresIn: remaining
+            ),
+            expiresAt: record.expiresAt,
+            canReplayExpiredAttempt: record.attemptStartedAt != nil
+        )
+        path.append(
+            .emailEnrollmentVerification(
+                email: record.email,
+                requestID: record.requestID
+            )
+        )
     }
 
     private func persistVerificationChallenge(
@@ -1973,6 +2961,15 @@ final class AppStore: ObservableObject {
             ?? error.localizedDescription
     }
 
+    private func isCancelledRequest(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if (error as? URLError)?.code == .cancelled { return true }
+        if case .transport(let underlying) = error as? APIClientError {
+            return isCancelledRequest(underlying)
+        }
+        return false
+    }
+
     private func isTerminalPushDestinationError(_ error: Error) -> Bool {
         guard case .server(let statusCode, _) = error as? APIClientError else {
             return false
@@ -1981,7 +2978,28 @@ final class AppStore: ObservableObject {
     }
 
     private func presentGlobalError(_ error: Error) {
+        guard !isCancelledRequest(error) else { return }
         globalErrorMessage = userFacingMessage(for: error)
+    }
+
+    private func applyPersonalMark(_ mark: String?, toUserID userID: String) {
+        for index in home.feed?.answers.indices ?? 0..<0
+        where home.feed?.answers[index].author.id == userID {
+            home.feed?.answers[index].author.avatarMark = mark
+        }
+        for index in history.answers.indices where history.answers[index].author.id == userID {
+            history.answers[index].author.avatarMark = mark
+        }
+        if home.feed?.myAnswer?.author.id == userID { home.feed?.myAnswer?.author.avatarMark = mark }
+        if home.feed?.todayQuestion?.answer?.author.id == userID { home.feed?.todayQuestion?.answer?.author.avatarMark = mark }
+        if question.question?.answer?.author.id == userID { question.question?.answer?.author.avatarMark = mark }
+        for key in Array(commentThreads.keys) {
+            guard var thread = commentThreads[key] else { continue }
+            for index in thread.comments.indices where thread.comments[index].author.id == userID {
+                thread.comments[index].author.avatarMark = mark
+            }
+            commentThreads[key] = thread
+        }
     }
 
     private var currentPairingCredential: FamilyPairingCredential? {
@@ -2048,6 +3066,7 @@ final class AppStore: ObservableObject {
         // Family members are summaries. Avoid nesting a full family inside
         // itself when a profile mutation response includes its family object.
         cachedMember.family = nil
+        cachedMember.email = nil
         if var family = familySetup.family,
            let index = family.members.firstIndex(where: { $0.id == member.id }) {
             family.members[index] = cachedMember
@@ -2156,6 +3175,8 @@ final class AppStore: ObservableObject {
         historyGeneration += 1
         history = HistoryFeatureState()
         commentThreads = [:]
+        contentSafety = ContentSafetyState()
+        invalidateSafetyMedia()
         notificationPreferences.preferences = nil
         path = [.home]
     }
@@ -2235,6 +3256,7 @@ final class AppStore: ObservableObject {
     }
 
     private func replaceCachedAnswer(_ answer: Answer) {
+        updateHomeAnswerProgress(for: answer, isAnswered: true)
         if let index = home.feed?.answers.firstIndex(where: {
             $0.id == answer.id
         }) {
@@ -2261,6 +3283,9 @@ final class AppStore: ObservableObject {
     }
 
     private func removeCachedAnswer(answerID: String) {
+        if let cachedAnswer = answer(withID: answerID) {
+            updateHomeAnswerProgress(for: cachedAnswer, isAnswered: false)
+        }
         home.feed?.answers.removeAll(where: { $0.id == answerID })
         if home.feed?.myAnswer?.id == answerID {
             home.feed?.myAnswer = nil
@@ -2273,6 +3298,22 @@ final class AppStore: ObservableObject {
         }
         history.answers.removeAll(where: { $0.id == answerID })
         commentThreads[answerID] = nil
+    }
+
+    private func updateHomeAnswerProgress(for answer: Answer, isAnswered: Bool) {
+        guard let today = home.feed?.todayQuestion,
+              answer.answerDate == today.publishedOn,
+              answer.questionID == today.id,
+              var answeredIDs = home.feed?.todayAnsweredUserIDs else { return }
+
+        if isAnswered {
+            if !answeredIDs.contains(answer.author.id) {
+                answeredIDs.append(answer.author.id)
+            }
+        } else {
+            answeredIDs.removeAll(where: { $0 == answer.author.id })
+        }
+        home.feed?.todayAnsweredUserIDs = answeredIDs
     }
 
     private func answerMatchesHistoryQuery(_ answer: Answer) -> Bool {
@@ -2316,7 +3357,7 @@ final class AppStore: ObservableObject {
 
     private func uniqueAnswers(_ answers: [Answer]) -> [Answer] {
         var seen = Set<String>()
-        return answers.filter { seen.insert($0.id).inserted }
+        return answers.filter { contentSafety.allows($0) && seen.insert($0.id).inserted }
     }
 
     private func mergedAnswers(
@@ -2335,7 +3376,7 @@ final class AppStore: ObservableObject {
             }
             byID[answer.id] = answer
         }
-        return order.compactMap { byID[$0] }
+        return order.compactMap { byID[$0] }.filter { contentSafety.allows($0) }
     }
 
     private func mergedComments(
@@ -2354,7 +3395,7 @@ final class AppStore: ObservableObject {
             }
             byID[comment.id] = comment
         }
-        return order.compactMap { byID[$0] }
+        return order.compactMap { byID[$0] }.filter { contentSafety.allows($0) }
     }
 
     private func answer(withID id: String) -> Answer? {
@@ -2454,12 +3495,23 @@ final class AppStore: ObservableObject {
         }
     }
 
+    private static func canonicalEmail(_ value: String) -> String {
+        EmailAddressValidation.normalized(value) ?? ""
+    }
+
     private static func canonicalPhone(_ value: String) -> String {
         PhoneNumberValidation.canonicalE164(value) ?? ""
     }
 }
 
 private extension AppRoute {
+    var isEmailEnrollmentRoute: Bool {
+        switch self {
+        case .emailEnrollment, .emailEnrollmentVerification: return true
+        default: return false
+        }
+    }
+
     var isPhoneEnrollmentRoute: Bool {
         switch self {
         case .phoneEnrollment, .phoneEnrollmentVerification:

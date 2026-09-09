@@ -1,0 +1,5 @@
+Email OTP delivery failed (RuntimeException).
+Email enrollment delivery failed (RuntimeException).
+Email OTP delivery failed (RuntimeException).
+Email enrollment delivery failed (RuntimeException).
+Email authentication tests passed (no email sent).

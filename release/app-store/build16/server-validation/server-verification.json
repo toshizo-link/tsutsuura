@@ -1,0 +1,32 @@
+{
+  "verifiedAt": "2026-09-05T21:48:32.529838+00:00",
+  "scope": "Local server push correctness; no live requests, deployments, migrations or production data changes",
+  "change": "Retry wholly failed question reminders after five minutes, retaining idempotency for any accepted device and respecting recipient quiet hours/daytime. Reservation timestamps use the supplied UTC clock.",
+  "files": {
+    "server/src/Push/QuestionReminderScheduler.php": "0286f520f384ebe3df9fcdec69e488966bd20a4060f641969899eabdb0374409",
+    "server/bin/question-schedule-test.php": "7c69c6fffc86d1e2dad86b38360708a29f68f5a1d555a9d978cd6b692b3fa3a7"
+  },
+  "tests": [
+    {
+      "log": "tsutsuura-push16-question-schedule.log",
+      "result": "passed",
+      "sha256": "a8c87edcc70959ed06cf6ff0db0bc01cdfdb7ce094e412cace5154b6214d1c53",
+      "originalLog": "/tmp/tsutsuura-push16-question-schedule.log"
+    },
+    {
+      "log": "tsutsuura-push16-event-notifications.log",
+      "result": "passed",
+      "sha256": "742078bf9906c925bf68bbfd675a14e07dcfbca67abbd2ceb8ab5181babdd1e5",
+      "originalLog": "/tmp/tsutsuura-push16-event-notifications.log"
+    },
+    {
+      "log": "tsutsuura-push16-smoke.log",
+      "result": "passed",
+      "sha256": "8967208f0371a1e0c94ccf49d352c4e0f046b44c33cfdc91b18b7f69fe4ec1e6",
+      "originalLog": "/tmp/tsutsuura-push16-smoke.log"
+    }
+  ],
+  "runtime": "PHP 8.5.8 CLI, SQLite test fixtures; PHP minimum 8.2",
+  "remainingLimitation": "Question reminders have one reservation per account/day. A partially successful dispatch is not retried, to avoid notifying accepted devices twice. Event notifications already retry per device. Live APNs and physical-device delivery must be established separately.",
+  "evidenceCopiedAt": "2026-09-05T22:10:03.523041+00:00"
+}

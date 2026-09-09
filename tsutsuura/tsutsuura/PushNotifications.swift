@@ -28,7 +28,21 @@ enum PushAuthorizationState: String, Equatable, Sendable {
 
 #if canImport(UIKit) && canImport(UserNotifications)
 enum PushNotificationRegistration {
+    #if DEBUG
+    // UI tests exercise both choices without changing the simulator's real
+    // permission or producing a token that belongs to a demo account.
+    @MainActor private static var testingAuthorization: PushAuthorizationState? = {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["UI_TESTING"] == "1",
+              let value = environment["TSUTSUURA_TEST_PUSH_AUTHORIZATION"] else { return nil }
+        return PushAuthorizationState(rawValue: value)
+    }()
+    #endif
+
     static func authorizationState() async -> PushAuthorizationState {
+        #if DEBUG
+        if let state = await MainActor.run(body: { testingAuthorization }) { return state }
+        #endif
         let settings = await UNUserNotificationCenter.current()
             .notificationSettings()
         switch settings.authorizationStatus {
@@ -49,6 +63,16 @@ enum PushNotificationRegistration {
 
     @discardableResult
     static func requestAuthorizationIfNeeded() async -> PushAuthorizationState {
+        #if DEBUG
+        if let state = await MainActor.run(body: { () -> PushAuthorizationState? in
+            guard let state = testingAuthorization else { return nil }
+            if state == .notDetermined {
+                let response = ProcessInfo.processInfo.environment["TSUTSUURA_TEST_PUSH_RESPONSE"] ?? "authorized"
+                testingAuthorization = PushAuthorizationState(rawValue: response) ?? .denied
+            }
+            return testingAuthorization
+        }) { return state }
+        #endif
         guard DemoLaunchMode.current() == nil,
               ProcessInfo.processInfo.environment["UI_TESTING"] != "1" else {
             return .authorized
@@ -76,6 +100,9 @@ enum PushNotificationRegistration {
 
     @discardableResult
     static func registerIfAuthorized() async -> PushAuthorizationState {
+        #if DEBUG
+        if let state = await MainActor.run(body: { testingAuthorization }) { return state }
+        #endif
         guard DemoLaunchMode.current() == nil,
               ProcessInfo.processInfo.environment["UI_TESTING"] != "1" else {
             return .authorized

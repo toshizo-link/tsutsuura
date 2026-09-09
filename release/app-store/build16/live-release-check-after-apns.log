@@ -1,0 +1,3 @@
+API revision, capabilities, and lifecycle routes verified.
+Authenticated mutation routes are reachable through POST transport.
+Email enrollment: enabled (host mail delivery still requires a mailbox check).

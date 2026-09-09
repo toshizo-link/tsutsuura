@@ -1,0 +1,26 @@
+App: つつうら (Tsutsuura)
+Bundle ID: toshizo.link.tsutsuura
+Version: 1.0
+
+Purpose
+Tsutsuura is a Japanese-language app for private family question-and-answer sharing. Members of the same family see its answers, selected photos/audio, likes, and comments. There is no public discovery feed.
+
+Review access / first-time setup
+No preexisting account, password, email verification, or phone verification is needed to begin. On the welcome screen, scroll if necessary and choose 新しく家族をつくる. Enter an organizer name and family name, then tap この名前で次へ. This creates the organizer's account and signs it in automatically.
+
+Draw a line or shape in the required あなたのしるし step and tap このしるしを使う. From 家族の準備, choose 使い方を見てはじめる and follow the short guide to home. Email registration is optional account recovery, not a prerequisite to create a family. No demo password or universal verification code is used.
+
+To inspect family interaction on a second iPhone, add a member on the organizer's device and generate a setting invitation. On the second device choose 家族の番号を入力, enter the six-digit code, confirm the member, and draw that member's mark. Invitations expire after ten minutes; the organizer can generate another. The two devices then share the same family's answers and comments.
+
+Features to inspect
+1. On home, 家族 shows family answers; あなた shows personal answer history and search. Both pages update quietly while visible. The family progress indicator has one cell per member; 確認 shows who has answered.
+2. Questions follow the Asia/Tokyo family calendar. Publication varies between 09:00 and 19:00 Japan time; questions about that day's experiences appear later. Before publication, home displays the scheduled time and the question cannot yet be answered. A newly created family may need to wait until that displayed time.
+3. The upcoming-question banner can be closed with its × button or an upward swipe. To restore it, return either answer list to its top, pull downward, and release when the cue says 指を離すと表示. Small pulls do not restore it. Quiet automatic updates respect dismissal. The dotted background stays stationary.
+4. For an available unanswered question, tap 回答する. Enter text, optionally use speech/audio or add up to four selected photos, then confirm before sending. Published answers cannot be edited or individually deleted in the app.
+5. Tap an answer photo to open it full screen. Swipe horizontally between photos. Pull the photo downward to close it, or use the rectangular 閉じる button with the × icon. A short downward pull returns the photo to its position.
+6. Open コメント to read and add comments/replies. Comment edit/delete buttons are absent. Other members' comments have reply and report controls.
+7. Settings offers family management, redrawing the personal mark, notification choices, help, and account/data options. The final onboarding step offers お知らせを受け取る; notification permission is optional, as are microphone and speech-recognition permission. Typing remains available when audio permissions are denied. Notification taps open the related question, answer, or comments.
+8. Account deletion: あなた → 設定 → 機種変更・データの保存 → アカウントの削除 → アカウントを削除. An organizer with other members must transfer ownership first. Deletion is irreversible; use a disposable account when testing it.
+
+Known operational status
+The backend is https://toshizo.link/tsutsuura-api/api. Production APNs is configured. A controlled notification was accepted by Apple and received on a physical iPhone running build 16; tapping it opened today’s question. Notification delivery respects the account’s category choices, mute setting, and quiet hours. Both notification workers run without errors. Those runs had no due or queued events; organic notification presentation remains unverified. Real email inbox delivery remains unvalidated. Initial family setup and text-based use do not require email or notification permission.

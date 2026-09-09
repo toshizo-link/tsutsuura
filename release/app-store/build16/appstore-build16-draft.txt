@@ -1,0 +1,275 @@
+- banner "App Store Connect":
+  - heading "App Store Connect" [level=1]:
+    - link "App Store Connect":
+      - /url: /
+  - navigation "Global":
+    - list:
+      - link "Apps":
+        - /url: /apps
+      - link "Trends":
+        - /url: /trends
+      - link "Reports":
+        - /url: /itc/payments_and_financial_reports
+      - link "Business":
+        - /url: /business
+      - link "Users and Access":
+        - /url: /access/users
+  - button "Takami Marsh Takami Marsh Account name menu":
+    - generic: Takami Marsh
+    - generic: Takami Marsh
+- button "Apps menu, Tsutsuura, selected":
+  - generic "Tsutsuura":
+    - img "Tsutsuura"
+  - generic: Tsutsuura
+- navigation "Apps":
+  - list:
+    - link "Distribution":
+      - /url: /apps/6800383132/distribution
+    - link "Analytics":
+      - /url: /apps/6800383132/analytics
+    - link "TestFlight":
+      - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight
+    - link "Xcode Cloud":
+      - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/ci
+- main:
+  - navigation "Distribution":
+    - list:
+      - heading "iOS App" [level=2]
+      - list:
+        - link "1.0 Prepare for Submission":
+          - /url: /apps/6800383132/distribution/ios/version/inflight
+          - text: 1.0 Prepare for Submission
+      - button "Add Platform"
+      - separator
+      - heading "General" [level=2]
+      - list:
+        - link "App Information":
+          - /url: /apps/6800383132/distribution/info
+          - generic: App Information
+        - link "App Review":
+          - /url: /apps/6800383132/distribution/reviewsubmissions
+          - generic: App Review
+        - link "History":
+          - /url: /apps/6800383132/distribution/activity/ios/versions
+          - generic: History
+      - separator
+      - heading "App Store" [level=2]
+      - heading "Trust & Safety" [level=3]
+      - list:
+        - link "App Privacy":
+          - /url: /apps/6800383132/distribution/privacy
+          - generic: App Privacy
+        - link "App Accessibility":
+          - /url: /apps/6800383132/distribution/accessibility
+          - generic: App Accessibility
+        - link "Ratings and Reviews":
+          - /url: /apps/6800383132/distribution/ratings/ios
+          - generic: Ratings and Reviews
+      - heading "Growth & Marketing" [level=3]
+      - list:
+        - link "In-App Events":
+          - /url: /apps/6800383132/distribution/events
+          - generic: In-App Events
+        - link "Custom Product Pages":
+          - /url: /apps/6800383132/distribution/productpages
+          - generic: Custom Product Pages
+        - link "Product Page Optimization":
+          - /url: /apps/6800383132/distribution/optimization
+          - generic: Product Page Optimization
+        - link "Promo Codes":
+          - /url: /apps/6800383132/distribution/promo_codes/generate
+          - generic: Promo Codes
+        - link "Game Center":
+          - /url: /apps/6800383132/distribution/gamecenter
+          - generic: Game Center
+      - heading "Monetization" [level=3]
+      - list:
+        - link "Pricing and Availability":
+          - /url: /apps/6800383132/distribution/pricing
+          - generic: Pricing and Availability
+        - link "In-App Purchases":
+          - /url: /apps/6800383132/distribution/iaps
+          - generic: In-App Purchases
+        - link "Subscriptions":
+          - /url: /apps/6800383132/distribution/subscriptions
+          - generic: Subscriptions
+      - heading "Featuring" [level=3]
+      - list:
+        - link "Nominations":
+          - /url: /apps/6800383132/distribution/nominations
+          - generic: Nominations
+  - heading "iOS App Version 1.0" [level=2]
+  - button "Save" [disabled]
+  - button "Add for Review"
+  - separator
+  - paragraph: The assets and metadata below appear on your app’s product page, when users install your app, and will be used for web engine search results once you release your app.
+  - button "Japanese":
+    - text: Japanese
+  - button "?"
+  - separator
+  - heading "Previews and Screenshots" [level=3]
+  - button "More information": "?"
+  - paragraph: Adding accurate screenshots of your app on the newest devices can help you represent the app's user experience. Keep in mind that we'll use these screenshots for all display sizes and localizations. Screenshots are only required for iOS apps, and only the first 3 will be used on the app installation sheets.
+  - tablist:
+    - tab "iPhone" [selected]:
+      - generic: iPhone
+    - tab "iPad":
+      - generic: iPad
+    - tab "Apple Watch":
+      - generic: Apple Watch
+  - paragraph:
+    - link "View All Sizes in Media Manager":
+      - /url: /apps/6800383132/distribution/ios/version/inflight/media-manager/iphone
+  - alert
+  - tabpanel "iPhone":
+    - generic: iPhone
+    - generic: 6.5" Display
+    - region:
+      - tabpanel:
+        - paragraph: Using 6.9" Display
+        - paragraph:
+          - button "Edit"
+        - list "App Previews from Japanese 6.9\" Display"
+        - list "Screenshots from Japanese 6.9\" Display":
+          - img "Screenshot store-01-family.png":
+          - img "Screenshot store-02-answer.png":
+          - img "Screenshot store-03-history.png":
+          - img "Screenshot store-04-personal-mark.png":
+        - paragraph: 0 of 3 App Previews
+        - paragraph: 4 of 10 Screenshots
+        - paragraph:
+          - button "Choose File" [disabled]
+        - paragraph:
+          - button "Delete All" [disabled]
+  - generic: Promotional Text
+  - button "More information": "?"
+  - textbox "Promotional Text": 離れて暮らす家族とも、毎日ひとこと。今日の質問に答えて、何気ない思い出や気持ちを家族で残しましょう。
+  - status "Characters remaining": "120"
+  - separator
+  - generic: Description
+  - button "More information": "?"
+  - textbox "Description": Tsutsuura（つつうら）は、一日ひとつの質問をきっかけに、家族で言葉や思い出を分かち合うアプリです。 「最近、ありがとうと思ったことは？」 そんな身近な質問に、短いひとことから答えられます。 ■ 家族の毎日が見える 回答は同じ家族のメンバーと共有。いいねやコメントで気持ちを伝えられます。家族の回答状況も、人数に合わせたメーターで確認できます。 ■ 文字でも、声でも、写真でも 文字の入力に加え、声で答えたり、一回の回答に最大4枚の写真を添えたりできます。写真はタップして大きく表示し、左右のスワイプで見比べられます。 ■ あなただけの「しるし」 はじめに、指で自分のアイコンを描きます。丸や線だけでも大丈夫。アプリの点でできた小さなしるしが、名前の横につきます。 ■ 思い出を振り返る 「家族」でみんなの回答を、「あなた」で自分の過去の回答を確認。質問や回答の言葉から検索できます。 ■ わかりやすい操作 大きな文字と押しやすいボタン、順番に進める案内を用意しました。家族が新しいメンバーのiPhone設定を手伝うこともできます。 今日の質問は、日中の時間帯に公開されます。急がず、その日の都合に合わせてご利用ください。回答とコメントは、送信前に内容をご確認ください。 利用にはインターネット接続が必要です。写真・音声の利用には、選んだ機能に応じて端末の許可が必要です。
+  - status "Characters remaining": 3,403
+  - generic: Keywords
+  - button "More information": "?"
+  - textbox "Keywords": 家族,日記,思い出,質問,コミュニケーション,写真,音声,交換日記,つつうら
+  - status "Characters remaining": "62"
+  - generic: Support URL
+  - button "More information": "?"
+  - textbox "Support URL": https://toshizo.link/#contact
+  - generic: Marketing URL
+  - button "More information": "?"
+  - textbox "Marketing URL": https://toshizo.link/tsutsura-detail.html?from=apps
+  - generic: Version
+  - button "More information": "?"
+  - textbox "Version": "1.0"
+  - generic: Copyright
+  - button "More information": "?"
+  - textbox "Copyright": 2026 AlexanderTakami Marsh
+  - status "Characters remaining": "174"
+  - generic: Routing App Coverage File
+  - button "More information": "?"
+  - button "Choose File"
+  - generic: Choose File
+  - separator
+  - button "App Clip":
+    - text: App Clip
+  - heading "iMessage App" [level=3]:
+    - button "iMessage App":
+      - text: iMessage App
+  - button "More information": "?"
+  - heading "Build" [level=3]
+  - table:
+    - rowgroup:
+      - row "Build Version Has App Clip":
+        - columnheader "Build":
+          - generic: Build
+        - columnheader "Version":
+          - generic: Version
+        - columnheader "Has App Clip":
+          - generic: Has App Clip
+        - columnheader
+    - rowgroup:
+      - row "App Icon 16 1.0 No Delete":
+        - cell "App Icon 16":
+          - link "App Icon":
+            - /url: /apps/6800383132/testflight/ios/15afdb84-1da5-433d-8a27-9f7ca1a5d649/metadata
+            - generic "App Icon":
+              - img "App Icon"
+          - link "16":
+            - /url: /apps/6800383132/testflight/ios/15afdb84-1da5-433d-8a27-9f7ca1a5d649/metadata
+        - cell "1.0":
+          - generic: "1.0"
+        - cell "No":
+          - paragraph: "No"
+        - cell "Delete":
+          - button "Delete":
+  - paragraph: Included Assets
+  - button "App Icon":
+    - generic "App Icon":
+      - img "App Icon"
+  - paragraph: App Icon
+  - heading "In-App Purchases and Subscriptions" [level=3]
+  - paragraph:
+    - text: In-app purchases and subscriptions can now be submitted for review from the In-App Purchases and Subscriptions sections. Include an app version in your submission to have items reviewed together. Your first in-app purchase and subscription must be submitted with a new app version.
+    - link "Learn More":
+      - /url: https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-an-in-app-purchase
+  - button:
+  - checkbox "Game Center"
+  - text: Game Center
+  - paragraph:
+    - text: Game Center components can now be added for review directly from the Game Center section. You can no longer select them from the app version page.
+    - link "Learn More":
+      - /url: https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-game-center-components
+  - button:
+  - separator
+  - heading "App Review Information" [level=3]
+  - generic: Sign-In Information
+  - button "More information": "?"
+  - paragraph: Provide a user name and password so we can sign in to your app. We’ll need this to complete your app review.
+  - checkbox "Sign-in required"
+  - generic: Sign-in required
+  - generic: Contact Information
+  - button "More information": "?"
+  - textbox "First name": AlexanderTakami
+  - textbox "Last name": Marsh
+  - textbox "Phone number"
+  - textbox "Email"
+  - generic: Notes
+  - button "More information": "?"
+  - paragraph:
+    - text: Chinese law requires apps with news, religious, book, and magazine content to have relevant permits in order to be available on the App Store in China mainland. If applicable, enter information about your permits below.
+    - link "Learn More":
+      - /url: https://developer.apple.com/help/app-store-connect/reference/app-information
+  - textbox "Notes": "App: つつうら (Tsutsuura) Bundle ID: toshizo.link.tsutsuura Version: 1.0 Purpose Tsutsuura is a Japanese-language app for private family question-and-answer sharing. Members of the same family see its answers, selected photos/audio, likes, and comments. There is no public discovery feed. Review access / first-time setup No preexisting account, password, email verification, or phone verification is needed to begin. On the welcome screen, scroll if necessary and choose 新しく家族をつくる. Enter an organizer name and family name, then tap この名前で次へ. This creates the organizer's account and signs it in automatically. Draw a line or shape in the required あなたのしるし step and tap このしるしを使う. From 家族の準備, choose 使い方を見てはじめる and follow the short guide to home. Email registration is optional account recovery, not a prerequisite to create a family. No demo password or universal verification code is used. To inspect family interaction on a second iPhone, add a member on the organizer's device and generate a setting invitation. On the second device choose 家族の番号を入力, enter the six-digit code, confirm the member, and draw that member's mark. Invitations expire after ten minutes; the organizer can generate another. The two devices then share the same family's answers and comments. Features to inspect 1. On home, 家族 shows family answers; あなた shows personal answer history and search. Both pages update quietly while visible. The family progress indicator has one cell per member; 確認 shows who has answered. 2. Questions follow the Asia/Tokyo family calendar. Publication varies between 09:00 and 19:00 Japan time; questions about that day's experiences appear later. Before publication, home displays the scheduled time and the question cannot yet be answered. A newly created family may need to wait until that displayed time. 3. The upcoming-question banner can be closed with its × button or an upward swipe. To restore it, return either answer list to its top, pull downward, and release when the cue says 指を離すと表示. Small pulls do not restore it. Quiet automatic updates respect dismissal. The dotted background stays stationary. 4. For an available unanswered question, tap 回答する. Enter text, optionally use speech/audio or add up to four selected photos, then confirm before sending. Published answers cannot be edited or individually deleted in the app. 5. Tap an answer photo to open it full screen. Swipe horizontally between photos. Pull the photo downward to close it, or use the rectangular 閉じる button with the × icon. A short downward pull returns the photo to its position. 6. Open コメント to read and add comments/replies. Comment edit/delete buttons are absent. Other members' comments have reply and report controls. 7. Settings offers family management, redrawing the personal mark, notification choices, help, and account/data options. Microphone, speech-recognition, and notification permission are optional. Typing remains available when audio permissions are denied. 8. Account deletion: あなた → 設定 → 機種変更・データの保存 → アカウントの削除 → アカウントを削除. An organizer with other members must transfer ownership first. Deletion is irreversible; use a disposable account when testing it. Known operational status The backend is https://toshizo.link/tsutsuura-api/api. Real email inbox delivery and APNs notification delivery remain unvalidated; the current deployment record has push disabled. Initial family setup and text-based use do not require email or notification permission."
+  - status "Characters remaining": "535"
+  - generic: Attachment
+  - button "More information": "?"
+  - button "Choose File (Optional)"
+  - generic: Choose File (Optional)
+  - separator
+  - heading "App Store Version Release" [level=3]
+  - paragraph: To make your app available on the App Store, you can automatically release it after it’s been approved by App Review. You can also manually release it on the App Store at a later date.
+  - radio "Manually release this version" [checked]
+  - generic: Manually release this version
+  - radio "Automatically release this version"
+  - generic: Automatically release this version
+  - radio "Automatically release this version after App Review, no earlier than"
+  - generic: Automatically release this version after App Review, no earlier than
+  - paragraph: Your local date and time.
+  - textbox "Automatically release this version after App Review, no earlier than" [disabled]: Sep 5, 2026 7:00 PM
+  - text: EDT
+- contentinfo:
+  - list:
+    - link "App Store Connect":
+      - /url: /apps
+  - list:
+    - listitem: Copyright © 2026 Apple Inc. All rights reserved. |
+    - link "Terms of Service":
+      - /url: /WebObjects/iTunesConnect.woa/wa/termsOfService
+    - text: "|"
+    - link "Privacy Policy":
+      - /url: https://www.apple.com/legal/privacy
+    - text: "|"
+    - link "Contact Us":
+      - /url: /contact-us

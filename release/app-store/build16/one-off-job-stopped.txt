@@ -1,0 +1,250 @@
+- banner:
+  - heading "ConoHa by GMO" [level=1]:
+    - link "ConoHa by GMO":
+      - /url: /Dashboard/
+      - img "ConoHa by GMO"
+  - list:
+    - link " VPS":
+      - /url: /Dashboard?t=ConoHaV3
+      - generic: 
+      - generic: VPS
+    - link " WING":
+      - /url: /Dashboard?t=ConoHaWING
+      - generic: 
+      - generic: WING
+    - link " GAME":
+      - /url: /Dashboard?t=ConoHaGame
+      - generic: 
+      - generic: GAME
+    - link " AI":
+      - /url: /Dashboard?t=ConoHaAI
+      - generic: 
+      - generic: AI
+    - link " Pencil":
+      - /url: /Dashboard?t=ConoHaAIWriter
+      - generic: 
+      - generic: Pencil
+  - menu:
+    - generic: 
+    - text: ヘルプ
+    - link " お知らせ 40":
+      - /url: /Information/
+      - generic: 
+      - text: お知らせ
+      - generic: "40"
+    - link "  tmashu@icloud.com":
+      - /url: javascript:void(0)
+      - text: 
+      - generic: 
+      - text: tmashu@icloud.com
+- main:
+  - heading "設定対象サーバー切り替え  ヘルプ" [level=2]:
+    - text: 設定対象サーバー切り替え
+    - generic:  ヘルプ
+  - button "":
+    - generic: 
+  - generic: 
+  - text:                                              
+  - generic:         0%  
+  - generic:        0%  
+  - text:           
+  - heading "ジョブスケジューラー" [level=2]
+  - generic: ヘルプ
+  - button " ジョブスケジュール":
+    - generic: 
+    - text: ジョブスケジュール
+  - generic:  
+  - list:
+    - link " Tsutsuura daily expired-data cleanup":
+      - /url: javascript:void(0)
+      - generic: 
+      - text: Tsutsuura daily expired-data cleanup
+    - button " 削除":
+      - generic:  削除
+    - text:   
+    - link " Tsutsuura push setup preflight" [active]:
+      - /url: javascript:void(0)
+      - generic: 
+      - text: Tsutsuura push setup preflight
+    - button " 削除":
+      - generic:  削除
+    - table:
+      - rowgroup:
+        - row "利用設定 ON OFF":
+          - rowheader "利用設定"
+          - cell "ON OFF":
+            - radio "ON"
+            - generic: "ON"
+            - radio "OFF" [checked]
+            - generic: "OFF"
+          - cell
+    - table:
+      - rowgroup:
+        - row "処理日時 月 *  編集":
+          - columnheader "処理日時"
+          - rowheader "月"
+          - cell "*":
+            - generic: "*"
+          - cell " 編集":
+            - button " 編集":
+              - generic:  編集
+        - row "日 *":
+          - rowheader "日"
+          - cell "*":
+            - generic: "*"
+          - cell
+        - row "曜日 *":
+          - rowheader "曜日"
+          - cell "*":
+            - generic: "*"
+          - cell
+        - row "時 *":
+          - rowheader "時"
+          - cell "*":
+            - generic: "*"
+          - cell
+        - row "分 *":
+          - rowheader "分"
+          - cell "*":
+            - generic: "*"
+          - cell
+    - table:
+      - rowgroup:
+        - row "コマンド /opt/alt/php84/usr/bin/php /home/c8629971/tsutsuura-push-20260905/maintain-question-push.php --diagnose > /home/c8629971/tsutsuura-push-20260905/diagnostics.json 2>&1  編集":
+          - rowheader "コマンド"
+          - cell "/opt/alt/php84/usr/bin/php /home/c8629971/tsutsuura-push-20260905/maintain-question-push.php --diagnose > /home/c8629971/tsutsuura-push-20260905/diagnostics.json 2>&1":
+            - generic: /opt/alt/php84/usr/bin/php /home/c8629971/tsutsuura-push-20260905/maintain-question-push.php --diagnose > /home/c8629971/tsutsuura-push-20260905/diagnostics.json 2>&1
+          - cell " 編集":
+            - button " 編集":
+              - generic:  編集
+    - table:
+      - rowgroup:
+        - row "コメント Tsutsuura push setup preflight  編集":
+          - rowheader "コメント"
+          - cell "Tsutsuura push setup preflight":
+            - generic: Tsutsuura push setup preflight
+          - cell " 編集":
+            - button " 編集":
+              - generic:  編集
+    - link " Tsutsuura family activity push":
+      - /url: javascript:void(0)
+      - generic: 
+      - text: Tsutsuura family activity push
+    - button " 削除":
+      - generic:  削除
+    - text:   
+    - link " Tsutsuura daily question push":
+      - /url: javascript:void(0)
+      - generic: 
+      - text: Tsutsuura daily question push
+    - button " 削除":
+      - generic:  削除
+    - text:   
+- link "  この画面のサポート":
+  - /url: javascript:void(0)
+  - text: 
+  - generic:  この画面のサポート
+- radio "フィードバック"
+- generic: フィードバック
+- button "キャプチャ"
+- generic: ここにキャプチャが入ります
+- button "Brush" [disabled]:
+  - generic: Brush
+- button "Square" [disabled]:
+  - generic: Square
+- button "Eraser" [disabled]:
+  - generic: Eraser
+- button "Undo" [disabled]:
+  - generic: Undo
+- button "Redo" [disabled]:
+  - generic: Redo
+- button "Reset" [disabled]:
+  - generic: Reset
+- button "Close" [disabled]:
+  - generic: Close
+- textbox "問題に関するレポート、機能に関するアイデアを入力してください。"
+- text: フィードバックの内容はサービス開発担当に送信され、
+- strong: 弊社から返信することはありません。
+- text: ご質問やご相談は、
+- link "お客様センター":
+  - /url: https://help.conoha.jp/app/ask
+- text: までお問い合わせください。
+- button "送信"
+- complementary:
+  - navigation:
+    - button "":
+      - generic: 
+    - list:
+      - link " サーバー追加":
+        - /url: /Wing/Create
+        - generic: 
+        - text: サーバー追加
+      - link " サイト管理":
+        - /url: /Wing/Site
+        - generic: 
+        - text: サイト管理
+      - link " メール管理":
+        - /url: /Wing/Mail
+        - generic: 
+        - text: メール管理
+      - link " サーバー管理":
+        - /url: /Wing/Server
+        - generic: 
+        - text: サーバー管理
+      - link " ドメイン":
+        - /url: /Domain
+        - generic: 
+        - text: ドメイン
+      - link " DNS":
+        - /url: /Wing/DNS/Index?t=ConoHaWING
+        - generic: 
+        - text: DNS
+    - text: 
+    - list:
+      - link " サポート":
+        - /url: https://support.conoha.jp/wing/
+      - link " よくある質問":
+        - /url: https://support.conoha.jp/wing/faq/
+      - link " 用語集":
+        - /url: https://help.conoha.jp/words/
+    - link " サイトマップ":
+      - /url: javascript:void(0);
+      - generic: 
+      - text: サイトマップ
+  - paragraph:
+    - generic: 
+  - generic:  
+  - text: Toshizo
+  - paragraph:
+    - button "切り替え"
+  - list:
+    - link " 契約情報":
+      - /url: javascript:void(0)
+      - generic: 
+      - text: 契約情報
+    - link " ドメイン":
+      - /url: javascript:void(0)
+      - generic: 
+      - text: ドメイン
+    - link " マイグレーション":
+      - /url: javascript:void(0)
+      - generic: 
+      - text: マイグレーション
+    - link " 自動バックアップ":
+      - /url: javascript:void(0)
+      - generic: 
+      - text: 自動バックアップ
+    - link " モニタリング":
+      - /url: javascript:void(0)
+      - generic: 
+      - text: モニタリング
+    - link " SSH":
+      - /url: javascript:void(0)
+      - generic: 
+      - text: SSH
+    - link " ジョブスケジューラー":
+      - /url: javascript:void(0)
+      - generic: 
+      - text: ジョブスケジューラー
+- text:                
+- text:            

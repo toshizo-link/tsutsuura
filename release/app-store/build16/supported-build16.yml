@@ -1,0 +1,155 @@
+name: Build 16 on supported Apple tools
+
+on:
+  push:
+    branches: [codex/appstore-build16]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tsutsuura-appstore-build16
+  cancel-in-progress: false
+
+jobs:
+  unsigned-archive:
+    if: github.ref == 'refs/heads/codex/appstore-build16'
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out exact source revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Verify supported environment and freeze source hashes
+        run: |
+          set -euo pipefail
+          mkdir -p build/evidence
+          python3 - <<'PY'
+          import datetime, hashlib, json, os, pathlib, re, subprocess
+          root = pathlib.Path.cwd()
+          evidence = root / 'build/evidence'
+          def command(*args):
+              return subprocess.check_output(args, text=True).strip()
+          os_version = command('sw_vers', '-productVersion')
+          os_build = command('sw_vers', '-buildVersion')
+          xcode = command('xcodebuild', '-version')
+          sdk_version = command('xcrun', '--sdk', 'iphoneos', '--show-sdk-version')
+          sdk_build = command('xcrun', '--sdk', 'iphoneos', '--show-sdk-build-version')
+          os_components = tuple(int(p) for p in os_version.split('.'))
+          assert os_components[0] == 26 and os_components >= (26, 2), os_version
+          assert re.fullmatch(r'25[A-Z][0-9]+', os_build), os_build
+          assert xcode == 'Xcode 26.6\nBuild version 17F113', xcode
+          assert sdk_version == '26.5', sdk_version
+          project = pathlib.Path('tsutsuura/tsutsuura.xcodeproj/project.pbxproj')
+          versions = re.findall(r'CURRENT_PROJECT_VERSION\s*=\s*([^;]+);', project.read_text())
+          assert len(versions) == 6 and all(v.strip() == '16' for v in versions), versions
+          paths = [project]
+          app = pathlib.Path('tsutsuura/tsutsuura')
+          paths += [p for p in app.rglob('*') if p.is_file() and not any(x.startswith('.') for x in p.relative_to(app).parts)]
+          sources = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(paths)}
+          record = {
+              'snapshotAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'build': '16', 'version': '1.0', 'gitCommit': command('git', 'rev-parse', 'HEAD'),
+              'checkoutRoot': str(root), 'sourceRoot': str(root),
+              'githubRunId': os.environ['GITHUB_RUN_ID'], 'githubRunAttempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'runnerImage': os.environ.get('ImageOS'), 'runnerImageVersion': os.environ.get('ImageVersion'),
+              'osVersion': os_version, 'osBuild': os_build, 'xcode': xcode,
+              'sdkVersion': sdk_version, 'sdkBuild': sdk_build, 'sources': sources, 'sourceCount': len(sources),
+              'signing': 'disabled; Apple credentials stay off the runner'
+          }
+          (evidence / 'source-and-environment.json').write_text(json.dumps(record, indent=2) + '\n')
+          print(json.dumps({k: v for k, v in record.items() if k != 'sources'}, indent=2))
+          PY
+
+      - name: Archive the release without signing credentials
+        run: |
+          set -euo pipefail
+          xcodebuild archive \
+            -project tsutsuura/tsutsuura.xcodeproj \
+            -scheme tsutsuura \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            -archivePath build/tsutsuura-16-unsigned.xcarchive \
+            -resultBundlePath build/archive.xcresult \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
+            | tee build/evidence/archive.log
+
+      - name: Verify archive and preserve build evidence
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, pathlib, plistlib, shutil, subprocess
+          root = pathlib.Path.cwd()
+          evidence = root / 'build/evidence'
+          record = json.loads((evidence / 'source-and-environment.json').read_text())
+          assert all(hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest() == h for p, h in record['sources'].items())
+          archive = root / 'build/tsutsuura-16-unsigned.xcarchive'
+          app = archive / 'Products/Applications/tsutsuura.app'
+          info = plistlib.loads((app / 'Info.plist').read_bytes())
+          assert info['CFBundleIdentifier'] == 'toshizo.link.tsutsuura'
+          assert info['CFBundleVersion'] == '16'
+          assert info['CFBundleShortVersionString'] == '1.0'
+          assert info['API_BASE_URL'] == 'https://toshizo.link/tsutsuura-api/api'
+          assert info['BuildMachineOSBuild'] == record['osBuild']
+          assert info['DTXcodeBuild'] == '17F113'
+          assert info['DTSDKBuild'] == record['sdkBuild']
+          assert info['DTSDKName'] == 'iphoneos26.5'
+          assert not (app / 'embedded.mobileprovision').exists()
+          signature = subprocess.run(['codesign', '--verify', str(app)], capture_output=True)
+          assert signature.returncode != 0, 'Archive unexpectedly has a valid signature'
+          for name in ['PrivacyInfo.xcprivacy', 'Assets.car', 'Kaisotai-Next-UP-B.otf']:
+              assert (app / name).is_file(), name
+          expected = {str(root / p) for p in record['sources'] if p.endswith('.swift')}
+          lists = list((root / 'build/DerivedData/Build/Intermediates.noindex/ArchiveIntermediates/tsutsuura/IntermediateBuildFilesPath/tsutsuura.build/Release-iphoneos/tsutsuura.build/Objects-normal').glob('*/tsutsuura.SwiftFileList'))
+          assert lists, 'Missing compiler source list'
+          for p in lists:
+              actual = {line.strip().strip('"') for line in p.read_text().splitlines() if line.strip()}
+              generated = p.parents[2] / 'DerivedSources/GeneratedAssetSymbols.swift'
+              if str(generated) in actual:
+                  assert generated.is_file(), 'Missing generated asset symbols file'
+              assert actual - {str(generated)} == expected, f'Compiler source mismatch: {p}'
+              shutil.copy2(p, evidence / f'{p.parent.name}-tsutsuura.SwiftFileList')
+          shutil.copy2('tsutsuura/tsutsuura/tsutsuura.entitlements', evidence / 'source.entitlements')
+          shutil.copy2(app / 'Info.plist', evidence / 'compiled-app-info.plist')
+          shutil.copy2(archive / 'Info.plist', evidence / 'unsigned-archive-info.plist')
+          app_files = {str(p.relative_to(app)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(app.rglob('*')) if p.is_file()}
+          binary_uuids = subprocess.check_output(['dwarfdump', '--uuid', str(app / 'tsutsuura')], text=True).strip()
+          dsym_uuids = subprocess.check_output(['dwarfdump', '--uuid', str(archive / 'dSYMs/tsutsuura.app.dSYM')], text=True).strip()
+          result = {'sourceHashesUnchanged': True, 'compilerSourcesMatch': True, 'unsigned': True,
+                    'appFiles': app_files, 'binaryUUIDs': binary_uuids, 'dSYMUUIDs': dsym_uuids,
+                    'buildMetadata': {k: info.get(k) for k in ['BuildMachineOSBuild', 'DTXcode', 'DTXcodeBuild', 'DTSDKBuild', 'DTSDKName', 'DTPlatformBuild', 'DTPlatformVersion']}}
+          (evidence / 'archive-verification.json').write_text(json.dumps(result, indent=2) + '\n')
+          print(json.dumps(result, indent=2))
+          PY
+          tar -czf build/tsutsuura-16-unsigned.tar.gz -C build tsutsuura-16-unsigned.xcarchive evidence
+          shasum -a 256 build/tsutsuura-16-unsigned.tar.gz > build/tsutsuura-16-unsigned.tar.gz.sha256
+
+      - name: Upload unsigned archive for local signing
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tsutsuura-16-unsigned-${{ github.sha }}
+          path: |
+            build/tsutsuura-16-unsigned.tar.gz
+            build/tsutsuura-16-unsigned.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      - name: Upload archive diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tsutsuura-16-build-diagnostics-${{ github.sha }}
+          path: build/evidence/
+          if-no-files-found: warn
+          retention-days: 7

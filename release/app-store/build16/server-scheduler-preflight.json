@@ -1,0 +1,9 @@
+{
+    "mode": "check-only",
+    "checkedAt": "2026-09-05T22:00:01+00:00",
+    "currentSchedulerSHA256": "98d023f3c9622c02ab52fb7744793784933e6084476834c59c9238d289211a81",
+    "stagedSchedulerSHA256": "0286f520f384ebe3df9fcdec69e488966bd20a4060f641969899eabdb0374409",
+    "phpVersion": "8.4.21",
+    "payloadLintPassed": true,
+    "changesMade": false
+}

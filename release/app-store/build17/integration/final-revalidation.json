@@ -1,0 +1,9 @@
+{
+  "verifiedAt": "2026-09-07T19:03:55.784004+00:00",
+  "mode": "verify-only",
+  "plan": "/tmp/tsutsuura-safety-integration/final-plan.json",
+  "planSHA256": "0a23d66e9d82198f201816f8f99e6d3fda01e07b6fb1d8b7202718a93f09a84b",
+  "status": "unchanged_since_plan",
+  "copiedFiles": 0,
+  "failures": []
+}

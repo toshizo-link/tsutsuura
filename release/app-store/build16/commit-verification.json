@@ -1,0 +1,10 @@
+{
+  "commit": "46395223386f9ca11be87dd2de4d4a3f2ca98396",
+  "branch": "codex/appstore-build16",
+  "sourceCount": 46,
+  "testFileCount": 18,
+  "manifestSHA256": "a65a702572ba1c35cf1cb21abd6f71e5f2da8b84261a1a3c3a5891b92da09d25",
+  "workflowSHA256": "0d7247ceaddbf62953ba3e2e432631a9d769bff661f56acec2b036e59fd9af7b",
+  "sourceAndTestHashesMatchCommit": true,
+  "cleanWorktree": true
+}

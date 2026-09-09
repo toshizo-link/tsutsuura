@@ -1,0 +1,26 @@
+2026-09-05 17:26:04.350 xcodebuild[75467:6110803] [MT] IDEDistribution: -[IDEDistributionLogging _createLoggingBundleAtPath:]: Created bundle at path "/var/folders/9s/lwj2ss7d679bl8hv9dx2qf6h0000gn/T/tsutsuura_2026-09-05_17-26-04.342.xcdistributionlogs".
+2026-09-05 17:26:05.666 xcodebuild[75467:6110809]  IDEDistribution: Failed to log in with account "(null)" while checking for an App Store Connect account (Error Domain=DVTServicesAccountBasedSessionErrorDomain Code=0 "Unable to log in with account 't-mashu@i.softbank.jp'." UserInfo={NSLocalizedFailureReason=Unable to log in with account 't-mashu@i.softbank.jp'., NSLocalizedRecoverySuggestion=The login details for account 't-mashu@i.softbank.jp' were rejected., DVTDeveloperAccountErrorAccount=<DVTAppleIDBasedDeveloperAccount: 0x773434e380; username='t-mashu@i.softbank.jp'>, NSUnderlyingError=0x77348cdb00 {Error Domain=DVTPortalServiceErrorDomain Code=1100 "Your session has expired. Please log in." UserInfo={payload={
+    creationTimestamp = "2026-09-05T21:26:05Z";
+    httpCode = 200;
+    protocolVersion = QH65B2;
+    requestUrl = "https://developerservices2.apple.com/services/QH65B2/viewDeveloper.action";
+    responseId = "e8305bac-2490-4480-a43c-d46baabbf9bb";
+    resultCode = 1100;
+    resultString = "Your session has expired. Please log in.";
+    userLocale = "en_US";
+    userString = "Your session has expired. Please log in.";
+}, NSLocalizedDescription=Your session has expired. Please log in.}}})
+2026-09-05 17:26:06.302 xcodebuild[75467:6110809]  IDEDistribution: Failed to log in with account "(null)" while checking for an App Store Connect account (Error Domain=DVTServicesAccountBasedSessionErrorDomain Code=0 "Unable to log in with account 'atsukonoheyayume@gmail.com'." UserInfo={NSLocalizedFailureReason=Unable to log in with account 'atsukonoheyayume@gmail.com'., NSLocalizedRecoverySuggestion=The login details for account 'atsukonoheyayume@gmail.com' were rejected., DVTDeveloperAccountErrorAccount=<DVTAppleIDBasedDeveloperAccount: 0x773434e6c0; username='atsukonoheyayume@gmail.com'>, NSUnderlyingError=0x77348ce2e0 {Error Domain=DVTPortalServiceErrorDomain Code=1100 "Your session has expired. Please log in." UserInfo={payload={
+    creationTimestamp = "2026-09-05T21:26:06Z";
+    httpCode = 200;
+    protocolVersion = QH65B2;
+    requestUrl = "https://developerservices2.apple.com/services/QH65B2/viewDeveloper.action";
+    responseId = "7ffd68c5-b96a-486c-a073-e31cd0523e8f";
+    resultCode = 1100;
+    resultString = "Your session has expired. Please log in.";
+    userLocale = "en_US";
+    userString = "Your session has expired. Please log in.";
+}, NSLocalizedDescription=Your session has expired. Please log in.}}})
+Exported tsutsuura to: /tmp/tsutsuura-local-export15
+** EXPORT SUCCEEDED **
+

@@ -1,0 +1,25 @@
+{
+  "name": "tsutsuura/api",
+  "description": "Dependency-free PHP HTTP API for the Tsutsuura iOS app",
+  "type": "project",
+  "license": "proprietary",
+  "require": {
+    "php": ">=8.2",
+    "ext-curl": "*",
+    "ext-fileinfo": "*",
+    "ext-intl": "*",
+    "ext-json": "*",
+    "ext-mbstring": "*",
+    "ext-openssl": "*",
+    "ext-pdo": "*"
+  },
+  "suggest": {
+    "ext-pdo_mysql": "Required when DB_CONNECTION=mysql",
+    "ext-pdo_sqlite": "Required when DB_CONNECTION=sqlite"
+  },
+  "autoload": {
+    "psr-4": {
+      "Tsutsuura\\Server\\": "src/"
+    }
+  }
+}

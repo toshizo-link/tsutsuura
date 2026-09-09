@@ -1,0 +1,23 @@
+{
+  "updatedAt": "2026-09-07T19:05:57.586146+00:00",
+  "submissionId": "8453cec6-b34b-41f0-a82b-cd13132155de",
+  "reviewStatus": "Rejected",
+  "issue": "2.1 information needed",
+  "appleMessageDateLocal": "2026-09-06 20:17 America/Toronto",
+  "replyDraftSaved": true,
+  "replySent": false,
+  "reviewNotesUpdatedForInformationRequest": true,
+  "physicalRecording": "deferred by user",
+  "sourceWorktree": "/tmp/tsutsuura-appstore-review-safety",
+  "sourceBranch": "codex/appstore-review-safety",
+  "iosBaselineCommit": "46395223386f9ca11be87dd2de4d4a3f2ca98396",
+  "serverBaselineManifest": "/tmp/tsutsuura-appstore-review-safety/server/deployment/safety-baseline-manifest.json",
+  "reviewNotesSaved": true,
+  "informationRequestReplySent": false,
+  "candidateBuild": "17",
+  "candidateSourceIntegrated": true,
+  "candidateSourceCommit": "ea103169c375b23c9c10f05b02ff85185a8c7985",
+  "candidateEvidence": "../../build17/preparation-status.json",
+  "candidateUploaded": false,
+  "productionSafetyDeployed": false
+}

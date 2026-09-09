@@ -1,0 +1,1 @@
+Deployment fixture passed: preflight/tamper rejection, quiesce/drain gate, migration/backup/activation, repeat, fail-closed rollback, permitted rollback and preservation.

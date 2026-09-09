@@ -80,6 +80,7 @@ try {
         $config,
         null,
         new EventNotificationService(),
+        static fn (): DateTimeImmutable => (new DateTimeImmutable('now', $config->timezone))->setTime(19, 30),
     );
     $tokens = [
         1 => str_repeat('a', 64),
@@ -108,9 +109,9 @@ try {
     same('answer_submitted', jobData($answerJobs[0], 'event_type'), 'answer event contract');
     same($answer['id'], jobData($answerJobs[0], 'answer_id'), 'answer id is a string payload value');
 
-    $updatedAnswer = $app->submitTodayAnswer(1, '回答の編集');
-    same($answer['id'], $updatedAnswer['id'], 'daily answer update keeps public response shape');
-    same(3, count(jobs($pdo, 'answer_submitted')), 'daily answer update does not enqueue again');
+    $updatedAnswer = $app->submitTodayAnswer(1, '家族への最初の回答');
+    same($answer['id'], $updatedAnswer['id'], 'daily answer retry keeps public response shape');
+    same(3, count(jobs($pdo, 'answer_submitted')), 'daily answer retry does not enqueue again');
 
     $answerSummary = $worker->run();
     same(3, $answerSummary['claimed'], 'answer worker claims all recipient jobs');

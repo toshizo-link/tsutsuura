@@ -8,6 +8,10 @@ import UniformTypeIdentifiers
 // MARK: - Navigation and session
 
 enum AppRoute: Hashable, Sendable {
+    case emailEntry
+    case emailVerification(email: String, requestID: String)
+    case emailEnrollment
+    case emailEnrollmentVerification(email: String, requestID: String)
     case phoneEntry
     case otpVerification(phoneNumber: String, requestID: String)
     case accountRecovery
@@ -32,18 +36,29 @@ enum AppRoute: Hashable, Sendable {
     case managedMemberEdit(memberID: String)
     case ownershipTransfer
     case settings
+    case contentSafety
+    case blockedUsers
     case accountPrivacy
     case accountExport
     case recoveryCode
     case notificationSettings
     case help
+    case essentials
+    case personalMark
 }
 
 enum SessionState: Equatable, Sendable {
     case restoring
     case signedOut
     case awaitingOTP(phoneNumber: String)
+    case awaitingEmailVerification(email: String)
     case signedIn(UserProfile)
+
+    var isAwaitingVerification: Bool {
+        if case .awaitingOTP = self { return true }
+        if case .awaitingEmailVerification = self { return true }
+        return false
+    }
 }
 
 enum UnicodeTextValidation {
@@ -89,6 +104,43 @@ enum NameValidation {
         return !trimmed.isEmpty
             && characterCount(trimmed) <= maximumLength
     }
+}
+
+enum EmailAddressValidation {
+    static let maximumLength = 254
+
+    /// The server uses the same ASCII mailbox contract. Trim pasted whitespace,
+    /// preserve plus addressing, and reject header injection before any request.
+    static func normalized(_ value: String) -> String? {
+        guard !value.unicodeScalars.contains(where: { $0.value < 32 || $0.value == 127 }) else {
+            return nil
+        }
+        let email = (value.applyingTransform(.fullwidthToHalfwidth, reverse: false) ?? value)
+            .trimmingCharacters(in: .whitespaces).lowercased()
+        guard email.utf8.count <= maximumLength,
+              email.unicodeScalars.allSatisfy({ (33...126).contains($0.value) }) else {
+            return nil
+        }
+        let parts = email.split(separator: "@", omittingEmptySubsequences: false)
+        guard parts.count == 2 else { return nil }
+        let local = String(parts[0])
+        let domain = String(parts[1])
+        guard !local.isEmpty, local.utf8.count <= 64,
+              !local.hasPrefix("."), !local.hasSuffix("."), !local.contains(".."),
+              local.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber
+                  || "!#$%&'*+-/=?^_`{|}~.".contains($0)) }) else { return nil }
+        let labels = domain.split(separator: ".", omittingEmptySubsequences: false)
+        guard labels.count >= 2,
+              labels.allSatisfy({ label in
+                  !label.isEmpty && label.count <= 63
+                      && !label.hasPrefix("-") && !label.hasSuffix("-")
+                      && label.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") })
+              }),
+              labels.last!.contains(where: { $0.isLetter }) else { return nil }
+        return email
+    }
+
+    static func isValid(_ value: String) -> Bool { normalized(value) != nil }
 }
 
 enum PhoneNumberValidation {
@@ -165,6 +217,7 @@ enum RecoveryCodeValidation {
 }
 
 enum TextInputValidationError: Error, Equatable, Sendable {
+    case invalidEmailAddress
     case invalidPhoneNumber
     case invalidRecoveryCode
     case emptyComment
@@ -175,6 +228,8 @@ enum TextInputValidationError: Error, Equatable, Sendable {
 extension TextInputValidationError: LocalizedError {
     var errorDescription: String? {
         switch self {
+        case .invalidEmailAddress:
+            return "メールアドレスを確認してください。"
         case .invalidPhoneNumber:
             return "電話番号を確認してください。"
         case .invalidRecoveryCode:
@@ -256,6 +311,9 @@ struct UserProfile: Codable, Equatable, Identifiable, Sendable {
     var familyRole: FamilyRole? = nil
     var joinedAt: Date? = nil
     var createdAt: Date? = nil
+    var avatarMark: String? = nil
+    var email: String? = nil
+    var hasEmail: Bool? = nil
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -268,6 +326,9 @@ struct UserProfile: Codable, Equatable, Identifiable, Sendable {
         case familyRole = "role"
         case joinedAt
         case createdAt
+        case avatarMark
+        case email
+        case hasEmail
     }
 }
 
@@ -339,6 +400,20 @@ struct AuthSession: Codable, Equatable, Sendable {
         self.tokenType = tokenType
         self.expiresAt = expiresAt
         self.user = user
+    }
+}
+
+struct RequestEmailCodeBody: Codable, Equatable, Sendable {
+    let email: String
+}
+
+struct VerifyEmailCodeBody: Codable, Equatable, Sendable {
+    let requestID: String
+    let code: String
+
+    enum CodingKeys: String, CodingKey {
+        case requestID = "requestId"
+        case code
     }
 }
 
@@ -514,12 +589,25 @@ struct Question: Codable, Equatable, Identifiable, Sendable {
     var prompt: String
     var publishedOn: String
     var answer: Answer?
+    var availableAt: Date? = nil
+    var isAvailable: Bool? = nil
+    var timeZoneIdentifier: String? = nil
+
+    var hasAnswered: Bool? = nil
+    var answerHidden: Bool? = nil
+
+    var canAnswer: Bool { isAvailable != false && answer == nil && hasAnswered != true && answerHidden != true }
 
     enum CodingKeys: String, CodingKey {
         case id
         case prompt
         case publishedOn = "date"
         case answer
+        case availableAt
+        case isAvailable
+        case timeZoneIdentifier
+        case hasAnswered
+        case answerHidden
     }
 }
 
@@ -527,11 +615,13 @@ struct AnswerAuthor: Codable, Equatable, Identifiable, Sendable {
     let id: String
     var displayName: String
     var avatarURL: URL?
+    var avatarMark: String? = nil
 
     enum CodingKeys: String, CodingKey {
         case id
         case displayName
         case avatarURL = "avatarUrl"
+        case avatarMark
     }
 }
 
@@ -1049,6 +1139,7 @@ struct HomeFeed: Codable, Equatable, Sendable {
     var myAnswer: Answer?
     var answers: [Answer]
     var nextCursor: String?
+    var todayAnsweredUserIDs: [String]?
 
     enum CodingKeys: String, CodingKey {
         case family
@@ -1056,6 +1147,7 @@ struct HomeFeed: Codable, Equatable, Sendable {
         case myAnswer
         case answers = "feed"
         case nextCursor
+        case todayAnsweredUserIDs
     }
 
     init(
@@ -1063,13 +1155,15 @@ struct HomeFeed: Codable, Equatable, Sendable {
         todayQuestion: Question? = nil,
         myAnswer: Answer? = nil,
         answers: [Answer] = [],
-        nextCursor: String? = nil
+        nextCursor: String? = nil,
+        todayAnsweredUserIDs: [String]? = nil
     ) {
         self.family = family
         self.todayQuestion = todayQuestion
         self.myAnswer = myAnswer
         self.answers = answers
         self.nextCursor = nextCursor
+        self.todayAnsweredUserIDs = todayAnsweredUserIDs
     }
 
     init(from decoder: Decoder) throws {
@@ -1082,9 +1176,58 @@ struct HomeFeed: Codable, Equatable, Sendable {
         myAnswer = try container.decodeIfPresent(Answer.self, forKey: .myAnswer)
         answers = try container.decodeIfPresent([Answer].self, forKey: .answers) ?? []
         nextCursor = try container.decodeIfPresent(String.self, forKey: .nextCursor)
+        todayAnsweredUserIDs = try container.decodeIfPresent(
+            [String].self,
+            forKey: .todayAnsweredUserIDs
+        )
         if todayQuestion?.answer == nil {
             todayQuestion?.answer = myAnswer
         }
+    }
+}
+
+/// Daily progress derived from the available feed and current family roster.
+struct FamilyAnswerProgress: Equatable, Sendable {
+    let members: [UserProfile]
+    let answeredUserIDs: Set<String>
+    let total: Int
+
+    var answered: Int { min(total, answeredUserIDs.count) }
+    var fraction: Double { total > 0 ? Double(answered) / Double(total) : 0 }
+    var isComplete: Bool { total > 0 && answered == total }
+
+    init(feed: HomeFeed) {
+        var memberIDs = Set<String>()
+        members = (feed.family?.members ?? []).filter {
+            memberIDs.insert($0.id).inserted
+        }
+        let declaredTotal = max(0, feed.family?.memberCount ?? 0)
+        total = max(declaredTotal, members.count)
+
+        guard total > 0,
+              let question = feed.todayQuestion,
+              !question.publishedOn.isEmpty else {
+            answeredUserIDs = []
+            return
+        }
+
+        let todaysAuthors: Set<String>
+        if let authoritativeIDs = feed.todayAnsweredUserIDs {
+            todaysAuthors = Set(authoritativeIDs)
+        } else {
+            let candidates = feed.answers + [feed.myAnswer, question.answer].compactMap { $0 }
+            todaysAuthors = Set(candidates.filter { answer in
+                answer.answerDate == question.publishedOn
+                    && (question.id.isEmpty || answer.questionID.isEmpty
+                        || answer.questionID == question.id)
+            }.map(\.author.id))
+        }
+
+        // Older responses can carry only a count or a partial member list.
+        // Only a complete roster lets us identify and exclude former members.
+        answeredUserIDs = members.count >= declaredTotal
+            ? todaysAuthors.intersection(memberIDs)
+            : todaysAuthors
     }
 }
 
@@ -1159,6 +1302,8 @@ struct HistoryQuery: Codable, Equatable, Hashable, Sendable {
 
 struct SubmitAnswerBody: Codable, Equatable, Sendable {
     let body: String
+    var questionId: String? = nil
+    var questionDate: String? = nil
 }
 
 struct UpdateAnswerBody: Codable, Equatable, Sendable {
@@ -1246,7 +1391,7 @@ struct UpdateCommentBody: Codable, Equatable, Sendable {
     let body: String
 }
 
-enum CommentReportReason: String, Codable, CaseIterable, Equatable, Sendable {
+enum CommentReportReason: String, Codable, CaseIterable, Equatable, Hashable, Sendable {
     case spam
     case harassment
     case privacy

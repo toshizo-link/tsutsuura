@@ -1,0 +1,296 @@
+- log
+- log
+- banner "App Store Connect":
+  - heading "App Store Connect" [level=1]:
+    - link "App Store Connect":
+      - /url: /
+  - navigation "Global":
+    - list:
+      - link "Apps":
+        - /url: /apps
+      - link "Trends":
+        - /url: /trends
+      - link "Reports":
+        - /url: /itc/payments_and_financial_reports
+      - link "Business":
+        - /url: /business
+      - link "Users and Access":
+        - /url: /access/users
+  - button "Takami Marsh Takami Marsh Account name menu":
+    - generic: Takami Marsh
+    - generic: Takami Marsh
+- button "Apps menu, Tsutsuura, selected":
+  - generic "Tsutsuura":
+    - img "Tsutsuura"
+  - generic: Tsutsuura
+- navigation "Apps":
+  - list:
+    - link "Distribution":
+      - /url: /apps/6800383132/distribution
+    - link "Analytics":
+      - /url: /apps/6800383132/analytics
+    - link "TestFlight":
+      - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight
+    - link "Xcode Cloud":
+      - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/ci
+- main:
+  - navigation "TestFlight":
+    - list:
+      - heading "Builds" [level=2]
+      - list:
+        - link "iOS":
+          - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight/ios
+          - generic: iOS
+      - separator
+      - heading "Feedback" [level=2]
+      - list:
+        - link "Crashes":
+          - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight/crashes
+          - generic: Crashes
+        - link "Screenshots":
+          - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight/screenshots
+          - generic: Screenshots
+      - separator
+      - heading "Testers" [level=2]
+      - list:
+        - link "All":
+          - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight/testers
+          - generic: All
+      - heading "Internal Testing" [level=3]
+      - button "New Group":
+      - list:
+        - link "TI Tsutsuura Internal":
+          - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight/groups/4f2fdf78-bf23-41eb-8a52-f071316c6cc0
+          - generic: TI
+          - generic: Tsutsuura Internal
+        - button "Delete":
+          - generic: Delete
+      - heading "External Testing" [level=3]
+      - button "New Group":
+      - list:
+        - link "TE Tsutsuura External Beta":
+          - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight/groups/b116485a-4146-42b4-a271-27eb4538724f
+          - generic: TE
+          - generic: Tsutsuura External Beta
+        - button "Delete":
+          - generic: Delete
+      - separator
+      - heading "Additional" [level=2]
+      - list:
+        - link "Test Information":
+          - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight/test-info
+          - generic: Test Information
+        - generic: About TestFlight Data
+        - button: "?"
+  - generic "Tsutsuura Internal":
+    - generic: TI
+    - generic: Tsutsuura Internal
+  - heading "Tsutsuura Internal" [level=2]
+  - paragraph: Internal Group ∙ 1 Tester ∙ 13 Builds
+  - navigation:
+    - generic: Testers
+    - generic: Builds
+    - generic: Settings
+  - heading "Builds (13)" [level=3]
+  - button "Add Build to Group":
+  - grid "Builds":
+    - rowgroup:
+      - row "Build Status Platform Sessions Crashes Actions":
+        - columnheader "Build":
+          - button "Build":
+            - generic: Build
+        - columnheader "Status":
+          - generic: Status
+        - columnheader "Platform":
+          - generic: Platform
+        - columnheader "Sessions":
+          - generic: Sessions
+        - columnheader "Crashes":
+          - generic: Crashes
+        - columnheader "Actions"
+    - rowgroup:
+      - row "Build 1.0 (14)":
+        - rowheader "Build 1.0 (14)":
+          - link "Build 1.0 (14)":
+            - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight/ios/92a7970e-9c93-402c-96b6-d3b01afc8b7c
+            - generic: Build
+            - text: 1.0 (14)
+        - gridcell "Testing Expires in 90 days":
+          - text: Testing
+          - generic: Expires in 90 days
+        - gridcell "iOS":
+          - paragraph: iOS
+        - gridcell "–":
+          - paragraph: –
+        - gridcell "–":
+          - paragraph: –
+        - gridcell "Delete":
+          - button "Delete":
+      - row "Build 1.0 (13)":
+        - rowheader "Build 1.0 (13)":
+          - link "Build 1.0 (13)":
+            - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight/ios/c99bcbde-7107-4038-8b36-e2b178524d5c
+            - generic: Build
+            - text: 1.0 (13)
+        - gridcell "Testing Expires in 90 days":
+          - text: Testing
+          - generic: Expires in 90 days
+        - gridcell "iOS":
+          - paragraph: iOS
+        - gridcell "–":
+          - paragraph: –
+        - gridcell "–":
+          - paragraph: –
+        - gridcell "Delete":
+          - button "Delete":
+      - row "Build 1.0 (12)":
+        - rowheader "Build 1.0 (12)":
+          - link "Build 1.0 (12)":
+            - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight/ios/1e3397ce-2937-418b-8fac-b14d9d40d531
+            - generic: Build
+            - text: 1.0 (12)
+        - gridcell "Testing Expires in 90 days":
+          - text: Testing
+          - generic: Expires in 90 days
+        - gridcell "iOS":
+          - paragraph: iOS
+        - gridcell "–":
+          - paragraph: –
+        - gridcell "–":
+          - paragraph: –
+        - gridcell "Delete":
+          - button "Delete":
+      - row "Build 1.0 (11)":
+        - rowheader "Build 1.0 (11)":
+          - link "Build 1.0 (11)":
+            - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight/ios/91b1f560-2992-459e-9304-424c960d7ad3
+            - generic: Build
+            - text: 1.0 (11)
+        - gridcell "Testing Expires in 90 days":
+          - text: Testing
+          - generic: Expires in 90 days
+        - gridcell "iOS":
+          - paragraph: iOS
+        - gridcell "–":
+          - paragraph: –
+        - gridcell "–":
+          - paragraph: –
+        - gridcell "Delete":
+          - button "Delete":
+      - row "Build 1.0 (10)":
+        - rowheader "Build 1.0 (10)":
+          - link "Build 1.0 (10)":
+            - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight/ios/96b5153f-b7ca-4fed-81b4-7c5736daed99
+            - generic: Build
+            - text: 1.0 (10)
+        - gridcell "Testing Expires in 90 days":
+          - text: Testing
+          - generic: Expires in 90 days
+        - gridcell "iOS":
+          - paragraph: iOS
+        - gridcell "–":
+          - paragraph: –
+        - gridcell "–":
+          - paragraph: –
+        - gridcell "Delete":
+          - button "Delete":
+      - row "Build 1.0 (9)":
+        - rowheader "Build 1.0 (9)":
+          - link "Build 1.0 (9)":
+            - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight/ios/b9970448-782f-48eb-a18d-d771e80dbebf
+            - generic: Build
+            - text: 1.0 (9)
+        - gridcell "Testing Expires in 90 days":
+          - text: Testing
+          - generic: Expires in 90 days
+        - gridcell "iOS":
+          - paragraph: iOS
+        - gridcell "–":
+          - paragraph: –
+        - gridcell "–":
+          - paragraph: –
+        - gridcell "Delete":
+          - button "Delete":
+      - row "Build 1.0 (8)":
+        - rowheader "Build 1.0 (8)":
+          - link "Build 1.0 (8)":
+            - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight/ios/3ef57894-b711-4fd0-87d1-12cfbef747d6
+            - generic: Build
+            - text: 1.0 (8)
+        - gridcell "Testing Expires in 90 days":
+          - text: Testing
+          - generic: Expires in 90 days
+        - gridcell "iOS":
+          - paragraph: iOS
+        - gridcell "–":
+          - paragraph: –
+        - gridcell "–":
+          - paragraph: –
+        - gridcell "Delete":
+          - button "Delete":
+      - row "Build 1.0 (7)":
+        - rowheader "Build 1.0 (7)":
+          - link "Build 1.0 (7)":
+            - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight/ios/e90d5d37-3e93-409b-bbcd-a7933e1d855b
+            - generic: Build
+            - text: 1.0 (7)
+        - gridcell "Testing Expires in 90 days":
+          - text: Testing
+          - generic: Expires in 90 days
+        - gridcell "iOS":
+          - paragraph: iOS
+        - gridcell "9":
+          - paragraph: "9"
+        - gridcell "–":
+          - paragraph: –
+        - gridcell "Delete":
+          - button "Delete":
+      - row "Build 1.0 (5)":
+        - rowheader "Build 1.0 (5)":
+          - link "Build 1.0 (5)":
+            - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight/ios/49a7ab0f-dd0d-4293-ae32-ebb993142dee
+            - generic: Build
+            - text: 1.0 (5)
+        - gridcell "Testing Expires in 90 days":
+          - text: Testing
+          - generic: Expires in 90 days
+        - gridcell "iOS":
+          - paragraph: iOS
+        - gridcell "8":
+          - paragraph: "8"
+        - gridcell "–":
+          - paragraph: –
+        - gridcell "Delete":
+          - button "Delete":
+      - row "Build 1.0 (4)":
+        - rowheader "Build 1.0 (4)":
+          - link "Build 1.0 (4)":
+            - /url: /teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight/ios/ed87ab1d-36fc-4ea5-820d-a0992894a5f4
+            - generic: Build
+            - text: 1.0 (4)
+        - gridcell "Testing Expires in 90 days":
+          - text: Testing
+          - generic: Expires in 90 days
+        - gridcell "iOS":
+          - paragraph: iOS
+        - gridcell "18":
+          - paragraph: "18"
+        - gridcell "–":
+          - paragraph: –
+        - gridcell "Delete":
+          - button "Delete":
+  - button "See More"
+- contentinfo:
+  - list:
+    - link "App Store Connect":
+      - /url: /apps
+  - list:
+    - listitem: Copyright © 2026 Apple Inc. All rights reserved. |
+    - link "Terms of Service":
+      - /url: /WebObjects/iTunesConnect.woa/wa/termsOfService
+    - text: "|"
+    - link "Privacy Policy":
+      - /url: https://www.apple.com/legal/privacy
+    - text: "|"
+    - link "Contact Us":
+      - /url: /contact-us

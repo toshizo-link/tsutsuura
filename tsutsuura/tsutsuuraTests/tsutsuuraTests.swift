@@ -1,7 +1,200 @@
 import Foundation
 import CryptoKit
 import XCTest
+import UIKit
 @testable import tsutsuura
+
+final class DesignSystemTests: XCTestCase {
+    @MainActor
+    func testBundledKaisotaiFontIsRegistered() throws {
+        let font = try XCTUnwrap(
+            UIFont(name: TsutsuuraTheme.fontName, size: 28),
+            "The display font must be bundled and registered, not silently fall back."
+        )
+        XCTAssertEqual(font.fontName, TsutsuuraTheme.fontName)
+    }
+}
+
+final class FamilyAnswerProgressTests: XCTestCase {
+    func testCountsUniqueCurrentMembersAcrossAllTodayAnswerSources() {
+        let first = member("first")
+        let second = member("second")
+        let third = member("third")
+        let progress = FamilyAnswerProgress(feed: HomeFeed(
+            family: FamilySummary(
+                id: "family", name: "家族", memberCount: 3,
+                members: [first, second, third, first]
+            ),
+            todayQuestion: todayQuestion(answer: answer("second")),
+            myAnswer: answer("third", date: "2026-09-03"),
+            answers: [
+                answer("first"), answer("first", id: "duplicate"),
+                answer("former-member"),
+                answer("third", questionID: "another-question"),
+                answer("third", date: nil),
+            ]
+        ))
+
+        XCTAssertEqual(progress.members.map(\.id), ["first", "second", "third"])
+        XCTAssertEqual(progress.answeredUserIDs, ["first", "second"])
+        XCTAssertEqual(progress.total, 3)
+        XCTAssertEqual(progress.answered, 2)
+        XCTAssertEqual(progress.fraction, 2.0 / 3.0, accuracy: 0.0001)
+        XCTAssertFalse(progress.isComplete)
+    }
+
+    func testMissingOrEmptyFamilyNeverInventsARecipientOrCompletion() {
+        let families: [FamilySummary?] = [
+            nil,
+            FamilySummary(id: "empty", name: "家族", memberCount: 0),
+            FamilySummary(id: "invalid", name: "家族", memberCount: -1),
+        ]
+        for family in families {
+            let progress = FamilyAnswerProgress(feed: HomeFeed(
+                family: family,
+                todayQuestion: todayQuestion(answer: answer("first")),
+                myAnswer: answer("first")
+            ))
+            XCTAssertEqual(progress.total, 0)
+            XCTAssertEqual(progress.answered, 0)
+            XCTAssertTrue(progress.answeredUserIDs.isEmpty)
+            XCTAssertEqual(progress.fraction, 0)
+            XCTAssertFalse(progress.isComplete)
+        }
+    }
+
+    func testIncompleteRosterPreservesKnownAnswersFromUnlistedMembers() {
+        let progress = FamilyAnswerProgress(feed: HomeFeed(
+            family: FamilySummary(
+                id: "family", name: "家族", memberCount: 4,
+                members: [member("first")]
+            ),
+            todayQuestion: todayQuestion(),
+            myAnswer: answer("first"),
+            answers: [answer("unlisted", questionID: "")]
+        ))
+
+        XCTAssertEqual(progress.answeredUserIDs, ["first", "unlisted"])
+        XCTAssertEqual(progress.total, 4)
+        XCTAssertEqual(progress.answered, 2)
+        XCTAssertEqual(progress.fraction, 0.5)
+        XCTAssertFalse(progress.isComplete)
+    }
+
+    func testCompletionRequiresEveryRecipientAndATodayQuestion() {
+        var feed = HomeFeed(
+            family: FamilySummary(
+                id: "family", name: "家族", memberCount: 0,
+                members: [member("first")]
+            ),
+            todayQuestion: todayQuestion(),
+            myAnswer: answer("first")
+        )
+        let completed = FamilyAnswerProgress(feed: feed)
+        XCTAssertEqual(completed.total, 1, "A populated roster takes precedence over a stale count.")
+        XCTAssertTrue(completed.isComplete)
+        XCTAssertEqual(completed.fraction, 1)
+
+        feed.todayQuestion = nil
+        let unavailable = FamilyAnswerProgress(feed: feed)
+        XCTAssertEqual(unavailable.total, 1)
+        XCTAssertEqual(unavailable.answered, 0)
+        XCTAssertFalse(unavailable.isComplete)
+    }
+
+    func testAuthoritativeProgressIncludesRespondersBeyondTheVisibleFeed() {
+        let members = (1...25).map { member("member-\($0)") }
+        let progress = FamilyAnswerProgress(feed: HomeFeed(
+            family: FamilySummary(
+                id: "family", name: "家族", memberCount: members.count,
+                members: members
+            ),
+            todayQuestion: todayQuestion(),
+            answers: [answer("member-1")],
+            nextCursor: "next-page",
+            todayAnsweredUserIDs: members.map(\.id) + ["member-1", "former-member"]
+        ))
+
+        XCTAssertEqual(progress.answeredUserIDs, Set(members.map(\.id)))
+        XCTAssertEqual(progress.answered, 25)
+        XCTAssertEqual(progress.fraction, 1)
+        XCTAssertTrue(progress.isComplete)
+    }
+
+    func testAuthoritativeEmptyProgressOverridesStaleCachedAnswers() {
+        let progress = FamilyAnswerProgress(feed: HomeFeed(
+            family: FamilySummary(
+                id: "family", name: "家族", memberCount: 1,
+                members: [member("first")]
+            ),
+            todayQuestion: todayQuestion(answer: answer("first")),
+            myAnswer: answer("first"),
+            answers: [answer("first")],
+            todayAnsweredUserIDs: []
+        ))
+
+        XCTAssertTrue(progress.answeredUserIDs.isEmpty)
+        XCTAssertEqual(progress.answered, 0)
+        XCTAssertFalse(progress.isComplete)
+    }
+
+    func testHomeFeedDecodesOptionalAuthoritativeProgressWithoutLosingEmptyState() throws {
+        for (json, expected): (String, [String]?) in [
+            (#"{}"#, nil),
+            (#"{"todayAnsweredUserIDs":[]}"#, []),
+            (#"{"todayAnsweredUserIDs":["member-1"]}"#, ["member-1"]),
+        ] {
+            let feed = try JSONDecoder().decode(HomeFeed.self, from: Data(json.utf8))
+            XCTAssertEqual(feed.todayAnsweredUserIDs, expected)
+            let roundTrip = try JSONDecoder().decode(
+                HomeFeed.self,
+                from: JSONEncoder().encode(feed)
+            )
+            XCTAssertEqual(roundTrip.todayAnsweredUserIDs, expected)
+        }
+    }
+
+    @MainActor
+    func testSubmittedAnswerChargesOneCellAndCannotBeChanged() async throws {
+        let store = AppStore(api: DemoAppAPI(startsAuthenticated: true), haptics: NoopHaptics())
+        await store.restoreSession()
+        store.home.feed?.todayAnsweredUserIDs = []
+        store.question.draft = "今日の回答"
+        await store.submitAnswer()
+        let submitted = try XCTUnwrap(store.home.feed?.myAnswer)
+        XCTAssertEqual(store.home.feed?.todayAnsweredUserIDs, [submitted.author.id])
+        let updated = await store.updateAnswer(answerID: submitted.id, submission: AnswerSubmission(body: "変更"))
+        let deleted = await store.deleteAnswer(answerID: submitted.id)
+        XCTAssertFalse(updated)
+        XCTAssertFalse(deleted)
+        XCTAssertEqual(store.home.feed?.myAnswer?.body, "今日の回答")
+        XCTAssertEqual(FamilyAnswerProgress(feed: try XCTUnwrap(store.home.feed)).answered, 1)
+    }
+
+    private func member(_ id: String) -> UserProfile {
+        UserProfile(id: id, displayName: id, avatarURL: nil, phoneNumber: nil, family: nil)
+    }
+
+    private func todayQuestion(answer: Answer? = nil) -> Question {
+        Question(id: "today", prompt: "今日の質問", publishedOn: "2026-09-04", answer: answer)
+    }
+
+    private func answer(
+        _ authorID: String,
+        id: String? = nil,
+        date: String? = "2026-09-04",
+        questionID: String = "today"
+    ) -> Answer {
+        Answer(
+            id: id ?? authorID,
+            questionID: questionID,
+            author: AnswerAuthor(id: authorID, displayName: authorID, avatarURL: nil),
+            body: "回答",
+            createdAt: Date(timeIntervalSince1970: 0),
+            answerDate: date
+        )
+    }
+}
 
 final class APIClientTests: XCTestCase {
     func testManagedFamilyLeaveClearsStoredBearerButRegularLeavePreservesIt() async throws {
@@ -21,7 +214,8 @@ final class APIClientTests: XCTestCase {
                     data: Data(#"{"data":{"accountDeleted":true}}"#.utf8)
                 ),
             ]),
-            tokenStore: managedStore
+            tokenStore: managedStore,
+            mutationProtectionKey: Data(repeating: 0x42, count: 32)
         )
 
         let managedResult = try await managedClient.leaveFamily()
@@ -43,7 +237,8 @@ final class APIClientTests: XCTestCase {
                     data: Data(#"{"data":{"accountDeleted":false}}"#.utf8)
                 ),
             ]),
-            tokenStore: regularStore
+            tokenStore: regularStore,
+            mutationProtectionKey: Data(repeating: 0x42, count: 32)
         )
 
         let regularResult = try await regularClient.leaveFamily()
@@ -311,7 +506,8 @@ final class APIClientTests: XCTestCase {
 
         let recordedRequest = await transport.lastRequest
         let request = try XCTUnwrap(recordedRequest)
-        XCTAssertEqual(request.httpMethod, "PUT")
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "X-HTTP-Method-Override"), "PUT")
         XCTAssertEqual(
             request.value(forHTTPHeaderField: "Content-Type"),
             "application/json; charset=utf-8"
@@ -320,7 +516,7 @@ final class APIClientTests: XCTestCase {
         let json = try XCTUnwrap(
             JSONSerialization.jsonObject(with: bodyData) as? [String: String]
         )
-        XCTAssertEqual(json, ["body": "テキストだけの回答"])
+        XCTAssertEqual(json, ["body": "テキストだけの回答", "questionId": "7"])
     }
 
     func testAnswerWithAudioAndPhotosUsesMultipartContract() async throws {
@@ -376,6 +572,7 @@ final class APIClientTests: XCTestCase {
             decoding: try XCTUnwrap(request.httpBody),
             as: UTF8.self
         )
+        XCTAssertTrue(encodedBody.contains("name=\"questionId\"\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n7\r\n"))
         XCTAssertTrue(encodedBody.contains("name=\"body\""))
         XCTAssertTrue(encodedBody.contains("音声と写真の回答"))
         XCTAssertTrue(encodedBody.contains("name=\"audio\"; filename=\"recording.m4a\""))
@@ -629,11 +826,11 @@ final class PairingLinkParserTests: XCTestCase {
             ("tsutsuura://pair/\(minimumToken)", minimumToken),
             ("tsutsuura://PAIR?token=\(mixedToken)", mixedToken),
             (
-                "https://kttprojects.conohawing.com/tsutsuura-api/api/invite/\(maximumToken)",
+                "https://toshizo.link/tsutsuura-api/api/invite/\(maximumToken)",
                 maximumToken
             ),
             (
-                "HTTPS://KTTPROJECTS.CONOHAWING.COM/tsutsuura-api/api/invite/\(mixedToken)",
+                "HTTPS://TOSHIZO.LINK/tsutsuura-api/api/invite/\(mixedToken)",
                 mixedToken
             ),
         ]
@@ -651,13 +848,14 @@ final class PairingLinkParserTests: XCTestCase {
     func testRejectsMalformedUntrustedAndNonASCIIPairingLinks() throws {
         let validToken = String(repeating: "a", count: 48)
         let cases = [
-            "http://kttprojects.conohawing.com/tsutsuura-api/api/invite/\(validToken)",
+            "https://kttprojects.conohawing.com/tsutsuura-api/api/invite/\(validToken)",
+            "http://toshizo.link/tsutsuura-api/api/invite/\(validToken)",
             "https://example.com/tsutsuura-api/api/invite/\(validToken)",
-            "https://kttprojects.conohawing.com:443/tsutsuura-api/api/invite/\(validToken)",
-            "https://user@kttprojects.conohawing.com/tsutsuura-api/api/invite/\(validToken)",
-            "https://kttprojects.conohawing.com/TSUTSUURA-API/api/invite/\(validToken)",
-            "https://kttprojects.conohawing.com/tsutsuura-api/api/invite/\(validToken)/extra",
-            "https://kttprojects.conohawing.com/tsutsuura-api/api/invite",
+            "https://toshizo.link:443/tsutsuura-api/api/invite/\(validToken)",
+            "https://user@toshizo.link/tsutsuura-api/api/invite/\(validToken)",
+            "https://toshizo.link/TSUTSUURA-API/api/invite/\(validToken)",
+            "https://toshizo.link/tsutsuura-api/api/invite/\(validToken)/extra",
+            "https://toshizo.link/tsutsuura-api/api/invite",
             "tsutsuura://wrong/\(validToken)",
             "tsutsuura://pair/one/\(validToken)",
             "tsutsuura://pair?token=\(String(repeating: "a", count: 39))",
@@ -4733,53 +4931,36 @@ final class DemoAppAPITests: XCTestCase {
         XCTAssertTrue(replacementPreferences.commentsEnabled)
     }
 
-    func testDemoAnswerEditMediaDeleteAndDeleteLifecycle() async throws {
+    func testDemoPublishedAnswerAndMediaAreImmutableAndRetryIsStable() async throws {
         let api: any AppAPI = DemoAppAPI(startsAuthenticated: true)
         let question = try await api.fetchTodayQuestion()
-        let answer = try await api.submitAnswer(
-            questionID: question.id,
-            submission: AnswerSubmission(
-                body: "元の回答",
-                photos: [
-                    AnswerMediaUpload(
-                        data: Data([0x01, 0x02]),
-                        fileName: "memory.jpg",
-                        mimeType: "image/jpeg"
-                    )
-                ]
-            )
-        )
+        let submission = AnswerSubmission(body: "元の回答", photos: [
+            AnswerMediaUpload(data: Data([0x01, 0x02]), fileName: "memory.jpg", mimeType: "image/jpeg")
+        ])
+        let answer = try await api.submitAnswer(questionID: question.id, submission: submission)
         let photo = try XCTUnwrap(answer.media.first)
-
-        let updated = try await api.updateAnswer(
-            answerID: answer.id,
-            submission: AnswerSubmission(body: "編集した回答")
-        )
-        XCTAssertEqual(updated.body, "編集した回答")
-        XCTAssertEqual(updated.media, answer.media)
-
-        let withoutPhoto = try await api.deleteAnswerMedia(
-            answerID: answer.id,
-            mediaID: photo.id
-        )
-        XCTAssertTrue(withoutPhoto.media.isEmpty)
-        XCTAssertEqual(withoutPhoto.body, "編集した回答")
-
-        try await api.deleteAnswer(answerID: answer.id)
-        let home = try await api.fetchHome(cursor: nil)
-        let history = try await api.fetchAnswerHistory(
-            query: HistoryQuery(scope: .family),
-            cursor: nil
-        )
-        XCTAssertNil(home.myAnswer)
-        XCTAssertFalse(home.answers.contains(where: { $0.id == answer.id }))
-        XCTAssertFalse(history.answers.contains(where: { $0.id == answer.id }))
-
-        let someoneElsesAnswer = try XCTUnwrap(home.answers.first)
+        let replay = try await api.submitAnswer(questionID: question.id, submission: submission)
+        XCTAssertEqual(replay, answer)
         do {
-            try await api.deleteAnswer(answerID: someoneElsesAnswer.id)
-            XCTFail("Another family member's answer must not be deletable")
+            _ = try await api.updateAnswer(answerID: answer.id, submission: AnswerSubmission(body: "変更"))
+            XCTFail("Published answers must be immutable")
         } catch {}
+        do {
+            _ = try await api.deleteAnswerMedia(answerID: answer.id, mediaID: photo.id)
+            XCTFail("Published photos must be immutable")
+        } catch {}
+        do {
+            try await api.deleteAnswer(answerID: answer.id)
+            XCTFail("Published answers must be immutable")
+        } catch {}
+        do {
+            _ = try await api.submitAnswer(questionID: question.id, body: "別の回答")
+            XCTFail("Posting again cannot replace an answer")
+        } catch {}
+        let preserved = try await api.fetchAnswer(answerID: answer.id)
+        XCTAssertEqual(preserved, answer)
+        let media = try await api.fetchAnswerMedia(photo)
+        XCTAssertEqual(media.data, Data([0x01, 0x02]))
     }
 
     func testDemoCommentReplyEditReportAndDeleteLifecycle() async throws {
@@ -5005,7 +5186,13 @@ private actor ScriptedHTTPTransport: HTTPTransport {
     }
 
     var requestCount: Int { requests.count }
-    var methods: [String] { requests.compactMap(\.httpMethod) }
+    // Existing retry/reconciliation tests describe logical API operations.
+    // HTTPMethodOverrideTests separately asserts the actual wire transport.
+    var methods: [String] {
+        requests.compactMap {
+            $0.value(forHTTPHeaderField: "X-HTTP-Method-Override") ?? $0.httpMethod
+        }
+    }
     var paths: [String] { requests.compactMap { $0.url?.path } }
     var idempotencyKeys: [String?] {
         requests.map { $0.value(forHTTPHeaderField: "Idempotency-Key") }
@@ -5065,11 +5252,16 @@ private actor RecordingHTTPTransport: HTTPTransport {
 }
 
 private actor StubAppAPI: AppAPI {
+    private let cancelHomeRequest: Bool
     private let storedSession: Bool
     private let throwsOnSessionRead: Bool
     private let otpChallenge: OTPChallenge
     private var fetchedUsers: [UserProfile]
+    private let updatedProfile: UserProfile?
+    private let homeFailureGate: DeferredFailureGate?
+    private let historyFailureGate: DeferredFailureGate?
     private var homeFeeds: [HomeFeed]
+    private var historyPages: [AnswerPage]
     private var fetchMeFailuresRemaining: Int
     private let signOutFails: Bool
     private let fetchedAnswer: Answer?
@@ -5088,7 +5280,11 @@ private actor StubAppAPI: AppAPI {
         throwsOnSessionRead: Bool = false,
         fetchedUser: UserProfile? = nil,
         fetchedUsers: [UserProfile]? = nil,
+        updatedProfile: UserProfile? = nil,
+        homeFailureGate: DeferredFailureGate? = nil,
+        historyFailureGate: DeferredFailureGate? = nil,
         homeFeeds: [HomeFeed] = [],
+        cancelHomeRequest: Bool = false,
         fetchMeFailuresRemaining: Int = 0,
         signOutFails: Bool = false,
         fetchedAnswer: Answer? = nil,
@@ -5100,6 +5296,7 @@ private actor StubAppAPI: AppAPI {
         commentsAreMissing: Bool = false,
         commentPages: [CommentPage] = [],
         commentFailuresRemaining: Int = 0,
+        historyPages: [AnswerPage] = [],
         otpChallenge: OTPChallenge = OTPChallenge(
             requestID: "request",
             expiresIn: 300
@@ -5108,7 +5305,12 @@ private actor StubAppAPI: AppAPI {
         self.storedSession = storedSession
         self.throwsOnSessionRead = throwsOnSessionRead
         self.fetchedUsers = fetchedUsers ?? fetchedUser.map { [$0] } ?? []
+        self.updatedProfile = updatedProfile
+        self.homeFailureGate = homeFailureGate
+        self.historyFailureGate = historyFailureGate
         self.homeFeeds = homeFeeds
+        self.historyPages = historyPages
+        self.cancelHomeRequest = cancelHomeRequest
         self.fetchMeFailuresRemaining = fetchMeFailuresRemaining
         self.signOutFails = signOutFails
         self.fetchedAnswer = fetchedAnswer
@@ -5164,6 +5366,7 @@ private actor StubAppAPI: AppAPI {
     }
 
     func updateProfile(displayName: String) throws -> UserProfile {
+        if let updatedProfile { return updatedProfile }
         throw StubError.unimplemented
     }
 
@@ -5171,7 +5374,9 @@ private actor StubAppAPI: AppAPI {
         throw StubError.unimplemented
     }
 
-    func fetchHome(cursor: String?) throws -> HomeFeed {
+    func fetchHome(cursor: String?) async throws -> HomeFeed {
+        try await homeFailureGate?.pauseIfArmed()
+        if cancelHomeRequest { throw APIClientError.transport(URLError(.cancelled)) }
         guard let feed = homeFeeds.first else {
             throw StubError.unimplemented
         }
@@ -5219,7 +5424,12 @@ private actor StubAppAPI: AppAPI {
         return updatedAnswer
     }
 
-    func fetchAnswerHistory(cursor: String?) throws -> AnswerPage {
+    func fetchAnswerHistory(cursor: String?) async throws -> AnswerPage {
+        try await historyFailureGate?.pauseIfArmed()
+        if let page = historyPages.first {
+            if historyPages.count > 1 { historyPages.removeFirst() }
+            return page
+        }
         throw StubError.unimplemented
     }
 
@@ -5279,4 +5489,358 @@ private actor StubAppAPI: AppAPI {
 private enum StubError: Error {
     case unavailable
     case unimplemented
+}
+
+/// Models a transport that finishes with an HTTP error after the caller cancels
+/// or changes its account state. Checked continuations intentionally do not
+/// translate cancellation into CancellationError on behalf of the transport.
+private actor DeferredFailureGate {
+    private let onSuspended: @Sendable () -> Void
+    private var isArmed = false
+    private var continuation: CheckedContinuation<Void, Error>?
+
+    init(onSuspended: @escaping @Sendable () -> Void) {
+        self.onSuspended = onSuspended
+    }
+
+    func arm() { isArmed = true }
+
+    func pauseIfArmed() async throws {
+        guard isArmed else { return }
+        isArmed = false
+        try await withCheckedThrowingContinuation { continuation in
+            self.continuation = continuation
+            onSuspended()
+        }
+    }
+
+    func rejectAsUnauthorized() {
+        let pending = continuation
+        continuation = nil
+        pending?.resume(throwing: APIClientError.unauthorized)
+    }
+}
+
+@MainActor
+final class ScreenshotRegressionTests: XCTestCase {
+    func testCancelledHomeRefreshKeepsFeedWithoutErrorToast() async throws {
+        let profile = UserProfile(id: "me", displayName: "わたし", avatarURL: nil)
+        let store = AppStore(api: StubAppAPI(storedSession: true, fetchedUser: profile, cancelHomeRequest: true), haptics: NoopHaptics())
+        await store.restoreSession()
+        let feed = HomeFeed(family: FamilySummary(id: "family", name: "家族", memberCount: 3))
+        store.home.feed = feed
+        await store.refreshHome()
+        XCTAssertEqual(store.home.feed, feed)
+        XCTAssertNil(store.home.errorMessage)
+        XCTAssertNil(store.globalErrorMessage)
+        XCTAssertFalse(store.home.isLoading)
+    }
+
+    func testSearchNeverShowsOldResultsAfterChangingQueryEvenWhenRequestFails() async throws {
+        let api = DemoAppAPI(startsAuthenticated: true)
+        let page = try await api.fetchAnswerHistory(cursor: nil)
+        let store = AppStore(api: StubAppAPI(storedSession: false), haptics: NoopHaptics())
+        store.history.answers = page.answers
+        store.history.hasLoaded = true
+        store.setHistoryQuery(HistoryQuery(searchText: "存在しない言葉"))
+        XCTAssertTrue(store.history.answers.isEmpty)
+        XCTAssertFalse(store.history.hasLoaded)
+        await store.loadHistory()
+        XCTAssertTrue(store.history.answers.isEmpty)
+        XCTAssertNotNil(store.history.errorMessage)
+    }
+
+    func testPersonalMarkPersistsAcrossProfileFeedCommentsAndRejectsEmptyReset() async throws {
+        let api = DemoAppAPI(startsAuthenticated: true)
+        let store = AppStore(api: api, haptics: NoopHaptics())
+        await store.restoreSession()
+        await store.loadHistory()
+        let mark = String(repeating: "01", count: 128)
+        let saved = await store.updatePersonalMark(mark)
+        XCTAssertTrue(saved)
+        let profile = try await api.fetchMe()
+        XCTAssertEqual(profile.avatarMark, mark)
+        XCTAssertEqual(profile.family?.members.first(where: { $0.id == profile.id })?.avatarMark, mark)
+        let ownAnswers = store.history.answers.filter { $0.author.id == profile.id }
+        XCTAssertFalse(ownAnswers.isEmpty)
+        XCTAssertTrue(ownAnswers.allSatisfy { $0.author.avatarMark == mark })
+        let target = try XCTUnwrap(store.home.feed?.answers.first)
+        let comment = try await api.createComment(answerID: target.id, body: "しるし付き")
+        XCTAssertEqual(comment.author.avatarMark, mark)
+        let reset = await store.updatePersonalMark(nil)
+        XCTAssertFalse(reset)
+        let resetProfile = try await api.fetchMe()
+        XCTAssertEqual(resetProfile.avatarMark, mark)
+        let rejected = await store.updatePersonalMark("invalid")
+        XCTAssertFalse(rejected)
+    }
+
+    func testOwnerRenameUpdatesGeneratedFamilyNameAcrossStoreCaches() async throws {
+        let api = DemoAppAPI(startsAuthenticated: false)
+        _ = try await api.createOrganizerFamily(organizerName: "たかみ", familyName: "たかみさんの家族")
+        let store = AppStore(api: api, haptics: NoopHaptics())
+        await store.restoreSession()
+        let renamed = await store.updateDisplayName("たかも")
+        XCTAssertTrue(renamed)
+        XCTAssertEqual(store.home.feed?.family?.name, "たかもさんの家族")
+        XCTAssertEqual(store.familySetup.family?.name, "たかもさんの家族")
+        _ = try await api.renameFamily(name: "なかよし家族")
+        let custom = await store.updateDisplayName("たかみ")
+        XCTAssertTrue(custom)
+        XCTAssertEqual(store.familySetup.family?.name, "なかよし家族")
+    }
+
+    func testQuestionReleaseContractAndPreReleaseDraftProtection() async throws {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let future = try decoder.decode(Question.self, from: Data(#"{"id":"q","prompt":"","date":"2026-09-05","availableAt":"2026-09-05T09:30:00Z","isAvailable":false}"#.utf8))
+        XCTAssertFalse(future.canAnswer)
+        XCTAssertNotNil(future.availableAt)
+        let legacy = try decoder.decode(Question.self, from: Data(#"{"id":"q","prompt":"好きな色は？","date":"2026-09-05"}"#.utf8))
+        XCTAssertTrue(legacy.canAnswer)
+        let store = AppStore(api: StubAppAPI(storedSession: false), haptics: NoopHaptics())
+        store.question.question = future
+        store.question.draft = "まだ送れない回答"
+        await store.submitAnswer()
+        XCTAssertEqual(store.question.draft, "まだ送れない回答")
+        XCTAssertNil(store.question.errorMessage)
+        XCTAssertFalse(store.question.isSubmitting)
+    }
+}
+
+@MainActor
+final class DraftDayBoundaryTests: XCTestCase {
+    func testRefreshPreservesOldQuestionAndDraftUntilExplicitReplacement() async throws {
+        let profile = UserProfile(id: "me", displayName: "わたし", avatarURL: nil)
+        // Even an intentionally reused question ID must bind to its own day.
+        let yesterday = Question(id: "q", prompt: "昨日の質問", publishedOn: "2026-09-04")
+        let today = Question(id: "q", prompt: "今日の質問", publishedOn: "2026-09-05")
+        let store = AppStore(api: StubAppAPI(
+            storedSession: true, fetchedUser: profile,
+            homeFeeds: [HomeFeed(todayQuestion: yesterday), HomeFeed(todayQuestion: today)],
+            fetchedTodayQuestion: today
+        ), haptics: NoopHaptics())
+        await store.restoreSession()
+        store.question.draft = "昨日の質問に書きかけた回答"
+        let originalDraft = store.question.answerDraft
+        await store.refreshHome()
+        XCTAssertEqual(store.home.feed?.todayQuestion, today)
+        XCTAssertEqual(store.question.question, yesterday)
+        XCTAssertEqual(store.question.pendingQuestion, today)
+        XCTAssertEqual(store.question.answerDraft, originalDraft)
+        await store.submitAnswer()
+        XCTAssertEqual(store.question.answerDraft, originalDraft)
+        XCTAssertNil(store.home.feed?.myAnswer)
+        let loaded = await store.loadTodayQuestion()
+        XCTAssertFalse(loaded)
+        XCTAssertEqual(store.question.question, yesterday)
+        store.acceptNewQuestionDiscardingDraft()
+        XCTAssertEqual(store.question.question, today)
+        XCTAssertNil(store.question.pendingQuestion)
+        XCTAssertTrue(store.question.answerDraft.isEmpty)
+        XCTAssertNil(store.question.errorMessage)
+    }
+
+    func testExpectedQuestionDateTravelsInJSONAndMultipart() async throws {
+        for withPhoto in [false, true] {
+            let transport = RecordingHTTPTransport(statusCode: 200, responseData: Data(#"{"data":{"question":{"id":"7","prompt":"質問","date":"2026-09-05"},"answer":{"id":"a","question":{"id":"7","prompt":"質問"},"author":{"id":"me","displayName":"わたし"},"body":"回答","createdAt":"2026-09-05T10:00:00Z"}}}"#.utf8))
+            let api = DefaultAppAPI(configuration: try APIConfiguration(baseURL: URL(string: "https://api.example.com")!), transport: transport, tokenStore: InMemoryTokenStore(token: "test"))
+            let submission = AnswerSubmission(body: "回答", photos: withPhoto ? [AnswerMediaUpload(data: Data("photo".utf8), fileName: "photo.jpg", mimeType: "image/jpeg")] : [])
+            _ = try await api.submitAnswer(questionID: "7", questionDate: "2026-09-05", submission: submission)
+            let recorded = await transport.lastRequest
+            let request = try XCTUnwrap(recorded)
+            let bytes = try XCTUnwrap(request.httpBody)
+            if withPhoto {
+                let body = String(decoding: bytes, as: UTF8.self)
+                XCTAssertTrue(body.contains("name=\"questionDate\"\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n2026-09-05\r\n"))
+            } else {
+                let body = try XCTUnwrap(JSONSerialization.jsonObject(with: bytes) as? [String: String])
+                XCTAssertEqual(body["questionDate"], "2026-09-05")
+                XCTAssertEqual(body["questionId"], "7")
+            }
+        }
+    }
+}
+
+@MainActor
+final class HomeBackgroundRefreshTests: XCTestCase {
+    private let profile = UserProfile(id: "me", displayName: "わたし", avatarURL: nil)
+
+    private func answer(_ id: String, body: String = "回答") -> Answer {
+        Answer(id: id, questionID: "q", author: AnswerAuthor(id: "me", displayName: "わたし"), body: body, createdAt: .now)
+    }
+
+    func testCanceledHomePollIgnoresLateUnauthorizedResponse() async {
+        let suspended = expectation(description: "home poll suspended")
+        let gate = DeferredFailureGate { suspended.fulfill() }
+        let feed = HomeFeed(answers: [answer("a")])
+        let store = AppStore(api: StubAppAPI(storedSession: true, fetchedUser: profile,
+            homeFailureGate: gate, homeFeeds: [feed]), haptics: NoopHaptics())
+        await store.restoreSession()
+        store.question.draft = "書きかけの回答"
+        await gate.arm()
+
+        let poll = Task { await store.refreshHomeInBackground(includingHistory: false) }
+        await fulfillment(of: [suspended], timeout: 2)
+        poll.cancel()
+        await gate.rejectAsUnauthorized()
+        await poll.value
+
+        XCTAssertEqual(store.session, .signedIn(profile))
+        XCTAssertEqual(store.home.feed, feed)
+        XCTAssertEqual(store.question.draft, "書きかけの回答")
+        XCTAssertFalse(store.home.isLoading)
+        XCTAssertNil(store.home.errorMessage)
+        XCTAssertNil(store.globalErrorMessage)
+    }
+
+    func testCanceledHistoryPollIgnoresLateUnauthorizedResponse() async {
+        let suspended = expectation(description: "history poll suspended")
+        let gate = DeferredFailureGate { suspended.fulfill() }
+        let feed = HomeFeed(answers: [answer("a")])
+        let store = AppStore(api: StubAppAPI(storedSession: true, fetchedUser: profile,
+            historyFailureGate: gate, homeFeeds: [feed]), haptics: NoopHaptics())
+        await store.restoreSession()
+        store.history.query = HistoryQuery(searchText: "回答")
+        store.history.answers = feed.answers
+        store.history.hasLoaded = true
+        await gate.arm()
+
+        let poll = Task { await store.loadHistory(inBackground: true) }
+        await fulfillment(of: [suspended], timeout: 2)
+        poll.cancel()
+        await gate.rejectAsUnauthorized()
+        await poll.value
+
+        XCTAssertEqual(store.session, .signedIn(profile))
+        XCTAssertEqual(store.history.answers, feed.answers)
+        XCTAssertEqual(store.history.query.searchText, "回答")
+        XCTAssertTrue(store.history.hasLoaded)
+        XCTAssertFalse(store.history.isLoading)
+        XCTAssertNil(store.history.errorMessage)
+        XCTAssertNil(store.globalErrorMessage)
+    }
+
+    func testOldHomePollCannotSignOutAnUpdatedProfile() async {
+        let suspended = expectation(description: "old profile poll suspended")
+        let gate = DeferredFailureGate { suspended.fulfill() }
+        var updatedProfile = profile
+        updatedProfile.displayName = "新しい名前"
+        let store = AppStore(api: StubAppAPI(storedSession: true, fetchedUser: profile,
+            updatedProfile: updatedProfile, homeFailureGate: gate,
+            homeFeeds: [HomeFeed(answers: [answer("a")])]), haptics: NoopHaptics())
+        await store.restoreSession()
+        await gate.arm()
+
+        let poll = Task { await store.refreshHomeInBackground(includingHistory: false) }
+        await fulfillment(of: [suspended], timeout: 2)
+        let saved = await store.updateDisplayName(updatedProfile.displayName)
+        XCTAssertTrue(saved)
+        await gate.rejectAsUnauthorized()
+        await poll.value
+
+        XCTAssertEqual(store.session, .signedIn(updatedProfile))
+        XCTAssertEqual(store.home.feed?.answers.first?.author.displayName, "新しい名前")
+        XCTAssertFalse(store.home.isLoading)
+        XCTAssertNil(store.home.errorMessage)
+        XCTAssertNil(store.globalErrorMessage)
+    }
+
+    func testActiveHomePollStillHandlesUnauthorizedSession() async {
+        let suspended = expectation(description: "active poll suspended")
+        let gate = DeferredFailureGate { suspended.fulfill() }
+        let store = AppStore(api: StubAppAPI(storedSession: true, fetchedUser: profile,
+            homeFailureGate: gate, homeFeeds: [HomeFeed()]), haptics: NoopHaptics())
+        await store.restoreSession()
+        await gate.arm()
+
+        let poll = Task { await store.refreshHomeInBackground(includingHistory: false) }
+        await fulfillment(of: [suspended], timeout: 2)
+        await gate.rejectAsUnauthorized()
+        await poll.value
+
+        XCTAssertEqual(store.session, .signedOut)
+        XCTAssertNil(store.home.feed)
+        XCTAssertFalse(store.home.isLoading)
+        XCTAssertNil(store.home.errorMessage)
+    }
+
+    func testQuietFailurePreservesContentQueryAndDraftWithoutToast() async {
+        let store = AppStore(api: StubAppAPI(storedSession: true, fetchedUser: profile), haptics: NoopHaptics())
+        await store.restoreSession()
+        store.home.errorMessage = nil
+        let feed = HomeFeed(answers: [answer("a")])
+        store.home.feed = feed
+        store.history.query = HistoryQuery(searchText: "回答")
+        store.history.answers = feed.answers
+        store.history.hasLoaded = true
+        store.question.draft = "まだ書いている文章"
+        await store.refreshHomeInBackground(includingHistory: true)
+        XCTAssertEqual(store.home.feed, feed)
+        XCTAssertEqual(store.history.answers, feed.answers)
+        XCTAssertEqual(store.history.query.searchText, "回答")
+        XCTAssertEqual(store.question.draft, "まだ書いている文章")
+        XCTAssertNil(store.home.errorMessage)
+        XCTAssertNil(store.history.errorMessage)
+        XCTAssertNil(store.globalErrorMessage)
+    }
+
+    func testQuietRefreshMergesNewPageWithoutDroppingLoadedTail() async {
+        let family = FamilySummary(id: "f", name: "家族", memberCount: 1, members: [profile])
+        let fresh = [answer("new"), answer("a", body: "最新の内容")]
+        let store = AppStore(api: StubAppAPI(
+            storedSession: true, fetchedUser: profile,
+            homeFeeds: [HomeFeed(family: family, answers: fresh, nextCursor: "fresh")],
+            historyPages: [AnswerPage(answers: fresh, nextCursor: "fresh")]
+        ), haptics: NoopHaptics())
+        await store.restoreSession()
+        store.home.errorMessage = nil
+        store.home.feed = HomeFeed(family: family, answers: [answer("a"), answer("b"), answer("c")], nextCursor: "older")
+        store.history.answers = store.home.feed!.answers
+        store.history.hasLoaded = true
+        store.history.nextCursor = "older"
+        await store.refreshHomeInBackground(includingHistory: true)
+        XCTAssertEqual(store.home.feed?.answers.map(\.id), ["new", "a", "b", "c"])
+        XCTAssertEqual(store.home.feed?.answers[1].body, "最新の内容")
+        XCTAssertEqual(store.home.feed?.nextCursor, "older")
+        XCTAssertEqual(store.history.answers.map(\.id), ["new", "a", "b", "c"])
+        XCTAssertEqual(store.history.nextCursor, "older")
+    }
+
+    func testQuietRefreshDoesNotResurrectAnotherFamilyTail() async {
+        let newFamily = FamilySummary(id: "new", name: "新しい家族", memberCount: 1, members: [profile])
+        let store = AppStore(api: StubAppAPI(storedSession: true, fetchedUser: profile,
+            homeFeeds: [HomeFeed(family: newFamily, answers: [answer("new")], nextCursor: "next")]), haptics: NoopHaptics())
+        await store.restoreSession()
+        store.home.errorMessage = nil
+        store.home.feed = HomeFeed(family: FamilySummary(id: "old", name: "以前の家族", memberCount: 1), answers: [answer("a"), answer("b")])
+        await store.refreshHomeInBackground(includingHistory: false)
+        XCTAssertEqual(store.home.feed?.answers.map(\.id), ["new"])
+    }
+
+    func testRefreshLoopDoesNotOverlapAndCancelsPromptly() async throws {
+        let twoUpdates = expectation(description: "two completed updates")
+        twoUpdates.expectedFulfillmentCount = 2
+        var updates = 0
+        var active = 0
+        var maximumActive = 0
+        let loop = Task { @MainActor in
+            await HomeAutoRefresh.run(interval: .milliseconds(10)) {
+                active += 1
+                maximumActive = max(maximumActive, active)
+                try? await Task.sleep(for: .milliseconds(25))
+                updates += 1
+                active -= 1
+                if updates <= 2 { twoUpdates.fulfill() }
+            }
+        }
+        await fulfillment(of: [twoUpdates], timeout: 2)
+        loop.cancel()
+        await loop.value
+        let finalCount = updates
+        try await Task.sleep(for: .milliseconds(60))
+        XCTAssertEqual(maximumActive, 1)
+        XCTAssertEqual(updates, finalCount)
+        XCTAssertEqual(active, 0)
+    }
 }

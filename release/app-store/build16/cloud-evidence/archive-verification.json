@@ -1,0 +1,26 @@
+{
+  "sourceHashesUnchanged": true,
+  "compilerSourcesMatch": true,
+  "unsigned": true,
+  "appFiles": {
+    "AppIcon60x60@2x.png": "ca8bd55778f1ec7df69fe5d4e2d8ada704da298f190fa3f611a1553a938321c3",
+    "AppIcon76x76@2x~ipad.png": "edc2f82eec441ed240ffd3897e4a071b274cd3249b694d801b455264194e5726",
+    "Assets.car": "cfc7ce852a757a668383290ee8c3be9ab718c3db636210a7b80834bba9976f0a",
+    "Info.plist": "3ecbf2f642490d6bad1a802c1f166d61449f9a5b1f14e7f2754d2ffdac803611",
+    "Kaisotai-Next-UP-B.otf": "f1f4ecc6f3729277aa66e2cc1b598a3d6cc9a652bf96ff3265f2ea9554d3d44a",
+    "PkgInfo": "82502191c9484b04d685374f9879a0066069c49b8acae7a04b01d38d07e8eca0",
+    "PrivacyInfo.xcprivacy": "da07206abb439a48c64df100e63ffa177fc9b87db59c2d565c3c6cf597dcb310",
+    "tsutsuura": "3a2d6c22d758e26a7233711a20600fa21390d0a16648ec9fa5da90ae0464db37"
+  },
+  "binaryUUIDs": "UUID: D9621A86-C0A8-39B4-AD01-BF8B5CA416FB (arm64) /Users/runner/work/tsutsuura/tsutsuura/build/tsutsuura-16-unsigned.xcarchive/Products/Applications/tsutsuura.app/tsutsuura",
+  "dSYMUUIDs": "UUID: D9621A86-C0A8-39B4-AD01-BF8B5CA416FB (arm64) /Users/runner/work/tsutsuura/tsutsuura/build/tsutsuura-16-unsigned.xcarchive/dSYMs/tsutsuura.app.dSYM/Contents/Resources/DWARF/tsutsuura",
+  "buildMetadata": {
+    "BuildMachineOSBuild": "25G83",
+    "DTXcode": "2660",
+    "DTXcodeBuild": "17F113",
+    "DTSDKBuild": "23F81a",
+    "DTSDKName": "iphoneos26.5",
+    "DTPlatformBuild": "23F81a",
+    "DTPlatformVersion": "26.5"
+  }
+}

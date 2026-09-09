@@ -1,0 +1,296 @@
+Browser tab: 734044815, Title: "App Store Connect", URL: "https://appstoreconnect.apple.com/apps/6800383132/distribution/ios/version/inflight".
+0 AXWebArea App Store Connect, URL: appstoreconnect.apple.com/apps/6800383132/distribution/ios/version/inflight
+	1 container
+		2 container App Store Connect
+			3 container
+				4 heading App Store Connect, Value: 1
+					16 link Description: App Store Connect, Value: appstoreconnect.apple.com/, ID: logo
+				5 container Global
+					17 content list
+						18 link Description: Apps, Value: appstoreconnect.apple.com/apps
+						19 link Description: Trends, Value: appstoreconnect.apple.com/trends
+						20 link Description: Reports, Value: appstoreconnect.apple.com/itc/payments_and_financial_reports
+						21 link Description: Business, Value: appstoreconnect.apple.com/business
+						22 link Description: Users and Access, Value: appstoreconnect.apple.com/access/users
+				23 button Takami Marsh Takami Marsh Account name menu
+					24 text Takami Marsh
+					25 text Takami Marsh
+					26 image
+		27 container
+			28 pop up button (collapsed) Description: Apps menu, Tsutsuura, selected, Secondary Actions: Expand
+				29 container
+					30 image Tsutsuura
+					31 text Tsutsuura
+				32 image
+			33 container Apps
+				34 content list
+					35 link Description: Distribution, Value: appstoreconnect.apple.com/apps/6800383132/distribution
+					36 link Description: Analytics, Value: appstoreconnect.apple.com/apps/6800383132/analytics
+					37 link Description: TestFlight, Value: appstoreconnect.apple.com/teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight
+					38 link Description: Xcode Cloud, Value: appstoreconnect.apple.com/teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/ci
+		39 container
+			40 container
+				41 container Distribution
+					42 content list
+						43 container
+							44 heading iOS App, Value: 2
+								45 text iOS App
+							46 content list
+								47 link Description: 1.0 Rejected, Help: Rejected, Value: appstoreconnect.apple.com/apps/6800383132/distribution/ios/version/inflight
+							48 button Add Platform
+						49 container
+							50 heading General, Value: 2
+								51 text General
+							52 content list
+								53 link Description: App Information, Value: appstoreconnect.apple.com/apps/6800383132/distribution/info
+								54 link Description: App Review, Value: appstoreconnect.apple.com/apps/6800383132/distribution/reviewsubmissions
+								55 link Description: History, Value: appstoreconnect.apple.com/apps/6800383132/distribution/activity/ios/versions
+						56 container
+							57 heading App Store, Value: 2
+								58 text App Store
+							59 heading TRUST & SAFETY, Value: 3
+								60 text TRUST & SAFETY
+							61 content list
+								62 link Description: App Privacy, Value: appstoreconnect.apple.com/apps/6800383132/distribution/privacy
+								63 link Description: App Accessibility, Value: appstoreconnect.apple.com/apps/6800383132/distribution/accessibility
+								64 link Description: Ratings and Reviews, Value: appstoreconnect.apple.com/apps/6800383132/distribution/ratings/ios
+							65 heading GROWTH & MARKETING, Value: 3
+								66 text GROWTH & MARKETING
+							67 content list
+								68 link Description: In-App Events, Value: appstoreconnect.apple.com/apps/6800383132/distribution/events
+								69 link Description: Custom Product Pages, Value: appstoreconnect.apple.com/apps/6800383132/distribution/productpages
+								70 link Description: Product Page Optimization, Value: appstoreconnect.apple.com/apps/6800383132/distribution/optimization
+								71 link Description: Promo Codes, Value: appstoreconnect.apple.com/apps/6800383132/distribution/promo_codes/generate
+								72 link Description: Game Center, Value: appstoreconnect.apple.com/apps/6800383132/distribution/gamecenter
+							73 heading MONETIZATION, Value: 3
+								74 text MONETIZATION
+							75 content list
+								76 link Description: Pricing and Availability, Value: appstoreconnect.apple.com/apps/6800383132/distribution/pricing
+								77 link Description: In-App Purchases, Value: appstoreconnect.apple.com/apps/6800383132/distribution/iaps
+								78 link Description: Subscriptions, Value: appstoreconnect.apple.com/apps/6800383132/distribution/subscriptions
+							79 heading FEATURING, Value: 3
+								80 text FEATURING
+							81 content list
+								82 link Description: Nominations, Value: appstoreconnect.apple.com/apps/6800383132/distribution/nominations
+				83 heading iOS App Version 1.0, Value: 2
+					84 text iOS App Version 1.0
+				85 button (disabled) Save
+				86 button Update Review
+				87 image
+				88 text This item requires your attention:
+				89 text The item you submitted was rejected. Learn more from the submission details page.
+				90 content list
+					91 container
+						92 AXListMarker • 
+						93 text 2.1.0 Performance: App Completeness
+				94 link Description: View Submission, Value: appstoreconnect.apple.com/apps/6800383132/distribution/reviewsubmissions/details/8453cec6-b34b-41f0-a82b-cd13132155de
+				95 text The assets and metadata below appear on your app’s product page, when users install your app, and will be used for web engine search results once you release your app.
+				96 container
+					97 pop up button (collapsed) Japanese, Secondary Actions: Expand
+						98 text Japanese
+						99 image
+					100 button ?
+				101 heading Previews and Screenshots, Value: 3
+					102 text Previews and Screenshots
+				103 button (collapsed) Description: More information, Secondary Actions: Expand
+				104 text Adding accurate screenshots of your app on the newest devices can help you represent the app's user experience. Keep in mind that we'll use these screenshots for all display sizes and localizations. Screenshots are only required for iOS apps, and only the first 3 will be used on the app installation sheets.
+				105 tab group
+					106 tab (selected, settable, boolean) iPhone, ID: iphone-tab, Value: 1
+iPhone
+					107 tab (selectable, settable, boolean) iPad, ID: ipad-tab, Value: 0
+iPad
+					108 tab (selectable, settable, boolean) Apple Watch, ID: watch-tab, Value: 0
+Apple Watch
+				109 link Description: View All Sizes in Media Manager, Value: appstoreconnect.apple.com/apps/6800383132/distribution/ios/version/inflight/media-manager/iphone
+				110 container Description: iPhone, ID: iphone-tabpanel
+					111 text iPhone
+					112 text 6.5" Display
+					113 container app-iphone_65-tabpanel
+						114 text Using 6.9" Display
+						115 button Edit
+						116 content list (disabled) App Previews from Japanese 6.9" Display
+						117 content list (disabled) Screenshots from Japanese 6.9" Display
+							118 image Screenshot store-01-family.png
+							119 image Screenshot store-02-answer.png
+							120 image Screenshot store-03-history.png
+							121 image Screenshot store-04-personal-mark.png
+						122 text 0 of 3 App Previews
+						123 text 4 of 10 Screenshots
+						124 button (disabled) Choose File
+						125 button (disabled) Delete All
+				126 text Promotional Text
+				127 button (collapsed) Description: More information, Secondary Actions: Expand
+				128 text entry area (settable) Promotional Text, Value: 離れて暮らす家族とも、毎日ひとこと。今日の質問に答えて、何気ない思い出や気持ちを家族で残しましょう。, ID: promotionalText
+				129 container Characters remaining
+					130 text 120
+				131 text Description
+				132 button (collapsed) Description: More information, Secondary Actions: Expand
+				133 text entry area (settable) Description, ID: description, Value: Tsutsuura（つつうら）は、一日ひとつの質問をきっかけに、家族で言葉や思い出を分かち合うアプリです。
+
+「最近、ありがとうと思ったことは？」
+そんな身近な質問に、短いひとことから答えられます。
+
+■ 家族の毎日が見える
+回答は同じ家族のメンバーと共有。いいねやコメントで気持ちを伝えられます。家族の回答状況も、人数に合わせたメーターで確認できます。
+
+■ 文字でも、声でも、写真でも
+文字の入力に加え、声で答えたり、一回の回答に最大4枚の写真を添えたりできます。写真はタップして大きく表示し、左右のスワイプで見比べられます。
+
+■ あなただけの「しるし」
+はじめに、指で自分のアイコンを描きます。丸や線だけでも大丈夫。アプリの点でできた小さなしるしが、名前の横につきます。
+
+■ 思い出を振り返る
+「家族」でみんなの回答を、「あなた」で自分の過去の回答を確認。質問や回答の言葉から検索できます。
+
+■ わかりやすい操作
+大きな文字と押しやすいボタン、順番に進める案内を用意しました。家族が新しいメンバーのiPhone設定を手伝うこともできます。
+
+今日の質問は、日中の時間帯に公開されます。急がず、その日の都合に合わせてご利用ください。回答とコメントは、送信前に内容をご確認ください。
+
+利用にはインターネット接続が必要です。写真・音声の利用には、選んだ機能に応じて端末の許可が必要です。
+				134 container Characters remaining
+					135 text 3,403
+				136 text Keywords
+				137 button (collapsed) Description: More information, Secondary Actions: Expand
+				138 text field (settable) Keywords, Value: 家族,日記,思い出,質問,コミュニケーション,写真,音声,交換日記,つつうら, ID: keywords
+				139 container Characters remaining
+					140 text 62
+				141 container
+					142 text Support URL
+					143 button (collapsed) Description: More information, Secondary Actions: Expand
+				144 text field (settable) Support URL, Value: https://toshizo.link/#contact, ID: supportUrl
+				145 container
+					146 text Marketing URL
+					147 button (collapsed) Description: More information, Secondary Actions: Expand
+				148 text field (settable) Marketing URL, Value: https://toshizo.link/tsutsura-detail.html?from=apps, ID: marketingUrl
+				149 container
+					150 text Version
+					151 button (collapsed) Description: More information, Secondary Actions: Expand
+				152 text field (settable) Version, Value: 1.0, ID: versionString
+				153 text Copyright
+				154 button (collapsed) Description: More information, Secondary Actions: Expand
+				155 text field (settable) Copyright, Value: 2026 AlexanderTakami Marsh, ID: copyright
+				156 container Characters remaining
+					157 text 174
+				158 text Routing App Coverage File
+				159 button (collapsed) Description: More information, Secondary Actions: Expand
+				160 button Choose File, ID: routingAppCoverages_undefined
+				161 text Choose File
+				162 button (collapsed) App Clip, ID: accordion-toggle-0.27833178090206456-114, Secondary Actions: Expand
+				163 heading iMessage App, Value: 3
+					164 button (collapsed) iMessage App, ID: accordion-toggle-0.27833178090206456-115, Secondary Actions: Expand
+				165 button (collapsed) Description: More information, Secondary Actions: Expand
+				166 heading Build, Value: 3
+					167 text Build
+				168 table
+					169 row
+						170 cell
+							171 text BUILD
+						172 cell
+							173 text VERSION
+						174 cell
+							175 text HAS APP CLIP
+					176 row 15afdb84-1da5-433d-8a27-9f7ca1a5d649
+						177 cell
+							178 link Description: App Icon, Help: 16, Value: appstoreconnect.apple.com/apps/6800383132/testflight/ios/15afdb84-1da5-433d-8a27-9f7ca1a5d649/metadata
+							179 link Description: 16, Help: (16), Value: appstoreconnect.apple.com/apps/6800383132/testflight/ios/15afdb84-1da5-433d-8a27-9f7ca1a5d649/metadata
+						180 cell
+							181 text 1.0
+						182 cell
+							183 text NO
+						184 cell
+							185 button Delete
+				186 text Included Assets
+				187 button App Icon
+					188 image App Icon
+				189 text App Icon
+				190 heading In-App Purchases and Subscriptions, Value: 3
+					191 text In-App Purchases and Subscriptions
+				192 image
+				193 container
+					194 text In-app purchases and subscriptions can now be submitted for review from the In-App Purchases and Subscriptions sections. Include an app version in your submission to have items reviewed together. Your first in-app purchase and subscription must be submitted with a new app version. 
+					195 link Description: Learn More, Value: developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-an-in-app-purchase
+				196 button
+					197 image
+				198 checkbox (settable, integer) Description: Game Center, Value: 0
+				199 text Game Center
+				200 image
+				201 container
+					202 text Game Center components can now be added for review directly from the Game Center section. You can no longer select them from the app version page. 
+					203 link Description: Learn More, Value: developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-game-center-components
+				204 button
+					205 image
+				206 heading App Review Information, Value: 3
+					207 text App Review Information
+				208 text Sign-In Information
+				209 button (collapsed) Description: More information, Secondary Actions: Expand
+				210 text Provide a user name and password so we can sign in to your app. We’ll need this to complete your app review.
+				211 checkbox (settable, integer) Description: Sign-in required, Value: 0, ID: appStoreReviewDetails_demoAccountRequired
+				212 text Contact Information
+				213 button (collapsed) Description: More information, Secondary Actions: Expand
+				214 text field (settable) Description: First name, Value: AlexanderTakami, ID: contactFirstName
+				215 text field (settable) Description: Last name, Value: Marsh, ID: contactLastName
+				216 text field (settable) Phone number
+				217 text field (settable) Email
+				218 text Notes
+				219 button (collapsed) Description: More information, Secondary Actions: Expand
+				220 text Chinese law requires apps with news, religious, book, and magazine content to have relevant permits in order to be available on the App Store in China mainland. If applicable, enter information about your permits below. 
+				221 link Description: Learn More, Value: developer.apple.com/help/app-store-connect/reference/app-information
+				222 text entry area (settable) Notes, ID: notes, Value: App: つつうら (Tsutsuura)
+Bundle ID: toshizo.link.tsutsuura
+Version: 1.0
+
+Purpose
+Tsutsuura is a Japanese-language app for private family question-and-answer sharing. Members of the same family see its answers, selected photos/audio, likes, and comments. There is no public discovery feed.
+
+Review access / first-time setup
+No preexisting account, password, email verification, or phone verification is needed to begin. On the welcome screen, scroll if necessary and choose 新しく家族をつくる. Enter an organizer name and family name, then tap この名前で次へ. This creates the organizer's account and signs it in automatically.
+
+Draw a line or shape in the required あなたのしるし step and tap このしるしを使う. From 家族の準備, choose 使い方を見てはじめる and follow the short guide to home. Email registration is optional account recovery, not a prerequisite to create a family. No demo password or universal verification code is used.
+
+To inspect family interaction on a second iPhone, add a member on the organizer's device and generate a setting invitation. On the second device choose 家族の番号を入力, enter the six-digit code, confirm the member, and draw that member's mark. Invitations expire after ten minutes; the organizer can generate another. The two devices then share the same family's answers and comments.
+
+Features to inspect
+1. On home, 家族 shows family answers; あなた shows personal answer history and search. Both pages update quietly while visible. The family progress indicator has one cell per member; 確認 shows who has answered.
+2. Questions follow the Asia/Tokyo family calendar. Publication varies between 09:00 and 19:00 Japan time; questions about that day's experiences appear later. Before publication, home displays the scheduled time and the question cannot yet be answered. A newly created family may need to wait until that displayed time.
+3. The upcoming-question banner can be closed with its × button or an upward swipe. To restore it, return either answer list to its top, pull downward, and release when the cue says 指を離すと表示. Small pulls do not restore it. Quiet automatic updates respect dismissal. The dotted background stays stationary.
+4. For an available unanswered question, tap 回答する. Enter text, optionally use speech/audio or add up to four selected photos, then confirm before sending. Published answers cannot be edited or individually deleted in the app.
+5. Tap an answer photo to open it full screen. Swipe horizontally between photos. Pull the photo downward to close it, or use the rectangular 閉じる button with the × icon. A short downward pull returns the photo to its position.
+6. Open コメント to read and add comments/replies. Comment edit/delete buttons are absent. Other members' comments have reply and report controls.
+7. Settings offers family management, redrawing the personal mark, notification choices, help, and account/data options. The final onboarding step offers お知らせを受け取る; notification permission is optional, as are microphone and speech-recognition permission. Typing remains available when audio permissions are denied. Notification taps open the related question, answer, or comments.
+8. Account deletion: あなた → 設定 → 機種変更・データの保存 → アカウントの削除 → アカウントを削除. An organizer with other members must transfer ownership first. Deletion is irreversible; use a disposable account when testing it.
+
+Known operational status
+The backend is https://toshizo.link/tsutsuura-api/api. Production APNs is configured. A controlled notification was accepted by Apple and received on a physical iPhone running build 16; tapping it opened today’s question. Notification delivery respects the account’s category choices, mute setting, and quiet hours. Both notification workers run without errors. Those runs had no due or queued events; organic notification presentation remains unverified. Real email inbox delivery remains unvalidated. Initial family setup and text-based use do not require email or notification permission.
+
+				223 container Characters remaining
+					224 text 87
+				225 text Attachment
+				226 button (collapsed) Description: More information, Secondary Actions: Expand
+				227 button Choose File (Optional), ID: appStoreReviewAttachments_undefined
+				228 container appStoreReviewAttachments_undefined-placeholder
+					229 text Choose File  (Optional)
+				230 heading App Store Version Release, Value: 3
+					231 text App Store Version Release
+				232 text To make your app available on the App Store, you can automatically release it after it’s been approved by App Review. You can also manually release it on the App Store at a later date.
+				233 radio button (settable, integer) Description: Manually release this version, Value: 1, ID: MANUAL
+				234 radio button (settable, integer) Description: Automatically release this version, Value: 0, ID: AFTER_APPROVAL
+				235 radio button (settable, integer) Description: Automatically release this version after App Review, no earlier than, Value: 0, ID: SCHEDULED
+				236 text Your local date and time.
+				237 container
+					238 text field (disabled) Description: Automatically release this version after App Review, no earlier than, Value: Sep 7, 2026 3:00 PM
+					239 text EDT EDT
+		240 content list
+			241 link Description: App Store Connect, Value: appstoreconnect.apple.com/apps
+		6 content list
+			7 container
+				8 text Copyright © 2026 Apple Inc. All rights reserved. |
+			9 container
+				10 link Description: Terms of Service, Value: appstoreconnect.apple.com/WebObjects/iTunesConnect.woa/wa/termsOfService
+				242 text |
+			12 container
+				13 link Description: Privacy Policy, Value: apple.com/legal/privacy
+				243 text |
+			15 link Description: Contact Us, Value: appstoreconnect.apple.com/contact-us
+
+The focused UI element is 0 AXWebArea App Store Connect, URL: appstoreconnect.apple.com/apps/6800383132/distribution/ios/version/inflight

@@ -1,0 +1,35 @@
+{
+  "verifiedAt": "2026-09-06T01:02:30.431926+00:00",
+  "build": "16",
+  "submissionID": "8453cec6-b34b-41f0-a82b-cd13132155de",
+  "appReviewStatus": "Waiting for Review",
+  "testflightStatus": "Testing (internal)",
+  "checks": {
+    "reviewReceiptHasBuild16": true,
+    "reviewWaitingForReview": true,
+    "submissionIDMatches": true,
+    "testflightBuild16Testing": true,
+    "providerAcceptedOneNoFailures": true,
+    "physicalBuild16ReceiptAndTap": true,
+    "reviewNotesWithinAppleLimit": true,
+    "eventWorkerNoFailures": true,
+    "questionWorkerNoFailures": true
+  },
+  "failures": [],
+  "sha256": {
+    "appstore-build16-waiting-for-review.txt": "f16bfb35fd9b073e49a95b8725ac7de50e4d2f39fe16c0d20e1dd85864a59241",
+    "testflight-internal-builds-final.txt": "ccbedebea4db8fb63ac2eb2f568befd106ea111cdedf4fc90c6953bf15127e38",
+    "testflight-build16-installed.txt": "bfefcaa22077c52060f9cc81b9b5c1f06035e370c8b925e1c9ead52cb5d0ae3a",
+    "owner-production-push-result.json": "8e5697d770a3f599a164e56ceb791eff97255cbeaaa7e09c64296f75ba787551",
+    "physical-device-push-confirmation.json": "4979553b8d8f5f6030ee7e8a52f3ce676b8b794276e42454e69d1b4d72688ddd",
+    "live-event-worker.log": "7cb587b44fe1b795653d05a427a4bb7b78e00620ba4ece3e5a3a65e89db73561",
+    "live-question-worker.log": "db12b04bfeca76381833f72f1ede33c611240b2a6f56022b32643f63d55472b3",
+    "server-push-diagnostics-after-activation.json": "35cb5e7fae0b2af575d7568b86dff625ffcb607d699d676cd2e0710732025137",
+    "one-off-job-stopped-after-test.txt": "57707467ad0a6c0d8b8c866cccb89e077d67d4201a484fdb79c0593551ece4ce"
+  },
+  "limits": [
+    "Apple approval is pending; manual release selected.",
+    "Controlled notification receipt/tap verified on one physical device; organic category-specific presentation not separately verified.",
+    "Email inbox receipt remains unverified."
+  ]
+}

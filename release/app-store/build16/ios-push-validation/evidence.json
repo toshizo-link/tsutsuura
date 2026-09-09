@@ -1,0 +1,56 @@
+{
+  "status": "passed",
+  "sourceFrozen": true,
+  "changedFileSHA256": {
+    "tsutsuura/tsutsuura/AppStore.swift": "592d7f77835cbfdc06fc77e6062f10e16572276db2b34a31be5a110fbcda32b9",
+    "tsutsuura/tsutsuura/ContentView.swift": "e2b436e9f24f1ba175a60a6aadc768409daf8135984adf6e68d9b804c15c4aa2",
+    "tsutsuura/tsutsuura/LifecycleScreens.swift": "4ff4b6682beb0429993d5c73ad0d973cd97e4c5452f237e0188403becfe0f3aa",
+    "tsutsuura/tsutsuura/PushNotifications.swift": "c7efb70d02e0a1ebbd05e6fca83ef1061b44c4498891ee240a1489b4c7a8f7e8",
+    "tsutsuura/tsutsuura/PushRegistrationCoordinator.swift": "b275fef18ded97c629184e4ca7a63d40c1a74e48c764fc92e4d4c580a5282a44",
+    "tsutsuura/tsutsuuraTests/PushRegistrationRecoveryTests.swift": "5e21189821ebe3965a5461166fd6818c6c5a496af5235318d1a457be834e0817",
+    "tsutsuura/tsutsuuraUITests/tsutsuuraUITests.swift": "f4612839114cb21021c1e6d431b26e298da68f460b386417f954d992d08502c2"
+  },
+  "unitTests": {
+    "log": "/tmp/tsutsuura-push16-unit-final.log",
+    "resultBundle": "/tmp/tsutsuura-push16-unit-final.xcresult",
+    "passed": 217,
+    "failed": 0,
+    "exitCode": 0
+  },
+  "onboardingAndPushTests": {
+    "log": "/tmp/tsutsuura-push16-onboarding-v2-tests.log",
+    "resultBundle": "/tmp/tsutsuura-push16-onboarding-v2-tests.xcresult",
+    "passed": 25,
+    "failed": 0,
+    "exitCode": 0,
+    "onboardingScenarios": [
+      "optional permission plus skip and grant",
+      "decline then continue and replay without requesting again",
+      "Help replay with immutable-answer guidance and back navigation",
+      "first setup with required personal mark and returning to final guide step"
+    ]
+  },
+  "device": {
+    "name": "iPhone SE (3rd generation)",
+    "udid": "43E4DB84-E9A6-419C-B87F-692687A354B7",
+    "iOS": "26.5",
+    "build": "23F77",
+    "platform": "Simulator"
+  },
+  "changes": [
+    "Serialize durable push destinations and retry retained offline destinations on foreground/home return.",
+    "Reject stale question, answer, comment, and notification-preference responses after authentication generation changes.",
+    "Preserve explicit permission requests that overlap passive permission checks.",
+    "Offer optional notification authorization on final guide step, with always-available finish, permitted confirmation, and denied Settings link."
+  ],
+  "limitations": [
+    "Permission choices in UI tests are simulated exclusively under DEBUG and UI_TESTING; this does not prove real APNs delivery.",
+    "The final guide is scrollable on SE. The opt-in button label is visible/tappable at initial scroll position; its lower bevel and card footer require a short scroll.",
+    "The shared preference generation guard was added after the UI binary compiled and is covered by the final 217-test unit run; final onboarding UI files did not change after that successful UI run."
+  ],
+  "resultFinalization": "After tests passed, Xcode waited for simctl diagnose collection. Only its diagnosed child process was terminated; Xcode then finalized the valid passing result and exited 0.",
+  "screenshots": {
+    "onboarding-notification-permitted-se.png": "767041db23fda11ee115e214978cd394665dc689486fc0809fc85433a2e6331d",
+    "onboarding-notification-choice-se.png": "0a38168cdc5d2705015699d0be90170eeedbe7292e3b874a74be2144a4e6c298"
+  }
+}

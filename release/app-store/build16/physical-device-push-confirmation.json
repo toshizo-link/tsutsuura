@@ -1,0 +1,11 @@
+{
+  "recordedAt": "2026-09-06T00:52:02.629Z",
+  "build": "16",
+  "source": "user confirmation in this task",
+  "device": "physical iPhone",
+  "backgroundReadyConfirmed": true,
+  "notificationText": "通知テストです。",
+  "received": true,
+  "tapOpenedTodayQuestion": true,
+  "providerEvidence": "owner-production-push-result.json"
+}

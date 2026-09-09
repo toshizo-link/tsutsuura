@@ -1,0 +1,19 @@
+{
+  "signedAt": "2026-09-05T22:08:16.917458+00:00",
+  "unsignedArchive": "/tmp/tsutsuura-cloud16/tsutsuura-16-unsigned.xcarchive",
+  "signedArchive": "/tmp/tsutsuura-TestFlight-16.xcarchive",
+  "signatureVerified": true,
+  "compiledInfoUnchanged": true,
+  "compiledInfoSHA256": "3ecbf2f642490d6bad1a802c1f166d61449f9a5b1f14e7f2754d2ffdac803611",
+  "developmentProfileUUID": "de531a70-dc6b-4c8e-ae1d-61b67cdc2d35",
+  "developmentProfileExpiration": "2027-08-11T14:57:47",
+  "buildMetadata": {
+    "BuildMachineOSBuild": "25G83",
+    "DTXcode": "2660",
+    "DTXcodeBuild": "17F113",
+    "DTSDKBuild": "23F81a",
+    "DTSDKName": "iphoneos26.5",
+    "DTPlatformBuild": "23F81a",
+    "DTPlatformVersion": "26.5"
+  }
+}

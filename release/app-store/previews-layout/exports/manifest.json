@@ -1,0 +1,70 @@
+{
+  "generatedAt": "2026-09-05T21:05:19.164Z",
+  "method": "Browser rendering of native HTML/CSS with unmodified source PNG image elements",
+  "font": "Kaisotai-Next-UP-B bundled with the app",
+  "imageGeometry": {
+    "width": 950,
+    "height": 2064.090909,
+    "sourceAspectRatio": "1320:2868",
+    "objectFit": "contain",
+    "crop": "none"
+  },
+  "files": [
+    {
+      "name": "store-01-family.png",
+      "width": 1320,
+      "height": 2868,
+      "colorType": "RGB, opaque",
+      "sha256": "253308dffd8a109afc07d177667fe75df69076420b83c1913cdc9f5711132fc5",
+      "source": "screenshots/store-01-family.png",
+      "sourceSHA256": "04bc20d2113858d278c9e6755df99ab7690ded72506b89297a268ac63e2edd04",
+      "headline": [
+        "離れていても、",
+        "家族のそばに。"
+      ],
+      "subline": "一日ひとつの質問で、毎日を分かち合う。"
+    },
+    {
+      "name": "store-02-answer.png",
+      "width": 1320,
+      "height": 2868,
+      "colorType": "RGB, opaque",
+      "sha256": "30a3f5b3697b275d47c24c05061916756dabab59523e432431394ed140f510ea",
+      "source": "screenshots/store-02-answer.png",
+      "sourceSHA256": "6f32aaaf25e765671cd7ebb79beaa27bc52be1e0a8ae314bd2f98cf8e23a4ab1",
+      "headline": [
+        "文字でも、声でも。",
+        "あなたのペースで。"
+      ],
+      "subline": "写真を添えて、今日のひとこと。"
+    },
+    {
+      "name": "store-03-history.png",
+      "width": 1320,
+      "height": 2868,
+      "colorType": "RGB, opaque",
+      "sha256": "70a715770a74cf98582723896eb4e00279b6552d20a86c74d7f57203058f8b44",
+      "source": "screenshots/store-03-history.png",
+      "sourceSHA256": "0c45ea76b7a495949273af448f6599e5ade01d9bbf9a088d424568f168011ff2",
+      "headline": [
+        "何気ない毎日が、",
+        "家族の思い出に。"
+      ],
+      "subline": "過去の回答を、いつでも振り返る。"
+    },
+    {
+      "name": "store-04-personal-mark.png",
+      "width": 1320,
+      "height": 2868,
+      "colorType": "RGB, opaque",
+      "sha256": "20f2c9c8e4b3beb1ec116c4bdf1b40b62fe0ab11ac05e0067a4cfc7bc4cf37ee",
+      "source": "screenshots/store-04-personal-mark.png",
+      "sourceSHA256": "f2cdc75fecd372e12c6adeaec6b84ecf157a34f95911e6ef99e221be4f5389e7",
+      "headline": [
+        "自分でかく、",
+        "あなただけのしるし。"
+      ],
+      "subline": "丸や線だけでも、あなたらしく。"
+    }
+  ]
+}

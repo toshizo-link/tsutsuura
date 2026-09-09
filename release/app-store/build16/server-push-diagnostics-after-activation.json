@@ -1,0 +1,34 @@
+{
+    "mode": "diagnose",
+    "checkedAt": "2026-09-06T00:55:01+00:00",
+    "phpVersion": "8.4.21",
+    "http2Available": true,
+    "opensslAvailable": true,
+    "pushDriver": "apns",
+    "configurationValid": true,
+    "apnsConfigured": true,
+    "currentSchedulerSHA256": "0286f520f384ebe3df9fcdec69e488966bd20a4060f641969899eabdb0374409",
+    "registeredTokensByEnvironment": [
+        {
+            "environment": "production",
+            "token_count": 1,
+            "user_count": 1
+        }
+    ],
+    "activeFamilyRecipients": [
+        {
+            "user_id": 1,
+            "display_name": "たかみ",
+            "environment": "production",
+            "token_count": 1
+        }
+    ],
+    "outboxStatusCounts": [],
+    "recentOutboxStatus": [],
+    "recentQuestionDispatches": [],
+    "providerAcceptanceTested": false,
+    "deviceDeliveryTested": false,
+    "cronScheduleInspected": false,
+    "changesMade": false,
+    "pushSent": false
+}

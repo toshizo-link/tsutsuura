@@ -1,0 +1,24 @@
+{
+  "preparedAt": "2026-09-05T21:52:39.121501+00:00",
+  "expectedVersion": "1.0",
+  "expectedBuild": "16",
+  "sourceCountPolicy": "Derived from frozen manifest sources; exact local, committed, cloud, and compiled Swift inventories remain required.",
+  "checks": {
+    "pythonAST": true,
+    "yamlParser": "Ruby YAML",
+    "workflowBashSyntax": true,
+    "embeddedPythonAST": 2
+  },
+  "executed": {
+    "build": false,
+    "sign": false,
+    "upload": false,
+    "push": false,
+    "browser": false
+  },
+  "files": {
+    "tsutsuura-verify-cloud16.py": "fb219fc1fef1dbcfeecb7ea27bad3a75e3f08c112d309c48d32bc46edc27a31e",
+    "tsutsuura-local-sign-cloud16.py": "1f9ac2b157cda249828e3c29e1bc4d07388263adb0caa8895e9814c03b3bc868",
+    "supported-build16.yml": "0d7247ceaddbf62953ba3e2e432631a9d769bff661f56acec2b036e59fd9af7b"
+  }
+}

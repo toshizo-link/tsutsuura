@@ -1,0 +1,21 @@
+{
+  "verifiedAt": "2026-09-07T18:38:59.970533+00:00",
+  "build": "17",
+  "checks": [
+    "workflow shell and embedded Python syntax valid; exact stable runner/Xcode and read-only token scope",
+    "verifier and signing helper syntax/argument parsers valid",
+    "modified unsigned app is rejected before copying or reading a development identity",
+    "wrong build is rejected before copying or signing"
+  ],
+  "actualBuild17ArchiveTested": false,
+  "sourceFreezeMade": false,
+  "cloudBuildDispatched": false,
+  "signingPerformed": false,
+  "uploadPerformed": false,
+  "files": {
+    "supported-build17.yml": "bfcf1bbf4c35c65ee2e2ef5d95bf30bac38db231896c615d582174c88b5c02a5",
+    "tsutsuura-local-sign-cloud17.py": "f39df213efb0b28a0882b65e87c09859fd18fadd603d0de5c660a6975ae38f77",
+    "tsutsuura-verify-cloud17.py": "3cbc2c18ddf960b32cc215093825528d2a5272f9e579934e260010af7b10560c",
+    "validate-tools.py": "1e8bfeed5caf1fed7555c1c8c3e26960748efc9a6bdece13f0dc2493944e7d24"
+  }
+}

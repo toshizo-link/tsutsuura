@@ -122,7 +122,7 @@ ssh -p "$deploy_port" -i "$SSH_IDENTITY_FILE" -o IdentitiesOnly=yes -o BatchMode
    chmod 700 '$DEPLOY_APP_PATH/storage' '$DEPLOY_APP_PATH/storage/answer-media' &&
    chmod 644 '$well_known_path/apple-app-site-association' '$well_known_path/.htaccess'"
 
-curl --fail --silent --show-error "$public_url/v1/health" >/dev/null
+php "$script_dir/verify-release.php" "$public_url"
 curl --fail --silent --show-error \
   "$public_origin/.well-known/apple-app-site-association" >/dev/null
 

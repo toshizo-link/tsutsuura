@@ -1,0 +1,74 @@
+{
+  "completedAt": "2026-09-07T18:44:06.346600+00:00",
+  "worktree": "/tmp/tsutsuura-appstore-review-safety",
+  "database": "temporary local SQLite fixtures",
+  "php": "8.5.8",
+  "tests": [
+    {
+      "command": "php server/bin/content-safety-test.php",
+      "exitCode": 0,
+      "log": "/tmp/tsutsuura-review-safety-server-qa/content-safety-test.log",
+      "sha256": "0896a7206de587eac3f8b44380bfa681e35200a742dd0dcabe69ea7166302b11"
+    },
+    {
+      "command": "php server/bin/email-auth-test.php",
+      "exitCode": 0,
+      "log": "/tmp/tsutsuura-review-safety-server-qa/email-auth-test.log",
+      "sha256": "fc4e657e73b4f35491e678fe69723ae8097faaa2d11caae86fd6434a0fb6f553"
+    },
+    {
+      "command": "php server/bin/question-schedule-test.php",
+      "exitCode": 0,
+      "log": "/tmp/tsutsuura-review-safety-server-qa/question-schedule-test.log",
+      "sha256": "a8c87edcc70959ed06cf6ff0db0bc01cdfdb7ce094e412cace5154b6214d1c53"
+    },
+    {
+      "command": "php server/bin/event-notification-test.php",
+      "exitCode": 0,
+      "log": "/tmp/tsutsuura-review-safety-server-qa/event-notification-test.log",
+      "sha256": "742078bf9906c925bf68bbfd675a14e07dcfbca67abbd2ceb8ab5181babdd1e5"
+    },
+    {
+      "command": "php server/bin/migration-resume-test.php",
+      "exitCode": 0,
+      "log": "/tmp/tsutsuura-review-safety-server-qa/migration-resume-test.log",
+      "sha256": "16dd4638d017cd0f7ad167e2de920a0ab65956ec32cefb285573ce06b078840c"
+    },
+    {
+      "command": "php server/bin/transaction-race-test.php",
+      "exitCode": 0,
+      "log": "/tmp/tsutsuura-review-safety-server-qa/transaction-race-test.log",
+      "sha256": "a8cdaa56dd7ef01fcca11c07a87654aea183e41fe029a79d2ee81b00c3959527"
+    },
+    {
+      "command": "php server/bin/http-contract-test.php",
+      "exitCode": 0,
+      "log": "/tmp/tsutsuura-review-safety-server-qa/http-contract-test.log",
+      "sha256": "0b55de6fdb89deba4589339f45db883c5d6caeaf496a275d211a2eb01e88972a"
+    },
+    {
+      "command": "php server/bin/smoke-test.php",
+      "exitCode": 0,
+      "log": "/tmp/tsutsuura-review-safety-server-qa/smoke-test.log",
+      "sha256": "8967208f0371a1e0c94ccf49d352c4e0f046b44c33cfdc91b18b7f69fe4ec1e6"
+    },
+    {
+      "command": "bash server/bin/lint.sh",
+      "exitCode": 0,
+      "log": "/tmp/tsutsuura-review-safety-server-qa/lint.log",
+      "sha256": "00070a1c56b3e82c9a156661a47b1b4992d4e2b4b7f9616c7b4ad66eff4f01e7"
+    }
+  ],
+  "sourceManifest": "source-manifest.json",
+  "productionDeployed": false,
+  "realEmailSent": false,
+  "realAPNsDeliveryTested": false,
+  "mysqlRuntimeTested": false,
+  "limitations": [
+    "No semantic pre-publication objectionable-content screening.",
+    "No dedicated profile name/mark reporting or removal.",
+    "No new-report alert or actual human review staffing/SLA commitment configured.",
+    "No moderation account suspension control; family and account lifecycle remain separate.",
+    "APNs messages already in flight or accepted cannot be recalled."
+  ]
+}

@@ -1,0 +1,42 @@
+Evidence for draft items 2–6 — not part of the Apple reply character budget
+
+Shipping provenance
+- release/app-store/build16/tsutsuura-cloud16-verification.json: build 16; commit 46395223386f9ca11be87dd2de4d4a3f2ca98396; 46 frozen inputs. All 46 current source hashes still match this verified shipped build.
+- release/app-store/review-notes-en.txt: reviewed self-serve organizer and invitation flow, required personal mark, optional permissions, family/history/photo/comment features, Japan-time publication limits.
+- README.md and tsutsuura/tsutsuura/TsutsuuraDesignSystem.swift: large accessible controls, original Figma reference, system type plus Kaisotai, stationary dots and family/personal views.
+
+Dependencies and external services
+- tsutsuura/tsutsuura.xcodeproj/project.pbxproj: packageProductDependencies and linked frameworks build phases contain no third-party packages. Shipping Swift imports are Apple frameworks.
+- server/composer.json: PHP >=8.2 and PHP extensions only; no third-party Composer packages. API is native PHP; live deployment uses SQLite.
+- tsutsuura/tsutsuura/APIConfiguration.swift and Info.plist: https://toshizo.link/tsutsuura-api/api.
+- server/public/index.php, src/Push/ApnsPushProvider.php: native APNs over HTTPS/HTTP2; active production configuration verified in build16/server-push-diagnostics-after-activation.json.
+- tsutsuura/tsutsuura/SpeechTranscriber.swift: Apple's SFSpeechRecognizer with ja-JP, AVFoundation; on-device-only recognition is NOT required, so do not promise all speech processing remains on the phone.
+- AnswerMediaViews.swift uses Apple's PhotosUI; PushNotifications.swift uses UserNotifications; Security/Keychain used for session storage.
+- server/src/Auth/NativeEmailSender.php and live-deployment documentation: optional email login/recovery uses PHP mail. Actual inbox delivery, email enrollment and returning email login have no completed proof; do not say these were physically tested.
+- TwilioSmsSender is present as an optional backend driver, but the production install set OTP_DRIVER=disabled. Later activation changed only APNs settings, so Twilio is not an active shipped dependency. No SMS prerequisite in current user flow.
+- Build 16 used Xcode and GitHub Actions (development/build tooling), not a user-facing external account/service.
+- No ad/analytics SDK, StoreKit/payment integration or external social-login integration found in the frozen shipping sources. This is a dependency audit, not proof of the hosting provider's own business practices.
+
+Regional behavior
+- server/src/App/DailyQuestionSchedule.php and AppService.php: one schedule/calendar using configured Asia/Tokyo; no country-based feature branches found. Question publication range is 09:00–19:00 Japan time.
+- server/src/Push/PushDeliveryService.php: notification preferences use stored user timezone, fallback APP_TIMEZONE, and honor mute/quiet settings.
+- No extra regional approval/authorization has been evidenced; do not invent one. Store availability is separate from feature behavior.
+
+Font license — primary sources checked 2026-09-07
+- Typeface: Kaisotai Next UP B / 廻想体 ネクスト UP B; embedded name table identifies Hiroki-Chan and https://moji-waku.com.
+- Author page: https://moji-waku.com/kaiso/ identifies this release and commercial-use availability.
+- Author license: https://moji-waku.com/mj_work_license/ includes Kaisotai and permits application/game text use, including text-editing/system-font use. Attribution is not required. Unauthorized standalone redistribution/resale and modification/distribution of modified font data are prohibited. It expressly prohibits classifying this as open-source. Do not rely on Adobe's conflicting open-source label.
+- Official download: https://moji-waku.com/download/kaiso_up.zip. Its Kaisotai-Next-UP-B.otf matches the bundled font byte-for-byte, SHA-256 f1f4ecc6f3729277aa66e2cc1b598a3d6cc9a652bf96ff3265f2ea9554d3d44a. Audit: /tmp/tsutsuura-font-license-audit-20260907.json.
+
+Other graphics / authorization limits
+- tsutsuura/tsutsuura/Assets.xcassets/FigmaPhoneIcon.imageset/figma-phone-icon.svg is labeled Local phone. Every path command and coordinate matches Google Material local_phone after scaling by 43/24, within 0.00005 rounding error. The numerical audit is /tmp/tsutsuura-material-icon-audit-20260907.json; this establishes derivation but does not establish authorship of other graphics.
+- Official matching source: https://raw.githubusercontent.com/google/material-design-icons/master/src/maps/local_phone/materialicons/24px.svg.
+- Google's repository license: https://github.com/google/material-design-icons/blob/master/LICENSE (Apache License 2.0).
+- Build 16 had no repository/bundle Apache license copy/notice. In the new safety worktree, THREE files now address the identified third-party resources: THIRD_PARTY_NOTICES.md, LICENSES/Material-Design-Icons-LICENSE.txt (official license bytes), and LICENSES/Kaisotai-Next-UP-B-NOTICE.md. The iOS agent owns bundling/display in the next build; do not claim they are already bundled in build 16. Other Figma graphics/app-icon authorship is not established by this audit; do not assert every graphic is original or that separate written permissions exist.
+- The app supplies no financial, medical or gambling service and no licensed third-party media catalogue. User submissions are supplied by family members. The draft does not claim blanket rights to every user upload or invent regulatory authorizations.
+
+Operational proof limits
+- build16/owner-production-push-result.json: exactly one production test accepted by APNs, zero failures.
+- build16/physical-device-push-confirmation.json: user confirmed build 16 received that test and tap opened today's question.
+- build16/live-event-worker.log and live-question-worker.log: workers execute without errors, but the observed runs were idle; category-specific organic device presentation was not separately proved.
+- Draft excludes recording item 1; root owns the recording and final App Store Connect response. No shipping files changed.

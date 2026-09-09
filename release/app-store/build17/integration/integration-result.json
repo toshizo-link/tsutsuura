@@ -1,0 +1,195 @@
+{
+  "integratedAt": "2026-09-07T19:03:56.225067+00:00",
+  "candidateRoot": "/private/tmp/tsutsuura-appstore-review-safety",
+  "destinationRoot": "/Users/takamimarsh/Developer/Projects/Toshizo/tsutsuura",
+  "copiedFiles": [
+    {
+      "path": "LICENSES/Kaisotai-Next-UP-B-NOTICE.md",
+      "sha256": "6ec6c62db494ca60c2fdfd94e60b6b4ae63cb3b90436b1efe5511cdceef31723",
+      "action": "create"
+    },
+    {
+      "path": "LICENSES/Material-Design-Icons-LICENSE.txt",
+      "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+      "action": "create"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "sha256": "9d92635d11f5953d4eb74f1d0dcfb9b210aea65e83e156b7ee865d825af14ad2",
+      "action": "create"
+    },
+    {
+      "path": "server/README.md",
+      "sha256": "837a71ea50a63fc896d952a8b1678a9bb1c9d090497ca3fb13384c8c147269c8",
+      "action": "replace"
+    },
+    {
+      "path": "server/bin/cleanup.php",
+      "sha256": "282993859948d0693dd81f243f50c9cc1ab7505bf7b254d94cdef08d0b76b0b4",
+      "action": "replace"
+    },
+    {
+      "path": "server/bin/content-safety-test.php",
+      "sha256": "4d06b4aa5a02f34f59bc6996b9f7a8d621d0847767874b1bf06eb0ce95f2bd8c",
+      "action": "create"
+    },
+    {
+      "path": "server/bin/migration-resume-test.php",
+      "sha256": "7e8e6819103bfade1bd29e68e8ac1cb41905a0cf55e074d7c68a670031605f6f",
+      "action": "replace"
+    },
+    {
+      "path": "server/bin/moderate-content.php",
+      "sha256": "31407f5115375523f1dd1a72b2e05295e2b9274b7feef0732a9cbff990ee980e",
+      "action": "create"
+    },
+    {
+      "path": "server/bin/verify-release.php",
+      "sha256": "a1e9b7cd4fb140f86b6ee43ccc1e9ba4ebc4562296f4ed60bb7d61ed7dafc204",
+      "action": "replace"
+    },
+    {
+      "path": "server/deployment/content-safety.md",
+      "sha256": "7f623e80ec6c458587e10d1830ff5ceecf51abe2757bd01648579a1a2bb467e5",
+      "action": "create"
+    },
+    {
+      "path": "server/migrations/mysql/011_content_safety.sql",
+      "sha256": "d7ad643bff7dbf21062b540c362c8c813207e015ea6f3620250b85e8b1039ea5",
+      "action": "create"
+    },
+    {
+      "path": "server/migrations/sqlite/011_content_safety.sql",
+      "sha256": "561fe6eef47caa9f8526cb7b00a4e60d1df10dbb81ab134552d1f0f41fb449da",
+      "action": "create"
+    },
+    {
+      "path": "server/public/index.php",
+      "sha256": "4dd51512160f82e1f71d1b2b6abdd15be7dd56593235055e70f0c3f76ee5975a",
+      "action": "replace"
+    },
+    {
+      "path": "server/src/App/AnswerMediaService.php",
+      "sha256": "4e5a876127477b19ef76e9a024d1abd8ae003149b2f30b88bfd5f48d70e94bc6",
+      "action": "replace"
+    },
+    {
+      "path": "server/src/App/AppService.php",
+      "sha256": "d7d0369a3d8fc46f0b3b0a03499778fb3c3a7afce1a34d92fd4908ec9c93bf65",
+      "action": "replace"
+    },
+    {
+      "path": "server/src/App/ContentSafety.php",
+      "sha256": "14891c5a7abbac0ce77f52fe5d88ec25c9257cdfb8c44488091b983b794f6a67",
+      "action": "create"
+    },
+    {
+      "path": "server/src/App/ModerationService.php",
+      "sha256": "1932edaa1d3909f9f40e504074a843e3e08df12ba0c2e2d7516da69f7ffc2395",
+      "action": "create"
+    },
+    {
+      "path": "server/src/Push/EventNotificationService.php",
+      "sha256": "d2adb7dd8aa77e2b18112f319ca1c8d7a9268a3bab3804ba085ab1394b93ba8a",
+      "action": "replace"
+    },
+    {
+      "path": "server/src/Push/EventNotificationWorker.php",
+      "sha256": "7f396490bac4a6cc8d4d53396ce8339661f701217691eaa378cc68fac6894e8a",
+      "action": "replace"
+    },
+    {
+      "path": "server/src/Push/PushDeliveryService.php",
+      "sha256": "73660c1fcb002be559071b12b2c8bb4148b3210d671a13ad91c1111e9cd742dc",
+      "action": "replace"
+    },
+    {
+      "path": "tsutsuura/tsutsuura.xcodeproj/project.pbxproj",
+      "sha256": "c42ba7f33290e2da9576860dbc5e63f2920f33ac841774aabd12e52b9e0e8e3d",
+      "action": "replace"
+    },
+    {
+      "path": "tsutsuura/tsutsuura/APIClient.swift",
+      "sha256": "a02fc967f1d471a01247669d0ad51c08eeebc5ca12e8636dcfbbd63ab28e6040",
+      "action": "replace"
+    },
+    {
+      "path": "tsutsuura/tsutsuura/AnswerMediaViews.swift",
+      "sha256": "75c822311200e8f7ee8a5a343722c7eeaba6089abe8dcb527b5ae48fbf30825e",
+      "action": "replace"
+    },
+    {
+      "path": "tsutsuura/tsutsuura/AppModels.swift",
+      "sha256": "a6b44f14ecfedfc3d4bc020dd6a72c61d777f3402c3273f3a625b1ead88cf5dd",
+      "action": "replace"
+    },
+    {
+      "path": "tsutsuura/tsutsuura/AppStore.swift",
+      "sha256": "7ab8dd96dc60092368babc54a1232accbb53421ea506a7e04e11318ebcb047ea",
+      "action": "replace"
+    },
+    {
+      "path": "tsutsuura/tsutsuura/ContentSafety.swift",
+      "sha256": "6b9ec083a600c76b2f3f80331f13073f1631fa5e03d9c28b1fdba0356dc889db",
+      "action": "create"
+    },
+    {
+      "path": "tsutsuura/tsutsuura/ContentView.swift",
+      "sha256": "5aa2bc7d6e40ad505cb3b52d1403f77a20602aa17b0c9b0c0d3ed3b0d404a68a",
+      "action": "replace"
+    },
+    {
+      "path": "tsutsuura/tsutsuura/DemoAppAPI.swift",
+      "sha256": "b6300474df2a93717447f681516ca740414cafe8d86933e0066bc22a9b5f3e77",
+      "action": "replace"
+    },
+    {
+      "path": "tsutsuura/tsutsuura/LifecycleScreens.swift",
+      "sha256": "950485eb19e8571aafece05bb8ffda5616875d2b6cac372c2b7b164cf4a847ea",
+      "action": "replace"
+    },
+    {
+      "path": "tsutsuura/tsutsuura/ThirdPartyNotices/KaisotaiNotice.txt",
+      "sha256": "6ec6c62db494ca60c2fdfd94e60b6b4ae63cb3b90436b1efe5511cdceef31723",
+      "action": "create"
+    },
+    {
+      "path": "tsutsuura/tsutsuura/ThirdPartyNotices/MaterialDesignIconsLicense.txt",
+      "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+      "action": "create"
+    },
+    {
+      "path": "tsutsuura/tsutsuura/ThirdPartyNotices/ThirdPartyNotices.txt",
+      "sha256": "9d92635d11f5953d4eb74f1d0dcfb9b210aea65e83e156b7ee865d825af14ad2",
+      "action": "create"
+    },
+    {
+      "path": "tsutsuura/tsutsuura/TsutsuuraDesignSystem.swift",
+      "sha256": "0200afabdc581b42e701357d8a3bb9998d77cb0c7704bf54421dbe5c656015c7",
+      "action": "replace"
+    },
+    {
+      "path": "tsutsuura/tsutsuura/TsutsuuraScreens.swift",
+      "sha256": "823ea91bbff00cd017ae21aa61f8f02cde867717950fd7928c915d900efe4361",
+      "action": "replace"
+    },
+    {
+      "path": "tsutsuura/tsutsuuraTests/ContentSafetyTests.swift",
+      "sha256": "900a50644d7d10dc1098406ca792c83ec7746d9dfa73169b7332b5a4b570ac80",
+      "action": "create"
+    },
+    {
+      "path": "tsutsuura/tsutsuuraUITests/ContentSafetyUITests.swift",
+      "sha256": "5c8c3563d08cb44cf23661ab0aedfb95391dc01a940ec8337d163a56a69e45f2",
+      "action": "create"
+    },
+    {
+      "path": "tsutsuura/tsutsuuraUITests/tsutsuuraUITests.swift",
+      "sha256": "af90aa3b09c1d02e7f8522138dabbccec8d9d666270f3675ebf6695e5204dab8",
+      "action": "replace"
+    }
+  ],
+  "fileCount": 37,
+  "conflicts": [],
+  "backupDirectory": "/Users/takamimarsh/Developer/Projects/Toshizo/tsutsuura/release/app-store/build17/integration/original-files"
+}

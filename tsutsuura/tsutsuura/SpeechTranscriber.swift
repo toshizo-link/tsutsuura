@@ -24,13 +24,15 @@ final class SpeechTranscriber: ObservableObject {
     @Published private(set) var recording: AnswerMediaUpload?
     @Published private(set) var captureState: SpeechCaptureState = .idle
     private var notificationObservers: [NSObjectProtocol] = []
+    private var captureGeneration = 0
 
     #if os(iOS) && canImport(AVFoundation) && canImport(Speech)
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "ja-JP"))
     private let audioEngine = AVAudioEngine()
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
-    private var audioFile: AVAudioFile?
+    private var recordingFile: VoiceRecordingFile?
+    private var ownsRecordingSession = false
     private var temporaryRecordingURL: URL?
     private var hasInstalledAudioTap = false
     #endif
@@ -81,7 +83,9 @@ final class SpeechTranscriber: ObservableObject {
     }
 
     func start() async {
-        guard !isRecording else { return }
+        guard !isRecording, captureState != .requestingPermission else { return }
+        captureGeneration += 1
+        let generation = captureGeneration
         errorMessage = nil
         captureState = .requestingPermission
 
@@ -91,12 +95,13 @@ final class SpeechTranscriber: ObservableObject {
             "-tsutsuura-demo-voice-success"
            ) {
             transcript = "今日は家族と散歩をしました"
-            recording = AnswerMediaUpload(
-                data: Data("demo-audio".utf8),
-                fileName: "voice-answer.m4a",
-                mimeType: "audio/mp4",
-                durationMilliseconds: 2_400
-            )
+            do {
+                recording = try VoiceRecordingFile.makeTestRecording()
+            } catch {
+                errorMessage = error.localizedDescription
+                captureState = .failed
+                return
+            }
             level = 0.72
             isRecording = false
             captureState = .idle
@@ -115,6 +120,7 @@ final class SpeechTranscriber: ObservableObject {
 
         #if os(iOS) && canImport(AVFoundation) && canImport(Speech)
         let speechAuthorization = await requestSpeechAuthorization()
+        guard generation == captureGeneration, !Task.isCancelled else { return }
         guard speechAuthorization == .authorized else {
             errorMessage = "音声認識が許可されていません。設定で音声認識を許可してください。"
             captureState = .permissionDenied
@@ -122,6 +128,7 @@ final class SpeechTranscriber: ObservableObject {
         }
 
         let microphoneAllowed = await requestMicrophonePermission()
+        guard generation == captureGeneration, !Task.isCancelled else { return }
         guard microphoneAllowed else {
             errorMessage = "マイクが許可されていません。設定でマイクを許可してください。"
             captureState = .permissionDenied
@@ -163,11 +170,11 @@ final class SpeechTranscriber: ObservableObject {
     }
 
     private func finishCapture(keepingRecording: Bool) {
+        captureGeneration += 1
         isRecording = false
         captureState = .idle
 
         #if os(iOS) && canImport(AVFoundation) && canImport(Speech)
-        let completedURL = temporaryRecordingURL
         temporaryRecordingURL = nil
 
         if audioEngine.isRunning {
@@ -177,51 +184,36 @@ final class SpeechTranscriber: ObservableObject {
             audioEngine.inputNode.removeTap(onBus: 0)
             hasInstalledAudioTap = false
         }
-        let completedFrameLength = audioFile?.length
-        let completedSampleRate = audioFile?.processingFormat.sampleRate
-        audioFile = nil
+        let completedFile = recordingFile
+        recordingFile = nil
+        // Closing the sink waits for an accepted tap callback. Once it returns,
+        // a late callback cannot append either audio or speech-recognition data.
+        if let completedFile {
+            if keepingRecording {
+                do {
+                    recording = try completedFile.finish()
+                } catch {
+                    recording = nil
+                    errorMessage = (error as? LocalizedError)?.errorDescription
+                        ?? "録音を保存できませんでした"
+                    captureState = .failed
+                }
+            } else {
+                completedFile.discard()
+            }
+        }
         recognitionRequest?.endAudio()
         recognitionTask?.cancel()
         recognitionTask = nil
         recognitionRequest = nil
 
-        let session = AVAudioSession.sharedInstance()
-        try? session.setActive(false, options: .notifyOthersOnDeactivation)
-        level = 0.18
-
-        guard let completedURL else { return }
-        defer { try? FileManager.default.removeItem(at: completedURL) }
-        guard keepingRecording,
-              let completedFrameLength,
-              let completedSampleRate else { return }
-
-        do {
-            let data = try Data(contentsOf: completedURL)
-            guard !data.isEmpty else {
-                throw SpeechTranscriberError.emptyRecording
-            }
-            guard data.count <= AnswerDraft.maximumAudioByteCount else {
-                throw AnswerMediaValidationError.audioTooLarge(
-                    maximumBytes: AnswerDraft.maximumAudioByteCount
-                )
-            }
-            let durationMilliseconds = completedSampleRate > 0
-                ? Int(
-                    (Double(completedFrameLength) / completedSampleRate * 1_000)
-                        .rounded()
-                )
-                : nil
-            recording = AnswerMediaUpload(
-                data: data,
-                fileName: "voice-answer.m4a",
-                mimeType: "audio/mp4",
-                durationMilliseconds: durationMilliseconds
-            )
-        } catch {
-            recording = nil
-            errorMessage = (error as? LocalizedError)?.errorDescription
-                ?? "録音を保存できませんでした"
+        // stop/reset also runs when the voice page disappears. A second call
+        // must not deactivate a playback session started on the next page.
+        if ownsRecordingSession {
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            ownsRecordingSession = false
         }
+        level = 0.18
         #else
         level = 0.18
         #endif
@@ -232,15 +224,18 @@ final class SpeechTranscriber: ObservableObject {
         recognitionTask?.cancel()
         recognitionTask = nil
         recording = nil
+        transcript = ""
         cleanupTemporaryRecording()
 
+        AnswerAudioPlayer.stopAll()
         let audioSession = AVAudioSession.sharedInstance()
         try audioSession.setCategory(
             .record,
             mode: .measurement,
             options: [.duckOthers, .allowBluetoothHFP]
         )
-        try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        try audioSession.setActive(true)
+        ownsRecordingSession = true
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
@@ -262,21 +257,10 @@ final class SpeechTranscriber: ObservableObject {
                 "tsutsuura-voice-\(UUID().uuidString).m4a",
                 isDirectory: false
             )
-        let recordingSettings: [String: Any] = [
-            AVFormatIDKey: kAudioFormatMPEG4AAC,
-            AVSampleRateKey: format.sampleRate,
-            AVNumberOfChannelsKey: Int(format.channelCount),
-            AVEncoderBitRateKey: 96_000,
-            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue,
-        ]
-        let file = try AVAudioFile(
-            forWriting: recordingURL,
-            settings: recordingSettings,
-            commonFormat: format.commonFormat,
-            interleaved: format.isInterleaved
-        )
-        audioFile = file
+        let file = try VoiceRecordingFile(url: recordingURL, format: format)
+        recordingFile = file
         temporaryRecordingURL = recordingURL
+        let generation = captureGeneration
 
         inputNode.removeTap(onBus: 0)
         inputNode.installTap(
@@ -284,13 +268,11 @@ final class SpeechTranscriber: ObservableObject {
             bufferSize: 1_024,
             format: format
         ) { [weak self] buffer, _ in
-            self?.recognitionRequest?.append(buffer)
-
             do {
-                try file.write(from: buffer)
+                try file.append(buffer) { request.append(buffer) }
             } catch {
                 Task { @MainActor [weak self] in
-                    guard let self, isRecording else { return }
+                    guard let self, generation == captureGeneration, isRecording else { return }
                     errorMessage = "録音を保存できませんでした"
                     finishCapture(keepingRecording: false)
                 }
@@ -308,7 +290,8 @@ final class SpeechTranscriber: ObservableObject {
             let rootMeanSquare = sqrt(sum / Float(frameLength))
             let normalized = max(0.18, min(1, CGFloat(rootMeanSquare) * 12))
             Task { @MainActor [weak self] in
-                self?.level = normalized
+                guard let self, generation == captureGeneration, isRecording else { return }
+                level = normalized
             }
         }
         hasInstalledAudioTap = true
@@ -316,7 +299,7 @@ final class SpeechTranscriber: ObservableObject {
         recognitionTask = recognizer.recognitionTask(with: request) {
             [weak self] result, error in
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, generation == captureGeneration else { return }
                 if let result {
                     transcript = result.bestTranscription.formattedString
                     if result.isFinal {
@@ -344,7 +327,8 @@ final class SpeechTranscriber: ObservableObject {
         guard let temporaryRecordingURL else { return }
         try? FileManager.default.removeItem(at: temporaryRecordingURL)
         self.temporaryRecordingURL = nil
-        audioFile = nil
+        recordingFile?.discard()
+        recordingFile = nil
     }
 
     private func requestSpeechAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {
@@ -406,5 +390,4 @@ final class SpeechTranscriber: ObservableObject {
 private enum SpeechTranscriberError: Error {
     case recognizerUnavailable
     case invalidAudioFormat
-    case emptyRecording
 }

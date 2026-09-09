@@ -1,0 +1,132 @@
+Browser tab: 734044812, Title: "App Store Connect", URL: "https://appstoreconnect.apple.com/apps/6800383132/distribution/reviewsubmissions/details/8453cec6-b34b-41f0-a82b-cd13132155de".
+0 AXWebArea App Store Connect, URL: appstoreconnect.apple.com/apps/6800383132/distribution/reviewsubmissions/details/8453cec6-b34b-41f0-a82b-cd13132155de
+	1 container
+		2 container App Store Connect
+			3 container
+				4 heading App Store Connect, Value: 1
+					5 link Description: App Store Connect, Value: appstoreconnect.apple.com/, ID: logo
+				6 container Global
+					7 content list
+						8 link Description: Apps, Value: appstoreconnect.apple.com/apps
+						9 link Description: Trends, Value: appstoreconnect.apple.com/trends
+						10 link Description: Reports, Value: appstoreconnect.apple.com/itc/payments_and_financial_reports
+						11 link Description: Business, Value: appstoreconnect.apple.com/business
+						12 link Description: Users and Access, Value: appstoreconnect.apple.com/access/users
+				13 button Takami Marsh Takami Marsh Account name menu
+					14 text Takami Marsh
+					15 text Takami Marsh
+					16 image
+		17 container
+			18 pop up button (collapsed) Description: Apps menu, Tsutsuura, selected, Secondary Actions: Expand
+				19 container
+					20 image Tsutsuura
+					21 text Tsutsuura
+				22 image
+			23 container Apps
+				24 content list
+					25 link Description: Distribution, Value: appstoreconnect.apple.com/apps/6800383132/distribution
+					26 link Description: Analytics, Value: appstoreconnect.apple.com/apps/6800383132/analytics
+					27 link Description: TestFlight, Value: appstoreconnect.apple.com/teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight
+					28 link Description: Xcode Cloud, Value: appstoreconnect.apple.com/teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/ci
+		29 container
+			30 container
+				31 link Description: App Review, Value: appstoreconnect.apple.com/apps/6800383132/distribution/reviewsubmissions
+				32 heading iOS Submission, Value: 2
+					33 text iOS Submission
+				34 button (disabled) Resubmit to App Review
+				35 image
+				36 text Unresolved Issues
+				37 image
+				38 text Your app version was rejected and no other items submitted can be accepted or approved. You can make edits to your app version below.
+				39 heading Items Submitted (1), Value: 3
+					40 text Items Submitted (1)
+				41 text You can review and make edits to your items below, or communicate with Apple. Accepted items won't be available for release until all items with issues are resubmitted and accepted. You can also remove those items and resubmit them later.
+				42 table
+					43 row
+						44 cell
+							45 text ITEM
+						46 cell
+							47 text TYPE
+						48 cell
+							49 text REVIEW STATUS
+						50 cell
+							51 text ACTION
+					52 row ODQ1M2NlYzYtYjM0Yi00MWYwLWE4MmItY2QxMzEzMjE1NWRlfDZ8ODg5NjE0Njc2
+						53 cell
+							54 image App Icon
+							55 text iOS App 1.0
+							56 link Description: 1.0 (16), Value: appstoreconnect.apple.com/apps/6800383132/testflight/ios/15afdb84-1da5-433d-8a27-9f7ca1a5d649/metadata
+						57 cell
+							58 text App Version
+						59 cell
+							60 text Rejected
+							61 text 2.1.0 Performance: App Completeness
+						62 cell
+							63 link Description: Edit, Value: appstoreconnect.apple.com/apps/6800383132/distribution/ios/version/inflight
+						64 cell
+							65 button Delete
+				66 heading Messages (1), Value: 3
+					67 text Messages (1)
+				68 button (expanded) AppleYesterday 8:17 PM, ID: accordion-toggle-0.27220747359847264-7, Secondary Actions: Collapse
+					69 heading AppleYesterday 8:17 PM, Value: 6
+						70 text Apple Yesterday 8:17 PM
+				71 container AppleYesterday 8:17 PM, ID: accordion-section-0.27220747359847264-7
+					72 heading Guideline 2.1 - Information Needed - New App Submission, Value: 3
+						73 text Guideline 2.1 - Information Needed - New App Submission
+					74 text 
+
+This app has been submitted by a developer account that has a limited App Review history. We need additional information to better understand the app and complete the review.
+
+ Note:  Before submitting, run the submitted build through your own testing and quality assurance process on supported physical devices. App Review is intended for apps and metadata that are complete and ready for App Store customers.
+
+If the app is ready for review, follow the directions below.
+
+ Next Steps 
+
+Reply in App Store Connect with all of the following information and also add this information to the Notes field of the App Review Information section in App Store Connect, for reference on future submissions:
+
+1. A screen recording captured on a physical device, running the latest operating system, demonstrating the app's functionality. The recording must begin with launching the app and show the typical user flow. If the app has any of the following, include them in the recording:
+
+- Account registration, login, and account deletion flows. Account deletion is required in apps that support account creation.
+- Any user-generated content, including the required content reporting and blocking mechanisms.
+- Accessing paid content or features within the app.
+
+2. A description of the app's purpose and target audience, including the problem it solves and the value it provides
+3. Instructions for setting up and accessing the app's main features, including any required login credentials or sample files
+4. A list of the external services, tools, or platforms the app uses to deliver its core functionality (for example, data providers, authentication services, payment processors, or AI services)
+5. Describe any regional differences in the app’s features or content, or confirm that the app functions consistently across all regions
+6. If the app operates in a highly regulated industry or includes protected third-party material, provide any relevant documentation or credentials to demonstrate you are authorized to provide these services or protected material
+
+
+ Prevent Common Issues 
+
+-  Guideline 2.1 - Bugs and crashes:  Apps are reviewed on physical devices to mirror real-world conditions. Test the app on each supported device platform before submitting. Use 
+					75 link Description: TestFlight, Value: developer.apple.com/testflight/
+					76 text  to distribute builds for beta testing on real devices.
+-  Guideline 2.1 - Accessing the app:  If the app includes account-based features, provide up-to-date login credentials for a demo account in App Store Connect. If the app has multiple account types, provide credentials for each type in the Notes field.
+-  Guideline 2.3.3 - Screenshots:  App screenshots on the App Store must show the actual app in use, and not merely the title art, login page, or splash screen.
+-  Guideline 3.1.1 - In-App Purchase:  In-App Purchase products should be 
+					77 link Description: configured and submitted alongside the app, Value: developer.apple.com/help/app-store-connect/configure-in-app-purchase-settings/overview-for-configuring-in-app-purchases/
+					78 text .
+-  Guideline 3.2 - Other Business Models:  If your app is intended to be used by specific businesses, organizations or employees then use one of the 
+					79 link Description: other distribution options, Value: support.apple.com/guide/deployment/intro-to-content-distribution-depe1553f932/web
+					80 text  available to you through the Apple Developer Program Account.
+					81 button Reply to App Review
+						82 image
+						83 text Reply to App Review
+				84 text Date Submitted Sep 5, 2026 at 8:57 PM Submission ID 8453cec6-b34b-41f0-a82b-cd13132155de Submitted By Takami Marsh Last Updated By Apple
+				85 button Cancel Submission
+		86 content list
+			87 link Description: App Store Connect, Value: appstoreconnect.apple.com/apps
+		88 content list
+			89 container
+				90 text Copyright © 2026 Apple Inc. All rights reserved. |
+			91 container
+				92 link Description: Terms of Service, Value: appstoreconnect.apple.com/WebObjects/iTunesConnect.woa/wa/termsOfService
+				93 text |
+			94 container
+				95 link Description: Privacy Policy, Value: apple.com/legal/privacy
+				96 text |
+			97 link Description: Contact Us, Value: appstoreconnect.apple.com/contact-us
+
+The focused UI element is 0 AXWebArea App Store Connect, URL: appstoreconnect.apple.com/apps/6800383132/distribution/reviewsubmissions/details/8453cec6-b34b-41f0-a82b-cd13132155de

@@ -1,0 +1,36 @@
+{
+  "updatedAt": "2026-09-07T19:05:57.586146+00:00",
+  "candidateBuild": "17",
+  "sourceWorktree": "/tmp/tsutsuura-appstore-review-safety",
+  "sourceFrozen": true,
+  "backendFixtureSuitesPassed": 9,
+  "iosVerification": {
+    "unitTestsPassed": 232,
+    "uiScenariosPassed": 4,
+    "visualContrastRetestPassed": 1,
+    "failedTestsRemaining": 0,
+    "simulator": "iPhone SE3 iOS26.5",
+    "api": "DemoAppAPI for UI; fixture HTTP transport for units; local PHP HTTP contract suites separately",
+    "physicalDeviceTested": false
+  },
+  "productionDeployed": false,
+  "cloudBuildDispatched": false,
+  "testFlightUploaded": false,
+  "appReviewReplySent": false,
+  "physicalRecording": "deferred by user",
+  "requiredInputs": [
+    "ConoHa authenticated session",
+    "Physical iPhone recording"
+  ],
+  "remainingReadinessChecks": [
+    "Production safety endpoints and preserved workers",
+    "Real email inbox flow",
+    "Human moderation operation and outstanding UGC safeguards"
+  ],
+  "sourceCommit": "ea103169c375b23c9c10f05b02ff85185a8c7985",
+  "sourceBranch": "codex/appstore-review-safety",
+  "sourceIntegrated": true,
+  "integratedFiles": 37,
+  "shippingInputsMatched": 50,
+  "deploymentPackagePrepared": true
+}

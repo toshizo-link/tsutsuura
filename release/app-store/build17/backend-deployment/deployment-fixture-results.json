@@ -1,0 +1,98 @@
+[
+  {
+    "mode": "--check-only",
+    "expectedExit": 0,
+    "stdout": "{\n    \"status\": \"preflight_passed\",\n    \"php\": \"8.5.8\",\n    \"current\": \"/private/var/folders/9s/lwj2ss7d679bl8hv9dx2qf6h0000gn/T/tsutsuura-deploy-fixture-pxdfll2_/apps/tsutsuura/releases/old\",\n    \"payloadFiles\": 79,\n    \"manifestSHA256\": \"ed619005df1cae06d5ac530719b0aaac382da66e78f312ae521b94b17631f5f4\",\n    \"migration011\": false,\n    \"activeWorkerCount\": 0,\n    \"productionDataChanged\": false,\n    \"networkEmailPushCalled\": false\n}",
+    "stderr": ""
+  },
+  {
+    "mode": "--check-only",
+    "expectedExit": 1,
+    "stdout": "",
+    "stderr": "FAILED: Payload file missing or altered: server/src/App/ContentSafety.php"
+  },
+  {
+    "mode": "--quiesce",
+    "expectedExit": 0,
+    "stdout": "{\n    \"status\": \"quiesced\",\n    \"waitSeconds\": 300,\n    \"workersRemainPaused\": true\n}",
+    "stderr": ""
+  },
+  {
+    "mode": "--quiesce",
+    "expectedExit": 0,
+    "stdout": "{\n    \"status\": \"already_quiesced\"\n}",
+    "stderr": ""
+  },
+  {
+    "mode": "--deploy",
+    "expectedExit": 1,
+    "stdout": "",
+    "stderr": "FAILED: Require unchanged quiesced state, paused/drained workers and at least 300 seconds for HTTP requests to drain."
+  },
+  {
+    "mode": "--deploy",
+    "expectedExit": 0,
+    "stdout": "{\n    \"status\": \"installed\",\n    \"release\": \"/private/var/folders/9s/lwj2ss7d679bl8hv9dx2qf6h0000gn/T/tsutsuura-deploy-fixture-pxdfll2_/apps/tsutsuura/releases/20260907-safety-011\",\n    \"backupDirectory\": \"/private/var/folders/9s/lwj2ss7d679bl8hv9dx2qf6h0000gn/T/tsutsuura-deploy-fixture-pxdfll2_/apps/tsutsuura/storage/safety-backups/20260907-safety-011\",\n    \"configKeysMediaPreserved\": true,\n    \"onlyMigration011Applied\": true,\n    \"networkEmailPushCalled\": false,\n    \"workersRemainPaused\": true,\n    \"verifyHTTPS\": true\n}",
+    "stderr": ""
+  },
+  {
+    "mode": "--deploy",
+    "expectedExit": 0,
+    "stdout": "{\n    \"status\": \"already_installed\",\n    \"verifyHTTPS\": true\n}",
+    "stderr": ""
+  },
+  {
+    "mode": "--status",
+    "expectedExit": 0,
+    "stdout": "{\n    \"state\": \"installed\",\n    \"current\": \"/private/var/folders/9s/lwj2ss7d679bl8hv9dx2qf6h0000gn/T/tsutsuura-deploy-fixture-pxdfll2_/apps/tsutsuura/releases/20260907-safety-011\",\n    \"migration011\": true,\n    \"activeWorkerCount\": 0,\n    \"maintenance\": false\n}",
+    "stderr": ""
+  },
+  {
+    "mode": "--rollback",
+    "expectedExit": 1,
+    "stdout": "",
+    "stderr": "FAILED: Public index was changed by another operator."
+  },
+  {
+    "mode": "--rollback",
+    "expectedExit": 0,
+    "stdout": "{\n    \"status\": \"rollback_quiesced\",\n    \"waitSeconds\": 300,\n    \"repeatRollbackAfterDrain\": true,\n    \"workersRemainPaused\": true\n}",
+    "stderr": ""
+  },
+  {
+    "mode": "--rollback",
+    "expectedExit": 1,
+    "stdout": "",
+    "stderr": "FAILED: Rollback requires unchanged maintenance and 300 seconds for HTTP requests to drain."
+  },
+  {
+    "mode": "--rollback",
+    "expectedExit": 1,
+    "stdout": "",
+    "stderr": "FAILED: Rollback would disable stored content safety choices. Maintenance retained; deploy a forward fix."
+  },
+  {
+    "mode": "--rollback",
+    "expectedExit": 0,
+    "stdout": "{\n    \"status\": \"rolled_back\",\n    \"databaseSchemaRetained\": true,\n    \"databaseRestored\": false,\n    \"workersRemainPaused\": true\n}",
+    "stderr": ""
+  },
+  {
+    "mode": "--rollback",
+    "expectedExit": 0,
+    "stdout": "{\n    \"status\": \"already_rolled_back\",\n    \"workersRemainPaused\": true\n}",
+    "stderr": ""
+  },
+  {
+    "result": "passed",
+    "environmentAndMediaPreserved": true,
+    "existingUsersPreserved": true,
+    "rollbackRetainsMigration011": true,
+    "noNetworkEmailAPNs": true,
+    "fixtureSubstitutions": [
+      "EXPECTED_HOME",
+      "Linux activeWorkers process probe",
+      "quiesce timestamp advanced instead of sleeping"
+    ]
+  }
+]

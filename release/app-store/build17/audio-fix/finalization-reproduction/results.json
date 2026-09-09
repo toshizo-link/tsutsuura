@@ -1,0 +1,149 @@
+{
+  "cases" : [
+    {
+      "afterExplicitClose" : {
+        "appleDecode" : {
+          "decoded" : true,
+          "durationSeconds" : 0.050000000000000003,
+          "frames" : 2400,
+          "nonSilent" : true,
+          "peak" : 0.40388372540473938,
+          "rms" : 0.28279092024728408
+        },
+        "bytes" : 62263,
+        "file" : "\/tmp\/tsutsuura-audio-finalization-repro\/after-close-2400.m4a",
+        "ftypAndBrand" : "ftypM4A ",
+        "mdatTagPresent" : true,
+        "moovTagPresent" : true,
+        "prefixHex" : "0000001c667479704d344120000000004d3441206d703432",
+        "sha256" : "d8aadfd5d307f49fc99a34674a1cf94e05f3662cfe7e95e5f1d84f0580613267"
+      },
+      "beforeExplicitClose" : {
+        "appleDecode" : {
+          "decoded" : false,
+          "error" : "The operation couldn’t be completed. (com.apple.coreaudio.avfaudio error 1685348671.)",
+          "errorCode" : 1685348671,
+          "errorDomain" : "com.apple.coreaudio.avfaudio"
+        },
+        "bytes" : 61628,
+        "file" : "\/tmp\/tsutsuura-audio-finalization-repro\/before-close-2400.m4a",
+        "ftypAndBrand" : "ftypM4A ",
+        "mdatTagPresent" : false,
+        "moovTagPresent" : false,
+        "prefixHex" : "0000001c667479704d344120000000004d3441206d703432",
+        "sha256" : "8a4190fa4b98804fd4c43c8140a710d8fef590612e713b2f76aa4488337b0f64"
+      },
+      "inputDurationSeconds" : 0.050000000000000003,
+      "inputFrames" : 2400,
+      "oldLengthBeforeFinalization" : 2048,
+      "releasedAfterTapNil" : true,
+      "retainedAfterExplicitClose" : true,
+      "retainedAfterOwnerNil" : true
+    },
+    {
+      "afterExplicitClose" : {
+        "appleDecode" : {
+          "decoded" : true,
+          "durationSeconds" : 0.5,
+          "frames" : 24000,
+          "nonSilent" : true,
+          "peak" : 0.40777736902236938,
+          "rms" : 0.28274953146174481
+        },
+        "bytes" : 63482,
+        "file" : "\/tmp\/tsutsuura-audio-finalization-repro\/after-close-24000.m4a",
+        "ftypAndBrand" : "ftypM4A ",
+        "mdatTagPresent" : true,
+        "moovTagPresent" : true,
+        "prefixHex" : "0000001c667479704d344120000000004d3441206d703432",
+        "sha256" : "43a36edd9f643dcab7748308bc7a92c1ad6e6f7e7d83adeea40e4d13ea570f3c"
+      },
+      "beforeExplicitClose" : {
+        "appleDecode" : {
+          "decoded" : false,
+          "error" : "The operation couldn’t be completed. (com.apple.coreaudio.avfaudio error 1685348671.)",
+          "errorCode" : 1685348671,
+          "errorDomain" : "com.apple.coreaudio.avfaudio"
+        },
+        "bytes" : 62925,
+        "file" : "\/tmp\/tsutsuura-audio-finalization-repro\/before-close-24000.m4a",
+        "ftypAndBrand" : "ftypM4A ",
+        "mdatTagPresent" : false,
+        "moovTagPresent" : false,
+        "prefixHex" : "0000001c667479704d344120000000004d3441206d703432",
+        "sha256" : "8e1c513e5a660b96f381f4da8c67aa3b150c5bf937672acca07a8ac835c611b0"
+      },
+      "inputDurationSeconds" : 0.5,
+      "inputFrames" : 24000,
+      "oldLengthBeforeFinalization" : 23552,
+      "releasedAfterTapNil" : true,
+      "retainedAfterExplicitClose" : true,
+      "retainedAfterOwnerNil" : true
+    },
+    {
+      "afterExplicitClose" : {
+        "appleDecode" : {
+          "decoded" : true,
+          "durationSeconds" : 4,
+          "frames" : 192000,
+          "nonSilent" : true,
+          "peak" : 0.40777736902236938,
+          "rms" : 0.28285453221596968
+        },
+        "bytes" : 74867,
+        "file" : "\/tmp\/tsutsuura-audio-finalization-repro\/after-close-192000.m4a",
+        "ftypAndBrand" : "ftypM4A ",
+        "mdatTagPresent" : true,
+        "moovTagPresent" : true,
+        "prefixHex" : "0000001c667479704d344120000000004d3441206d703432",
+        "sha256" : "a10deb14aac520fe5650818b14e83d1e202a34b789d78c20570ba286e09bf47a"
+      },
+      "beforeExplicitClose" : {
+        "appleDecode" : {
+          "decoded" : false,
+          "error" : "The operation couldn’t be completed. (com.apple.coreaudio.avfaudio error 1685348671.)",
+          "errorCode" : 1685348671,
+          "errorDomain" : "com.apple.coreaudio.avfaudio"
+        },
+        "bytes" : 74325,
+        "file" : "\/tmp\/tsutsuura-audio-finalization-repro\/before-close-192000.m4a",
+        "ftypAndBrand" : "ftypM4A ",
+        "mdatTagPresent" : false,
+        "moovTagPresent" : false,
+        "prefixHex" : "0000001c667479704d344120000000004d3441206d703432",
+        "sha256" : "fdd2ae7de9ca25536406f37407249984bd47bb96cc052a3458bfeabde19160cb"
+      },
+      "inputDurationSeconds" : 4,
+      "inputFrames" : 192000,
+      "oldLengthBeforeFinalization" : 191488,
+      "releasedAfterTapNil" : true,
+      "retainedAfterExplicitClose" : true,
+      "retainedAfterOwnerNil" : true
+    }
+  ],
+  "control" : {
+    "encoderReleased" : true,
+    "snapshot" : {
+      "appleDecode" : {
+        "decoded" : true,
+        "durationSeconds" : 4,
+        "frames" : 192000,
+        "nonSilent" : true,
+        "peak" : 0.40777736902236938,
+        "rms" : 0.28285453221596968
+      },
+      "bytes" : 74867,
+      "file" : "\/tmp\/tsutsuura-audio-finalization-repro\/deinit-control.m4a",
+      "ftypAndBrand" : "ftypM4A ",
+      "mdatTagPresent" : true,
+      "moovTagPresent" : true,
+      "prefixHex" : "0000001c667479704d344120000000004d3441206d703432",
+      "sha256" : "a10deb14aac520fe5650818b14e83d1e202a34b789d78c20570ba286e09bf47a"
+    }
+  },
+  "microphoneUsed" : false,
+  "platform" : "Version 27.0 (Build 26A5425a)",
+  "simulatorUsed" : false,
+  "sourceModified" : false,
+  "userAudioRead" : false
+}

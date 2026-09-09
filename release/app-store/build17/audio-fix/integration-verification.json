@@ -1,0 +1,42 @@
+{
+  "baselineCommit": "ea103169c375b23c9c10f05b02ff85185a8c7985",
+  "sourceCommit": "3737080632d272ad0115ad7f3dc80d2118163946",
+  "files": {
+    "tsutsuura/tsutsuura/AnswerMediaViews.swift": {
+      "baselineSHA256": "75c822311200e8f7ee8a5a343722c7eeaba6089abe8dcb527b5ae48fbf30825e",
+      "finalSHA256": "96493e8c19c7cd01d5c1573a7d9637fe028b1d1a57d1acb76f393dcd420a6d76"
+    },
+    "tsutsuura/tsutsuura/SpeechTranscriber.swift": {
+      "baselineSHA256": "94f9ab07543578cd30269b7d1564a3dd062aa9b29000ff76c6ab071269827125",
+      "finalSHA256": "a4b4b8462fb19cdcfc5e0b98a27fb12015763ec08465d28e4a8bcb88a51956a9"
+    },
+    "tsutsuura/tsutsuura/DemoAppAPI.swift": {
+      "baselineSHA256": "b6300474df2a93717447f681516ca740414cafe8d86933e0066bc22a9b5f3e77",
+      "finalSHA256": "86da40e43d055a44d0f033ddd4b4ed13db323eb614260e1847a2b56746978e99"
+    },
+    "tsutsuura/tsutsuura/AnswerAudioPlayer.swift": {
+      "baselineSHA256": null,
+      "finalSHA256": "48efad1beadc272b56a101c71b535e59426df8f37b55d86715aa8608733da35d"
+    },
+    "tsutsuura/tsutsuura/VoiceRecordingFile.swift": {
+      "baselineSHA256": null,
+      "finalSHA256": "dc0a9d2c69c4de7ceb936ee59d968910da341121e7eaf981aab7a78c894d267c"
+    },
+    "tsutsuura/tsutsuuraTests/AudioPlaybackTests.swift": {
+      "baselineSHA256": null,
+      "finalSHA256": "df1e94b89ab93157cfb186b28f7ab22c00a71444e3d2185a8260b1e49dec93fc"
+    },
+    "tsutsuura/tsutsuuraTests/VoiceRecordingFileTests.swift": {
+      "baselineSHA256": null,
+      "finalSHA256": "d8c7fa5e853a14d5547de9bbd48fb86ae6f17c0d6e3e64c01262a5f4a1ee29e3"
+    },
+    "tsutsuura/tsutsuuraUITests/AudioPlaybackUITests.swift": {
+      "baselineSHA256": null,
+      "finalSHA256": "e2dec8203f3b0b08ab90e38394cf9c435f514cb233450d49c292436fd3f1eb05"
+    }
+  },
+  "filesIntegrated": 8,
+  "shippingInputsMatched": 52,
+  "candidateClean": true,
+  "rootUnrelatedEditsPreserved": true
+}

@@ -1,0 +1,59 @@
+- generic [active] [ref=f5e1]:
+  - generic [ref=f5e2]: つつうら · App Store プレビュー
+  - main [ref=f5e3]:
+    - link "離れていても、家族のそばに。 01 — 離れていても、家族のそばに。" [ref=f5e4] [cursor=pointer]:
+      - /url: "?page=1"
+      - article "離れていても、家族のそばに。" [ref=f5e6]:
+        - generic [ref=f5e7]:
+          - generic [ref=f5e8]:
+            - generic [ref=f5e9]: つつうら
+            - generic [ref=f5e10]: 01 / 04
+          - heading "離れていても、 家族のそばに。" [level=1] [ref=f5e11]:
+            - generic [ref=f5e12]: 離れていても、
+            - generic [ref=f5e13]: 家族のそばに。
+          - paragraph [ref=f5e14]: 一日ひとつの質問で、毎日を分かち合う。
+        - figure [ref=f5e15]:
+          - img "家族の回答が並ぶホーム画面" [ref=f5e16]
+      - generic [ref=f5e17]: 01 — 離れていても、家族のそばに。
+    - link "文字でも、声でも。あなたのペースで。 02 — 文字でも、声でも。あなたのペースで。" [ref=f5e18] [cursor=pointer]:
+      - /url: "?page=2"
+      - article "文字でも、声でも。あなたのペースで。" [ref=f5e20]:
+        - generic [ref=f5e21]:
+          - generic [ref=f5e22]:
+            - generic [ref=f5e23]: つつうら
+            - generic [ref=f5e24]: 02 / 04
+          - heading "文字でも、声でも。 あなたのペースで。" [level=1] [ref=f5e25]:
+            - generic [ref=f5e26]: 文字でも、声でも。
+            - generic [ref=f5e27]: あなたのペースで。
+          - paragraph [ref=f5e28]: 写真を添えて、今日のひとこと。
+        - figure [ref=f5e29]:
+          - img "文章・音声・写真で回答する画面" [ref=f5e30]
+      - generic [ref=f5e31]: 02 — 文字でも、声でも。あなたのペースで。
+    - link "何気ない毎日が、家族の思い出に。 03 — 何気ない毎日が、家族の思い出に。" [ref=f5e32] [cursor=pointer]:
+      - /url: "?page=3"
+      - article "何気ない毎日が、家族の思い出に。" [ref=f5e34]:
+        - generic [ref=f5e35]:
+          - generic [ref=f5e36]:
+            - generic [ref=f5e37]: つつうら
+            - generic [ref=f5e38]: 03 / 04
+          - heading "何気ない毎日が、 家族の思い出に。" [level=1] [ref=f5e39]:
+            - generic [ref=f5e40]: 何気ない毎日が、
+            - generic [ref=f5e41]: 家族の思い出に。
+          - paragraph [ref=f5e42]: 過去の回答を、いつでも振り返る。
+        - figure [ref=f5e43]:
+          - img "過去の回答を振り返る画面" [ref=f5e44]
+      - generic [ref=f5e45]: 03 — 何気ない毎日が、家族の思い出に。
+    - link "自分でかく、あなただけのしるし。 04 — 自分でかく、あなただけのしるし。" [ref=f5e46] [cursor=pointer]:
+      - /url: "?page=4"
+      - article "自分でかく、あなただけのしるし。" [ref=f5e48]:
+        - generic [ref=f5e49]:
+          - generic [ref=f5e50]:
+            - generic [ref=f5e51]: つつうら
+            - generic [ref=f5e52]: 04 / 04
+          - heading "自分でかく、 あなただけのしるし。" [level=1] [ref=f5e53]:
+            - generic [ref=f5e54]: 自分でかく、
+            - generic [ref=f5e55]: あなただけのしるし。
+          - paragraph [ref=f5e56]: 丸や線だけでも、あなたらしく。
+        - figure [ref=f5e57]:
+          - img "自分のしるしをかく画面" [ref=f5e58]
+      - generic [ref=f5e59]: 04 — 自分でかく、あなただけのしるし。

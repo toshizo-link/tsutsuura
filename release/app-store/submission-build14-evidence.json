@@ -1,0 +1,31 @@
+{
+  "capturedAt": "2026-09-05T21:12:40.636Z",
+  "version": "1.0",
+  "build": "14",
+  "appID": "6800383132",
+  "submissionID": "234b817a-6765-4d56-b677-b90007a1e996",
+  "status": "Waiting for Review",
+  "confirmation": "1 Item Submitted",
+  "manualRelease": true,
+  "reviewSubmissionMade": true,
+  "polishedScreenshotCount": 4,
+  "polishedScreenshotOrder": [
+    "store-01-family.png",
+    "store-02-answer.png",
+    "store-03-history.png",
+    "store-04-personal-mark.png"
+  ],
+  "privacyPolicyURL": "https://toshizo.link/tsutsuura-privacy.html",
+  "testflightInternalStatus": "Testing",
+  "testflightInternalGroup": "Tsutsuura Internal",
+  "submissionURL": "https://appstoreconnect.apple.com/apps/6800383132/distribution/reviewsubmissions/details/234b817a-6765-4d56-b677-b90007a1e996",
+  "evidence": [
+    "app-review-submitted-build14.txt",
+    "app-review-submitted-build14.png",
+    "build14-final-draft.txt",
+    "polished-screenshots-uploaded.txt",
+    "testflight-build14-testing.txt",
+    "previews-layout/exports/manifest.json",
+    "privacy-publication-evidence.json"
+  ]
+}

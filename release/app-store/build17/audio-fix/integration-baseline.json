@@ -1,0 +1,26 @@
+{
+  "tsutsuura/tsutsuura/AnswerMediaViews.swift": {
+    "baselineSHA256": "75c822311200e8f7ee8a5a343722c7eeaba6089abe8dcb527b5ae48fbf30825e"
+  },
+  "tsutsuura/tsutsuura/SpeechTranscriber.swift": {
+    "baselineSHA256": "94f9ab07543578cd30269b7d1564a3dd062aa9b29000ff76c6ab071269827125"
+  },
+  "tsutsuura/tsutsuura/DemoAppAPI.swift": {
+    "baselineSHA256": "b6300474df2a93717447f681516ca740414cafe8d86933e0066bc22a9b5f3e77"
+  },
+  "tsutsuura/tsutsuura/AnswerAudioPlayer.swift": {
+    "baselineSHA256": null
+  },
+  "tsutsuura/tsutsuura/VoiceRecordingFile.swift": {
+    "baselineSHA256": null
+  },
+  "tsutsuura/tsutsuuraTests/AudioPlaybackTests.swift": {
+    "baselineSHA256": null
+  },
+  "tsutsuura/tsutsuuraTests/VoiceRecordingFileTests.swift": {
+    "baselineSHA256": null
+  },
+  "tsutsuura/tsutsuuraUITests/AudioPlaybackUITests.swift": {
+    "baselineSHA256": null
+  }
+}

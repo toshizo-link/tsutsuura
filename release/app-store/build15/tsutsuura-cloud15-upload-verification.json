@@ -1,0 +1,307 @@
+{
+  "verifiedAt": "2026-09-05T21:29:27.854011+00:00",
+  "mode": "upload",
+  "version": "1.0",
+  "build": "15",
+  "bundleIdentifier": "toshizo.link.tsutsuura",
+  "apiBaseURL": "https://toshizo.link/tsutsuura-api/api",
+  "associatedDomains": [
+    "applinks:toshizo.link"
+  ],
+  "expectedGitCommit": "405f851425fb3577a7806471e0b97975e7858aed",
+  "sourceManifest": "/tmp/tsutsuura-build15-source-manifest.json",
+  "sourceManifestSHA256": "47f4bfc33b2d59ffc2d5eb0cd596f8230eb2ae24dc5de2f46ba58b56ff0cefe2",
+  "sources": {
+    "tsutsuura/tsutsuura/APIClient.swift": "e1db46ffb8a2316e13eded35742062df006223fa9f21041fd77e04de8992d04f",
+    "tsutsuura/tsutsuura/APIConfiguration.swift": "602db9f59fc7d1c2de9cfc1ebb9902e5176c9d2403b096aaeae9e1df9a508062",
+    "tsutsuura/tsutsuura/AnswerMediaViews.swift": "1691ca03ebdbb227b25b1235461a7009542ff599a7bb85f5c469a057c1268922",
+    "tsutsuura/tsutsuura/AppHaptics.swift": "4ca9bdea30b560714745b979fa56e9a4b0c9d549cfa37747d99ee0bde535f732",
+    "tsutsuura/tsutsuura/AppInteractionServices.swift": "90fda8476998e0f8ccb57cf2070009cee238743cfd1076439886aae5f9235552",
+    "tsutsuura/tsutsuura/AppModels.swift": "5f230dcf968e9c28c9d93908a6fb51b1e3bba23db0c2f12501304658d37d7ec1",
+    "tsutsuura/tsutsuura/AppStore.swift": "68627e7faad0cc4cd892d3df009f5b2a8c6ea59cab6a63227eec7a5c74e1f7c9",
+    "tsutsuura/tsutsuura/Assets.xcassets/AccentColor.colorset/Contents.json": "e4e6a53257449e60421133c52f320320c528f458a785f63fb6eec7484eddd4b8",
+    "tsutsuura/tsutsuura/Assets.xcassets/AppIcon.appiconset/Contents.json": "6db07fe9fc70a20f63cfc4bfbfaa035c5109f2ea46309dfdebac486e834fad38",
+    "tsutsuura/tsutsuura/Assets.xcassets/AppIcon.appiconset/tsutsuura-app-icon.png": "3a976eb557cdacda2cc717e71a7fd9d249f028f37d7a10a1fcf93b21f6fb83ed",
+    "tsutsuura/tsutsuura/Assets.xcassets/Contents.json": "0fd49ba3c3585c709678e0046a821c3c60685ec7063720d30d3a3448be3a208b",
+    "tsutsuura/tsutsuura/Assets.xcassets/FamilyBatteryOverlay.imageset/Contents.json": "d581124b6afe854c80e35abb37817a72cfd96278440ad9d857de881a976b002a",
+    "tsutsuura/tsutsuura/Assets.xcassets/FamilyBatteryOverlay.imageset/family-battery-overlay.svg": "e4498b05eeadfd6457df2aaa3a124e08dcd8ccc9141ff178214e71d5cd5376b7",
+    "tsutsuura/tsutsuura/Assets.xcassets/FigmaPhoneIcon.imageset/Contents.json": "416e93043c8e812bb080416b615064949733cc3f240400a92c593e6e1a7e16d3",
+    "tsutsuura/tsutsuura/Assets.xcassets/FigmaPhoneIcon.imageset/figma-phone-icon.svg": "5487e5ff91266dde8bd096bc6eddad4b7c39154f83d958f0280fc4e99d5d846e",
+    "tsutsuura/tsutsuura/Assets.xcassets/InputCornerDark.imageset/Contents.json": "c1fd5fe8ba6ef89543e1a188722e1bf6649b616b4a0f7db8e151370d040f92af",
+    "tsutsuura/tsutsuura/Assets.xcassets/InputCornerDark.imageset/input-corner-dark.svg": "e57102630a97d4d60b7ceb0aee461a5f6694f42e56df3e879cbbe2c222e45ba5",
+    "tsutsuura/tsutsuura/Assets.xcassets/InputCornerLight.imageset/Contents.json": "cba899c385bdf9d4ec8b1e3405456dcc5810a5825905fbc1a0d323896e8e2f4e",
+    "tsutsuura/tsutsuura/Assets.xcassets/InputCornerLight.imageset/input-corner-light.svg": "65f28c5cfe829975b059383c4fe4c2bbf0e27451a19a8923fc5805540dbb57c0",
+    "tsutsuura/tsutsuura/Assets.xcassets/InputHandleCircle.imageset/Contents.json": "73d1f4f60a125a11724051292f8271857571d860126ed1d6e253ac307bae009a",
+    "tsutsuura/tsutsuura/Assets.xcassets/InputHandleCircle.imageset/input-handle-circle.svg": "ac81fcff4dae299c039fe8ec8731219bd4e9ba0374bf0fec26961dd570a58cdb",
+    "tsutsuura/tsutsuura/BackSwipeNavigation.swift": "dbcae07edd7f36670b6c406fc7ae54f338b25205da79d2c1bcc4419a8990160e",
+    "tsutsuura/tsutsuura/ContentView.swift": "e4f1c557b012ba653b121c6a8290907d22d36df75e30604b43d235c2186bc5ea",
+    "tsutsuura/tsutsuura/DemoAppAPI.swift": "acff0b39fc9f2d7a4f344236e4316ad2fadc026bff91cea76258bb27917322b9",
+    "tsutsuura/tsutsuura/DeviceTimeZoneSynchronizer.swift": "18e36c62244067841791d9de00e3fd8b23899603915407b6adbe8967dbaa4b89",
+    "tsutsuura/tsutsuura/EmailAuthenticationScreens.swift": "7d359a18c7f40c01e1a464a85ede2d1691626169b95106204e2de77e49d49154",
+    "tsutsuura/tsutsuura/FamilySetupScreens.swift": "4e8cdca7f8c15ea9c5e227b5566c5da2611262d896ab19200baaf4e202a1f91e",
+    "tsutsuura/tsutsuura/Fonts/Kaisotai-Next-UP-B.otf": "f1f4ecc6f3729277aa66e2cc1b598a3d6cc9a652bf96ff3265f2ea9554d3d44a",
+    "tsutsuura/tsutsuura/HomeAutoRefresh.swift": "d1a12ec1c24d0a74f0931c180fca9993ca45243e2f22d18ec08d563e8ce09445",
+    "tsutsuura/tsutsuura/HomeBannerPullToReveal.swift": "cd95f6f2c5d2f2778038d9260f8435eb19ce1c3169d9aad1accb01f90b3cd11d",
+    "tsutsuura/tsutsuura/Info.plist": "fd79015408592cadb55e36fd05795a0cdb130a6dc381cca3f1a125849c6c6fa0",
+    "tsutsuura/tsutsuura/LifecycleScreens.swift": "68f459654d46798ea7b9e57f307ff1c5b6cc5623514ab4d165087c545a1b2b9d",
+    "tsutsuura/tsutsuura/PersonalMarkEditor.swift": "808bee7e045a28da1dea7c4ca69e555780137aaf8ea91b04ba0300ad672b730e",
+    "tsutsuura/tsutsuura/PersonalMarkRequirement.swift": "5da8ba35eaab22aad964b4e23e0a13891b81ae2422950f8fd51eb6ff17b710a6",
+    "tsutsuura/tsutsuura/PhotoDismissGestureState.swift": "26e50c2ceec7d0fc00aaafd488eff57692a20f3e14ad11cfce53e3955460c59b",
+    "tsutsuura/tsutsuura/PrivacyInfo.xcprivacy": "da07206abb439a48c64df100e63ffa177fc9b87db59c2d565c3c6cf597dcb310",
+    "tsutsuura/tsutsuura/PushNotifications.swift": "27f12f806518a8c20e701e273294bf847015a73fda71bc5a6880c849870f2f7a",
+    "tsutsuura/tsutsuura/PushRegistrationCoordinator.swift": "18b1c72000ca73c47a1a3998969c3e4bc4c29382bf7f604e6e2accd95610df50",
+    "tsutsuura/tsutsuura/QuestionSchedulePresentation.swift": "e43acd19ba8a4b2bd8a03ad71e792b67b890376e8a97cbc68602eb29ad9a9578",
+    "tsutsuura/tsutsuura/SpeechTranscriber.swift": "94f9ab07543578cd30269b7d1564a3dd062aa9b29000ff76c6ab071269827125",
+    "tsutsuura/tsutsuura/TokenStorage.swift": "9141131f9b9b70065328c074dad8080cb1a78d63e97e6085712a71bcf36ffc0f",
+    "tsutsuura/tsutsuura/TsutsuuraDesignSystem.swift": "9f1f34a0d81d8cbccbbe3a91fe4ab8ab1e74eaa036af65dea6557f6b37476061",
+    "tsutsuura/tsutsuura/TsutsuuraScreens.swift": "3d1698fb2cd8df7f8a28f5133761fbf329e240cf41afa2f03e258eed5d4380f2",
+    "tsutsuura/tsutsuura/tsutsuura.entitlements": "a3175580a2edcc41f4a4a4ff456184b28c87d46a6069dd3f63600102a3abffbb",
+    "tsutsuura/tsutsuura/tsutsuuraApp.swift": "10c6e762aa4e6bc987641badbde0ca34e79393b9014460c956cd908acdd5709d",
+    "tsutsuura/tsutsuura.xcodeproj/project.pbxproj": "5cd8a06c3c0351ed1f2ffdb0a201b32fe54fb6dbc086658d2854a1d2e9f50e03"
+  },
+  "sourceCount": 46,
+  "cloudEnvironment": {
+    "snapshotAt": "2026-09-05T21:22:35.226413+00:00",
+    "build": "15",
+    "version": "1.0",
+    "gitCommit": "405f851425fb3577a7806471e0b97975e7858aed",
+    "checkoutRoot": "/Users/runner/work/tsutsuura/tsutsuura",
+    "sourceRoot": "/Users/runner/work/tsutsuura/tsutsuura",
+    "githubRunId": "33992850653",
+    "githubRunAttempt": "1",
+    "runnerImage": "macos26",
+    "runnerImageVersion": "20260831.0337.3",
+    "osVersion": "26.6.2",
+    "osBuild": "25G83",
+    "xcode": "Xcode 26.6\nBuild version 17F113",
+    "sdkVersion": "26.5",
+    "sdkBuild": "23F81a",
+    "signing": "disabled; Apple credentials stay off the runner"
+  },
+  "cloudEvidenceSHA256": "4aacc526d53298fb72fe99204ad4efda6f64764e6f2b0228638ea8207e2786e0",
+  "cloudArchiveEvidenceSHA256": "7512ec032c6ba93c8f9a8408450835b55f37bbe4eddb47f1fcd7de4d620bb962",
+  "cloudAppFiles": {
+    "AppIcon60x60@2x.png": "ca8bd55778f1ec7df69fe5d4e2d8ada704da298f190fa3f611a1553a938321c3",
+    "AppIcon76x76@2x~ipad.png": "edc2f82eec441ed240ffd3897e4a071b274cd3249b694d801b455264194e5726",
+    "Assets.car": "cfc7ce852a757a668383290ee8c3be9ab718c3db636210a7b80834bba9976f0a",
+    "Info.plist": "97907792c8f9ee73a33939d867ebb89149b22416f14e4921c874051778fcc91d",
+    "Kaisotai-Next-UP-B.otf": "f1f4ecc6f3729277aa66e2cc1b598a3d6cc9a652bf96ff3265f2ea9554d3d44a",
+    "PkgInfo": "82502191c9484b04d685374f9879a0066069c49b8acae7a04b01d38d07e8eca0",
+    "PrivacyInfo.xcprivacy": "da07206abb439a48c64df100e63ffa177fc9b87db59c2d565c3c6cf597dcb310",
+    "tsutsuura": "4fc8c7c8419d7960110b0eb6bf9efcfd9efa464ca23a925e7c2b3af17eee7065"
+  },
+  "compiledSwiftFiles": [
+    {
+      "file": "/tmp/tsutsuura-cloud15/evidence/arm64-tsutsuura.SwiftFileList",
+      "sha256": "d138710d7fb42aaac9d00f11e975325194e02acd87c69a4471121bd8d02d42f4",
+      "sourceCount": 27,
+      "generatedFiles": [
+        "/Users/runner/work/tsutsuura/tsutsuura/build/DerivedData/Build/Intermediates.noindex/ArchiveIntermediates/tsutsuura/IntermediateBuildFilesPath/tsutsuura.build/Release-iphoneos/tsutsuura.build/DerivedSources/GeneratedAssetSymbols.swift"
+      ]
+    }
+  ],
+  "binaryUUIDs": [
+    [
+      "248E1B25-D7AE-397D-9A8F-B32B50E74CB5",
+      "arm64"
+    ]
+  ],
+  "binarySections": {
+    "__TEXT,__text": {
+      "size": 2232032,
+      "sha256": "4a01ba9a6862abd84ecfe1d3195f44440685a06f3b14a1bda08ba58cdf6151e1"
+    },
+    "__TEXT,__stubs": {
+      "size": 11292,
+      "sha256": "2d6732817e386eb26d4121c4ceef5d5b386b68f632e33c9b0b843568c6dd47ae"
+    },
+    "__TEXT,__objc_stubs": {
+      "size": 4352,
+      "sha256": "be1c2369faee55cdca1edff0fcd6eccffbdfe20896c5190e9928a55f4b2afe27"
+    },
+    "__TEXT,__objc_methlist": {
+      "size": 1284,
+      "sha256": "ef2a2e56e1d5f6bb69cf93302454bdeac441d9d99e0181cef65a2ee8ab30680e"
+    },
+    "__TEXT,__const": {
+      "size": 79956,
+      "sha256": "90c5b53364fac2775cb779ef3c7ad9eb49611f4aa1b1b783f4b61852d49bf33d"
+    },
+    "__TEXT,__constg_swiftt": {
+      "size": 15672,
+      "sha256": "579b72ac08dc52e6ff58a18cefaeac5f478a8d76b6fa21443f9bf68743dfa3cc"
+    },
+    "__TEXT,__swift5_typeref": {
+      "size": 264618,
+      "sha256": "96cf68aafc16715fd7fbb38021a6741d873e23911eb0a7d85de90e17b75b7741"
+    },
+    "__TEXT,__objc_classname": {
+      "size": 904,
+      "sha256": "3083be70c6c29a03a81a31bbb95fd3fd00bb9b2340050400f502e17890ebfd23"
+    },
+    "__TEXT,__objc_methname": {
+      "size": 7705,
+      "sha256": "555fe0f2a7665c945aa4c0a0f8dfc2ce4e3f9b612fb80d078dae81d1c1b2b411"
+    },
+    "__TEXT,__objc_methtype": {
+      "size": 3139,
+      "sha256": "776e2a4e27203c819dcab2f58baf85e725e00ec75bc94740ae025d17a0361101"
+    },
+    "__TEXT,__swift5_reflstr": {
+      "size": 12232,
+      "sha256": "631fa7b96222920ea77f355182858af6006fd41b3744af51a3ae6bb464fbd59c"
+    },
+    "__TEXT,__swift5_fieldmd": {
+      "size": 20388,
+      "sha256": "f97eae3c3d12adeaf6b1da29b6c14de57efecfa29d1715b1f7c3e2e097f10c2e"
+    },
+    "__TEXT,__swift5_builtin": {
+      "size": 260,
+      "sha256": "98861658aa77a2f8e771943338c3fd081061b9533b514b98103a040e324a10e2"
+    },
+    "__TEXT,__swift5_assocty": {
+      "size": 3784,
+      "sha256": "2a05b22fea38a465e0be125dbf4a533f0b2f18b300088f8367947d1dc8cda410"
+    },
+    "__TEXT,__swift5_capture": {
+      "size": 10800,
+      "sha256": "a78b797826b489db6aad787c76a673bb0891c86d26bc2fc039d1a0c6e85dbd56"
+    },
+    "__TEXT,__cstring": {
+      "size": 40456,
+      "sha256": "275f476bb25aee3f1c93342fe94b16400131569097713aa44b22dd3eccd31bfb"
+    },
+    "__TEXT,__swift5_proto": {
+      "size": 3052,
+      "sha256": "ba7a6fc21fa9d74283ce829e56990aca8173fafdd646c652e143345287b38864"
+    },
+    "__TEXT,__swift5_types": {
+      "size": 1168,
+      "sha256": "84a7a9dd8e4f0f5a2b54d07e578f0793b1eaaac0d1ab0aaa5bdbb8c5f2551f31"
+    },
+    "__TEXT,__swift_as_entry": {
+      "size": 1052,
+      "sha256": "b00f4bfa418d9f20b599472902bbce0eb07e07659c665290dcee8840f1d17415"
+    },
+    "__TEXT,__swift_as_ret": {
+      "size": 1404,
+      "sha256": "ce493ec79d5b3ad0bda36fb0593a7a05946e4926616d51c017599fb88b50151a"
+    },
+    "__TEXT,__swift5_mpenum": {
+      "size": 68,
+      "sha256": "e909cdc8a431471e47fcb1703eb9be0061260f485919805add9a767cad6ebdcd"
+    },
+    "__TEXT,__swift5_protos": {
+      "size": 16,
+      "sha256": "81b1850af35a28bc5b7df9f81c6a12544afe764f41e6c12053aadbb0100421ad"
+    },
+    "__TEXT,__swift5_entry": {
+      "size": 8,
+      "sha256": "93f1f695417ec0ac1635415838af3104e4fe9c45bf20a8fb80ed930cec0b4638"
+    },
+    "__TEXT,__unwind_info": {
+      "size": 28744,
+      "sha256": "5c747757785f1f12535086b9b6b8daac07fbc181af495b7f8bc41863d5b4b682"
+    },
+    "__TEXT,__eh_frame": {
+      "size": 55304,
+      "sha256": "d9451076f487b3220545d52ea3501f52a7f700c19e44f9079d419eb711b0be3c"
+    },
+    "__TEXT,__oslogstring": {
+      "size": 133,
+      "sha256": "5ba95a9097410e747e8d25d06a331f8db6c5d2fbc005df23f2fc005be745bb68"
+    },
+    "__DATA_CONST,__got": {
+      "size": 13040,
+      "sha256": "072221d227d1dde3df2a899e5619ed77075adaf4b238a76a6c221ef04b242030"
+    },
+    "__DATA_CONST,__const": {
+      "size": 67056,
+      "sha256": "8139dc68b65c454795cf03957bad1b6b91f74197711e41bf2b8a1c787b4f96b5"
+    },
+    "__DATA_CONST,__objc_classlist": {
+      "size": 128,
+      "sha256": "06fb7330b1d122f493fb28e7936b3e8cceb352ca96d4f205d980120ecb8cf12c"
+    },
+    "__DATA_CONST,__objc_protolist": {
+      "size": 64,
+      "sha256": "a9a6e71e10cc2342faea82f9886a4d7f14bceae4e89f16082796bfccc53f0c48"
+    },
+    "__DATA_CONST,__objc_imageinfo": {
+      "size": 8,
+      "sha256": "9430fb236b56df1c2846dc691d67b88647f3c5957aa1a8d2ceabf48690c6444b"
+    },
+    "__DATA_CONST,__objc_protorefs": {
+      "size": 32,
+      "sha256": "8ee5ef4d2c030a6e97f947dcca99eef93cfd05160965086c779856a527340513"
+    },
+    "__DATA,__objc_const": {
+      "size": 5528,
+      "sha256": "46ae748ee1f8b92af9f911848a83604507075c7a561b85169368c9edde818b09"
+    },
+    "__DATA,__objc_selrefs": {
+      "size": 1824,
+      "sha256": "5c42f82e03f80e4330f26ce93987b8175161615c203d3b42e419130c79a3a7f8"
+    },
+    "__DATA,__objc_data": {
+      "size": 832,
+      "sha256": "55bddc01331234e1379b55584ec2c582705063a57f49317100cc40f887af821b"
+    },
+    "__DATA,__data": {
+      "size": 45784,
+      "sha256": "b9b956b319e31da045dbd68f50267a05b6139f512117ceac8cfba85b7b7bd189"
+    }
+  },
+  "cloudToolMetadata": {
+    "BuildMachineOSBuild": "25G83",
+    "DTCompiler": "com.apple.compilers.llvm.clang.1_0",
+    "DTPlatformBuild": "23F81a",
+    "DTPlatformName": "iphoneos",
+    "DTPlatformVersion": "26.5",
+    "DTSDKBuild": "23F81a",
+    "DTSDKName": "iphoneos26.5",
+    "DTXcode": "2660",
+    "DTXcodeBuild": "17F113"
+  },
+  "artifacts": {
+    "cloudRoot": "/tmp/tsutsuura-cloud15",
+    "unsignedArchive": "/tmp/tsutsuura-cloud15/tsutsuura-15-unsigned.xcarchive",
+    "unsignedApp": "/tmp/tsutsuura-cloud15/tsutsuura-15-unsigned.xcarchive/Products/Applications/tsutsuura.app",
+    "distributionLogs": "/var/folders/9s/lwj2ss7d679bl8hv9dx2qf6h0000gn/T/tsutsuura_2026-09-05_17-27-34.621.xcdistributionlogs",
+    "exportOrUploadLog": "/tmp/tsutsuura-testflight-upload15-20260905.log",
+    "distributionApp": "/var/folders/9s/lwj2ss7d679bl8hv9dx2qf6h0000gn/T/XcodeDistPipeline.~~~axZVlU/Root/Payload/tsutsuura.app",
+    "ipa": "/var/folders/9s/lwj2ss7d679bl8hv9dx2qf6h0000gn/T/XcodeDistPipeline.~~~axZVlU/Packages/tsutsuura.ipa",
+    "signedArchive": "/tmp/tsutsuura-TestFlight-15.xcarchive"
+  },
+  "distributionSignatureVerified": true,
+  "distributionEntitlements": {
+    "application-identifier": "34NS8XN5F9.toshizo.link.tsutsuura",
+    "com.apple.developer.associated-domains": [
+      "applinks:toshizo.link"
+    ],
+    "aps-environment": "production",
+    "get-task-allow": false,
+    "beta-reports-active": true
+  },
+  "distributionProfileExpiration": "2027-08-11T10:21:21+00:00",
+  "compiledMetadataPreserved": true,
+  "distributionBinarySectionsMatch": true,
+  "ipaSHA256": "ecd0ebc00f2230dde9e6899a5aec8c64964f66201d6199f5a9d13fd7b7d13bcf",
+  "uploadedIPAFileContentMatches": true,
+  "upload": {
+    "adamId": "6800383132",
+    "build": "15",
+    "event": {
+      "date": "2026-09-05T21:28:57Z",
+      "errors": [],
+      "state": "success",
+      "title": "Uploaded to Apple",
+      "warnings": []
+    },
+    "processingReported": true,
+    "testerAvailabilityVerified": false,
+    "appReviewAcceptanceVerified": false
+  },
+  "status": "upload verified; Apple processing/review pending",
+  "failures": []
+}

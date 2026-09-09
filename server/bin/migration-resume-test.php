@@ -127,6 +127,14 @@ try {
             FOREIGN KEY (actor_user_id) REFERENCES users (id) ON DELETE CASCADE
          );'
     );
+    // Question scheduling can stop between its two additive columns.
+    $pdo->exec("ALTER TABLE questions ADD COLUMN publish_start_minute INTEGER NOT NULL DEFAULT 540;
+        INSERT INTO questions (prompt) VALUES ('今日、心に残った景色は？');");
+    // Migration 009 can also stop after its first ALTER has committed.
+    $pdo->exec("ALTER TABLE users ADD COLUMN avatar_mark TEXT NULL;
+        INSERT INTO users (id, display_name) VALUES (3, 'たかも');
+        INSERT INTO families (id, name, invite_code) VALUES (2, 'たかみさんの家族', 'MIGRATE2');
+        INSERT INTO family_members (family_id, user_id, role) VALUES (2, 3, 'owner');");
     $pdo = null;
 
     $firstOutput = runMigrator($base);
@@ -204,6 +212,18 @@ try {
         (int) $pdo->query('SELECT COUNT(*) FROM notification_event_deliveries')->fetchColumn(),
         '007 resume does not duplicate the 006 backfill',
     );
+    migrationTruthy(migrationHasColumn($pdo, 'questions', 'publish_start_minute'), '008 resumes existing start column');
+    migrationTruthy(migrationHasColumn($pdo, 'questions', 'publish_end_minute'), '008 adds ending minute');
+    migrationTruthy(migrationHasTable($pdo, 'daily_question_publications'), '008 creates durable publication table');
+    migrationTruthy(migrationHasIndex($pdo, 'daily_question_publications', 'daily_question_publications_date_index'), '008 creates publication date index');
+    sameMigrationValue(1020, (int) $pdo->query("SELECT publish_start_minute FROM questions WHERE prompt LIKE '今日%'")->fetchColumn(), '008 moves legacy day-experience question to evening');
+    sameMigrationValue(1, (int) $pdo->query('SELECT COUNT(*) FROM answers WHERE question_id = 1')->fetchColumn(), '008 preserves existing answer question reference');
+    $pdo->exec('UPDATE questions SET publish_start_minute = 1080 WHERE id = 2');
+    migrationTruthy(migrationHasColumn($pdo, 'users', 'avatar_mark'), '009 resumes existing mark column');
+    migrationTruthy(migrationHasColumn($pdo, 'families', 'name_tracks_owner'), '009 adds family name mode');
+    sameMigrationValue('たかもさんの家族', $pdo->query('SELECT name FROM families WHERE id = 2')->fetchColumn(), '009 repairs stale generated family name');
+    sameMigrationValue('移行家族', $pdo->query('SELECT name FROM families WHERE id = 1')->fetchColumn(), '009 preserves custom family name');
+    $pdo->exec("UPDATE families SET name = '大切な家族', name_tracks_owner = 0 WHERE id = 2");
     // A ledger row alone must not hide an incomplete additive schema. Damage
     // one safe-to-recreate index after the first successful run and prove that
     // the recorded migration reconciles it on the next invocation.
@@ -237,6 +257,32 @@ try {
         migrationHasColumn($pdo, 'otp_mutation_receipts', 'outcome_encrypted'),
         'recorded 007 reconciles a missing receipt column',
     );
+    sameMigrationValue('大切な家族', $pdo->query('SELECT name FROM families WHERE id = 2')->fetchColumn(), '009 ledger prevents repeated name backfill');
+    sameMigrationValue(1080, (int) $pdo->query('SELECT publish_start_minute FROM questions WHERE id = 2')->fetchColumn(), '008 ledger preserves subsequent publishing customizations');
+    // Simulate an interrupted 010 after the first user column and unique index
+    // had committed. Previously verified profile data remains in the column.
+    $pdo->exec("DELETE FROM schema_migrations WHERE version = '010_email_auth.sql'");
+    $pdo->exec("UPDATE users SET email_address = 'retained@example.com' WHERE id = 1");
+    $pdo->exec('ALTER TABLE users DROP COLUMN email_verified_at');
+    $pdo->exec('DROP TABLE email_enrollment_challenges');
+    $pdo->exec('DROP INDEX email_otp_expiry_index');
+    $resumeEmail = runMigrator($base);
+    migrationTruthy(str_contains($resumeEmail, 'applied 010_email_auth.sql'), '010 interrupted migration resumes');
+    migrationTruthy(migrationHasColumn($pdo, 'users', 'email_verified_at'), '010 missing verification column restored');
+    migrationTruthy(migrationHasTable($pdo, 'email_enrollment_challenges'), '010 missing enrollment table restored');
+    migrationTruthy(migrationHasIndex($pdo, 'email_otp_challenges', 'email_otp_expiry_index'), '010 missing index restored');
+    sameMigrationValue('retained@example.com', $pdo->query('SELECT email_address FROM users WHERE id = 1')->fetchColumn(), '010 preserves existing address');
+    migrationTruthy(str_contains(runMigrator($base), 'skip 010_email_auth.sql'), '010 repeat is idempotent');
+    // Resume additive safety tables after a partial DDL commit. Existing block
+    // choices must survive; no rewrite of deployed questions or auth occurs.
+    $pdo->exec("INSERT INTO user_blocks (blocker_user_id,blocked_user_id) VALUES (1,2)");
+    $pdo->exec("DELETE FROM schema_migrations WHERE version = '011_content_safety.sql'");
+    $pdo->exec('DROP TABLE moderation_actions; DROP TABLE answer_reports');
+    $resumeSafety = runMigrator($base);
+    migrationTruthy(str_contains($resumeSafety, 'applied 011_content_safety.sql'), '011 interrupted migration resumes');
+    migrationTruthy(migrationHasTable($pdo, 'answer_reports') && migrationHasTable($pdo, 'moderation_actions'), '011 missing safety tables restored');
+    sameMigrationValue(1, (int) $pdo->query('SELECT COUNT(*) FROM user_blocks WHERE blocker_user_id=1 AND blocked_user_id=2')->fetchColumn(), '011 preserves block choices');
+    migrationTruthy(str_contains(runMigrator($base), 'skip 011_content_safety.sql'), '011 repeat is idempotent');
     echo "migration resume test passed\n";
 } finally {
     $pdo = null;

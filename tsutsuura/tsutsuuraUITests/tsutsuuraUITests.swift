@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 final class tsutsuuraUITests: XCTestCase {
     override func setUpWithError() throws {
@@ -13,14 +14,19 @@ final class tsutsuuraUITests: XCTestCase {
 
         XCTAssertTrue(createFamilyButton.waitForExistence(timeout: 3))
         XCTAssertTrue(setUpDeviceButton.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["どちらから始めますか？"].exists)
+        XCTAssertTrue(app.staticTexts["家族と、毎日ひとこと"].exists)
         XCTAssertTrue(createFamilyButton.label.contains("家族をつくる"))
-        XCTAssertTrue(setUpDeviceButton.label.contains("このiPhoneを設定"))
+        XCTAssertTrue(setUpDeviceButton.label.contains("家族の番号を入力"))
         XCTAssertTrue(app.buttons["returning-user-login-button"].exists)
+        attachScreenshot(of: app, named: "welcome-default")
+        for button in [createFamilyButton, setUpDeviceButton] {
+            XCTAssertTrue(scrollFullyIntoView(button, in: app))
+            assertFullyVisible(button, in: app)
+        }
     }
 
     @MainActor
-    func testReturningUserCanReachPhoneLoginAndReturn() throws {
+    func testReturningUserCanReachEmailLoginAndReturn() throws {
         let app = launchSignedOutDemo()
         let returningUserButton = app.buttons["returning-user-login-button"]
         XCTAssertTrue(returningUserButton.waitForExistence(timeout: 3))
@@ -28,11 +34,11 @@ final class tsutsuuraUITests: XCTestCase {
         returningUserButton.tap()
 
         XCTAssertTrue(
-            app.textFields["returning-phone-input"]
+            app.textFields["email-address-input"]
                 .waitForExistence(timeout: 3)
         )
-        XCTAssertTrue(app.buttons["returning-phone-submit"].exists)
-        XCTAssertTrue(app.staticTexts["以前のアカウントに戻る"].exists)
+        XCTAssertTrue(app.buttons["email-login-submit"].exists)
+        XCTAssertTrue(app.staticTexts["メールでログイン"].exists)
         let backButton = app.buttons["lifecycle-back-button"]
         XCTAssertTrue(backButton.exists)
         backButton.tap()
@@ -71,9 +77,11 @@ final class tsutsuuraUITests: XCTestCase {
         app.launchEnvironment["TSUTSUURA_DEMO_MODE"] = "signedOut"
         app.launchArguments += [
             "-UIPreferredContentSizeCategoryName",
-            "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge",
+            UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,
         ]
         app.launch()
+        XCTAssertTrue(app.buttons["create-family-button"].waitForExistence(timeout: 3))
+        attachScreenshot(of: app, named: "welcome-accessibility-xxxl")
 
         for identifier in [
             "create-family-button",
@@ -83,7 +91,8 @@ final class tsutsuuraUITests: XCTestCase {
         ] {
             let button = app.buttons[identifier]
             XCTAssertTrue(button.waitForExistence(timeout: 3))
-            XCTAssertTrue(scrollToHittable(button, in: app, maximumSwipes: 10))
+            XCTAssertTrue(scrollFullyIntoView(button, in: app, maximumSwipes: 10))
+            assertFullyVisible(button, in: app)
         }
     }
 
@@ -142,7 +151,7 @@ final class tsutsuuraUITests: XCTestCase {
         let app = launchSignedOutDemo(
             additionalArguments: [
                 "-UIPreferredContentSizeCategoryName",
-                "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge",
+                UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,
             ]
         )
 
@@ -182,7 +191,7 @@ final class tsutsuuraUITests: XCTestCase {
             additionalArguments: [
                 "-tsutsuura-demo-expired-pairing",
                 "-UIPreferredContentSizeCategoryName",
-                "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge",
+                UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,
             ]
         )
         completeYoungerFamilySetup(in: app)
@@ -198,6 +207,7 @@ final class tsutsuuraUITests: XCTestCase {
         let app = launchSignedOutDemo()
         let createFamilyButton = app.buttons["create-family-button"]
         XCTAssertTrue(createFamilyButton.waitForExistence(timeout: 3))
+        XCTAssertTrue(scrollToHittable(createFamilyButton, in: app))
         createFamilyButton.tap()
 
         let organizerField = app.textFields["organizer-name-input"]
@@ -343,8 +353,9 @@ final class tsutsuuraUITests: XCTestCase {
         XCTAssertTrue(finishedFamilySetup.waitForExistence(timeout: 3))
         XCTAssertTrue(scrollToHittable(finishedFamilySetup, in: app))
         finishedFamilySetup.tap()
+        finishEssentials(in: app)
 
-        let profileButton = app.buttons["あなた"]
+        let profileButton = app.buttons["home-tab-profile"]
         XCTAssertTrue(profileButton.waitForExistence(timeout: 5))
         profileButton.tap()
 
@@ -355,8 +366,9 @@ final class tsutsuuraUITests: XCTestCase {
         let familySettingsButton = app.buttons["family-settings-button"]
         XCTAssertTrue(familySettingsButton.waitForExistence(timeout: 3))
 
+        openOtherSettings(in: app)
         let signOutButton = app.buttons["settings-sign-out-button"]
-        XCTAssertTrue(signOutButton.exists)
+        XCTAssertTrue(scrollToHittable(signOutButton, in: app))
         signOutButton.tap()
         let confirmSignOut = app.sheets.buttons["ログアウト"]
         XCTAssertTrue(confirmSignOut.waitForExistence(timeout: 3))
@@ -442,6 +454,7 @@ final class tsutsuuraUITests: XCTestCase {
         }
         XCTAssertTrue(confirmButton.waitForExistence(timeout: 3))
         confirmButton.tap()
+        completeRequiredPersonalMark(in: app)
 
         let readyTitle = app.staticTexts["pairing-ready-title"]
         XCTAssertTrue(readyTitle.waitForExistence(timeout: 5))
@@ -454,9 +467,10 @@ final class tsutsuuraUITests: XCTestCase {
         let startButton = app.buttons["pairing-start-button"]
         XCTAssertTrue(startButton.exists)
         startButton.tap()
+        finishEssentials(in: app)
 
-        XCTAssertTrue(app.buttons["家族"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["あなた"].exists)
+        XCTAssertTrue(app.buttons["home-tab-family"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["home-tab-profile"].exists)
         XCTAssertTrue(app.buttons["回答する"].exists)
     }
 
@@ -469,8 +483,12 @@ final class tsutsuuraUITests: XCTestCase {
 
         let questionButton = app.buttons["回答する"]
         XCTAssertTrue(questionButton.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["家族"].exists)
-        XCTAssertTrue(app.buttons["あなた"].exists)
+        XCTAssertTrue(app.buttons["home-tab-family"].exists)
+        XCTAssertTrue(app.buttons["home-tab-profile"].exists)
+        assertFullyVisible(questionButton, in: app)
+        assertFullyVisible(app.buttons["home-tab-family"], in: app)
+        assertFullyVisible(app.buttons["home-tab-profile"], in: app)
+        attachScreenshot(of: app, named: "home-default")
         questionButton.tap()
 
         XCTAssertTrue(
@@ -480,19 +498,46 @@ final class tsutsuuraUITests: XCTestCase {
         XCTAssertTrue(app.textViews["answer-input"].exists)
         let voiceButton = app.buttons["声で回答"]
         XCTAssertTrue(voiceButton.exists)
-        XCTAssertTrue(scrollToHittable(voiceButton, in: app))
+        attachScreenshot(of: app, named: "question-default")
+        XCTAssertTrue(scrollFullyIntoView(voiceButton, in: app))
+        assertFullyVisible(voiceButton, in: app)
     }
 
     @MainActor
     func testFamilyProgressAnnouncesEveryMemberByNameAndState() throws {
         let app = launchAuthenticatedDemo()
-
+        let battery = app.descendants(matching: .any)["family-answer-battery"]
+        XCTAssertTrue(battery.waitForExistence(timeout: 5))
+        XCTAssertEqual(battery.value as? String, "2人中0人が回答済み")
         let currentMember = app.descendants(matching: .any)["つつうら：未回答"]
         let familyMember = app.descendants(matching: .any)["あおい：未回答"]
+        XCTAssertFalse(currentMember.exists)
+        attachScreenshot(of: app, named: "family-battery-empty")
+        showFamilyProgressDetails(in: app)
         XCTAssertTrue(currentMember.waitForExistence(timeout: 5))
         XCTAssertTrue(familyMember.exists)
         XCTAssertFalse(app.staticTexts["Close"].exists)
         XCTAssertFalse(app.staticTexts["checkmark.circle.fill"].exists)
+        attachScreenshot(of: app, named: "family-battery-members")
+        let details = app.buttons["family-progress-details-button"]
+        XCTAssertTrue(scrollAboveBottomNavigation(details, in: app))
+        details.tap()
+        XCTAssertTrue(currentMember.waitForNonExistence(timeout: 3))
+    }
+
+    @MainActor
+    func testFamilyBatteryShowsFullCharge() throws {
+        let app = launchAuthenticatedDemo(
+            additionalArguments: ["-tsutsuura-demo-battery-complete"]
+        )
+        let battery = app.descendants(matching: .any)["family-answer-battery"]
+        XCTAssertTrue(battery.waitForExistence(timeout: 5))
+        XCTAssertEqual(battery.value as? String, "2人中2人が回答済み")
+        attachScreenshot(of: app, named: "family-battery-complete")
+        showFamilyProgressDetails(in: app)
+        for name in ["つつうら", "あおい"] {
+            XCTAssertTrue(app.descendants(matching: .any)["\(name)：回答済み"].exists)
+        }
     }
 
     @MainActor
@@ -573,8 +618,8 @@ final class tsutsuuraUITests: XCTestCase {
         app.launchEnvironment["TSUTSUURA_DEMO_MODE"] = "authenticated"
         app.launch()
 
-        let familyButton = app.buttons["家族"]
-        let profileButton = app.buttons["あなた"]
+        let familyButton = app.buttons["home-tab-family"]
+        let profileButton = app.buttons["home-tab-profile"]
         XCTAssertTrue(familyButton.waitForExistence(timeout: 3))
         XCTAssertTrue(profileButton.exists)
         XCTAssertEqual(familyButton.value as? String, "選択中")
@@ -583,6 +628,10 @@ final class tsutsuuraUITests: XCTestCase {
 
         XCTAssertEqual(profileButton.value as? String, "選択中")
         XCTAssertNotEqual(familyButton.value as? String, "選択中")
+        XCTAssertTrue(app.buttons["設定"].waitForExistence(timeout: 3))
+        assertFullyVisible(familyButton, in: app)
+        assertFullyVisible(profileButton, in: app)
+        attachScreenshot(of: app, named: "profile-default")
     }
 
     @MainActor
@@ -613,16 +662,26 @@ final class tsutsuuraUITests: XCTestCase {
         dismissKeyboard.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3))
         app.buttons["submit-answer-button"].tap()
+        confirmAnswerSubmission(in: app)
 
         XCTAssertTrue(
             app.staticTexts["Family demo answer"]
                 .waitForExistence(timeout: 5)
         )
+        let battery = app.descendants(matching: .any)["family-answer-battery"]
+        XCTAssertEqual(battery.value as? String, "2人中1人が回答済み")
+        // The success overlay can briefly cover an already-updated home view.
+        // Capture only after its real controls can receive touches again.
+        XCTAssertTrue(waitUntilHittable(
+            app.buttons["family-progress-details-button"], timeout: 5
+        ))
+        showFamilyProgressDetails(in: app)
         XCTAssertTrue(
             app.descendants(matching: .any)["つつうら：回答済み"]
                 .waitForExistence(timeout: 5),
             "Submitting today's answer should announce the current member as answered"
         )
+        attachScreenshot(of: app, named: "family-battery-half")
     }
 
     @MainActor
@@ -680,6 +739,7 @@ final class tsutsuuraUITests: XCTestCase {
         let keyboardSubmit = app.buttons["submit-answer-from-keyboard"]
         XCTAssertTrue(keyboardSubmit.waitForExistence(timeout: 3))
         keyboardSubmit.tap()
+        confirmAnswerSubmission(in: app)
         XCTAssertTrue(answerInput.waitForNonExistence(timeout: 5))
 
         let commentButton = app.buttons["コメント"].firstMatch
@@ -708,10 +768,7 @@ final class tsutsuuraUITests: XCTestCase {
         let keyboard = app.keyboards.firstMatch
         XCTAssertTrue(keyboard.waitForExistence(timeout: 3))
         commentInput.typeText("Keyboard comment")
-        XCTAssertEqual(
-            app.descendants(matching: .any)["comment-character-count"].label,
-            "コメントは16文字、最大1,000文字"
-        )
+        XCTAssertFalse(app.descendants(matching: .any)["comment-character-count"].exists)
 
         XCTAssertGreaterThanOrEqual(
             commentInput.frame.width,
@@ -754,7 +811,7 @@ final class tsutsuuraUITests: XCTestCase {
         app.launchEnvironment["TSUTSUURA_DEMO_MODE"] = "authenticated"
         app.launch()
 
-        let profileButton = app.buttons["あなた"]
+        let profileButton = app.buttons["home-tab-profile"]
         XCTAssertTrue(profileButton.waitForExistence(timeout: 3))
         profileButton.tap()
 
@@ -806,7 +863,8 @@ final class tsutsuuraUITests: XCTestCase {
         )
         XCTAssertFalse(saveButton.isEnabled)
 
-        let refreshButton = buttonContainingLabel("データを更新", in: app)
+        openOtherSettings(in: app)
+        let refreshButton = app.buttons["settings-refresh-button"]
         XCTAssertTrue(scrollToHittable(refreshButton, in: app, maximumSwipes: 10))
         refreshButton.tap()
         let refreshFeedback = app.staticTexts["settings-refresh-feedback"]
@@ -818,17 +876,23 @@ final class tsutsuuraUITests: XCTestCase {
     func testSettingsReachNotificationsAccountRecoveryAndHelp() throws {
         let app = launchAuthenticatedDemo()
         openSettings(in: app)
+        attachScreenshot(of: app, named: "settings-simplified")
 
         let notificationButton = app.buttons["notification-settings-button"]
         XCTAssertTrue(notificationButton.waitForExistence(timeout: 3))
         XCTAssertTrue(scrollToHittable(notificationButton, in: app))
         notificationButton.tap()
 
-        XCTAssertTrue(app.staticTexts["端末の通知"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.switches["家族の活動"].exists)
-        XCTAssertTrue(app.switches["毎日の質問リマインダー"].exists)
-        XCTAssertTrue(app.switches["コメント"].exists)
-        XCTAssertTrue(app.switches["いいね"].exists)
+        XCTAssertTrue(app.staticTexts["iPhoneのお知らせ"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.switches["notification-family-toggle"].exists)
+        XCTAssertTrue(app.switches["notification-daily-toggle"].exists)
+        attachScreenshot(of: app, named: "notifications-simplified")
+        XCTAssertFalse(app.switches["コメントが届いたとき"].exists)
+        let noticeDetails = app.buttons["notification-details"]
+        XCTAssertTrue(scrollToHittable(noticeDetails, in: app))
+        noticeDetails.tap()
+        XCTAssertTrue(app.switches["コメントが届いたとき"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.switches["いいねが届いたとき"].exists)
         app.buttons["lifecycle-back-button"].tap()
 
         let accountButton = app.buttons["account-privacy-button"]
@@ -836,7 +900,8 @@ final class tsutsuuraUITests: XCTestCase {
         XCTAssertTrue(scrollToHittable(accountButton, in: app))
         accountButton.tap()
 
-        XCTAssertTrue(app.buttons["delete-account-button"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["機種変更・データ"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["delete-account-button"].exists)
         let recoveryNavigation = app.buttons["recovery-code-navigation-button"]
         XCTAssertTrue(recoveryNavigation.waitForExistence(timeout: 3))
         XCTAssertTrue(scrollToHittable(recoveryNavigation, in: app))
@@ -853,7 +918,8 @@ final class tsutsuuraUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["復旧コードをコピーしました"].exists)
 
         app.buttons["lifecycle-back-button"].tap()
-        XCTAssertTrue(app.buttons["delete-account-button"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["機種変更・データ"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["delete-account-button"].exists)
         app.buttons["lifecycle-back-button"].tap()
 
         let helpButton = app.buttons["help-button"]
@@ -861,12 +927,12 @@ final class tsutsuuraUITests: XCTestCase {
         XCTAssertTrue(scrollToHittable(helpButton, in: app))
         helpButton.tap()
 
-        XCTAssertTrue(app.staticTexts["使い方・ヘルプ"].waitForExistence(timeout: 3))
-        let replayButton = buttonContainingLabel("最初の案内をもう一度見る", in: app)
+        XCTAssertTrue(app.staticTexts["使い方"].waitForExistence(timeout: 3))
+        let replayButton = app.buttons["replay-essentials-button"]
         XCTAssertTrue(replayButton.waitForExistence(timeout: 3))
         XCTAssertTrue(scrollToHittable(replayButton, in: app, maximumSwipes: 10))
         replayButton.tap()
-        XCTAssertTrue(app.staticTexts["家族で一日ひとつ"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["一日ひとつ、家族に近況を"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["次へ"].exists)
     }
 
@@ -908,101 +974,485 @@ final class tsutsuuraUITests: XCTestCase {
         searchField.typeText("no-matching-answer")
         searchField.typeText("\n")
         XCTAssertTrue(
-            app.staticTexts["過去の回答はまだありません"]
+            app.staticTexts["条件に合う回答がありません"]
                 .waitForExistence(timeout: 5)
         )
+        let clearSearch = app.buttons["history-clear-search"]
+        XCTAssertTrue(scrollAboveBottomNavigation(clearSearch, in: app))
+        clearSearch.tap()
+        XCTAssertTrue(app.staticTexts["忙しい朝に、そっとお茶を入れてくれたこと。"].waitForExistence(timeout: 5))
+        XCTAssertEqual(searchField.value as? String, "質問や回答を検索")
+        XCTAssertFalse(clearSearch.exists)
     }
 
     @MainActor
-    func testHistoryFiltersCanExpandFromMineToWholeFamily() throws {
+    func testReturningToProfileAfterSearchDoesNotReopenKeyboard() throws {
         let app = launchAuthenticatedDemo()
         openProfile(in: app)
+        let search = app.textFields["history-search-field"]
+        XCTAssertTrue(focusTextField(search, in: app))
+        search.typeText("no-matching-answer")
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
 
-        let filterButton = buttonContainingLabel("絞り込み", in: app)
-        XCTAssertTrue(filterButton.waitForExistence(timeout: 5))
-        XCTAssertTrue(
-            scrollAboveBottomNavigation(filterButton, in: app),
-            "History filters should be fully visible above the bottom navigation"
-        )
-        filterButton.tap()
-
-        XCTAssertTrue(app.staticTexts["履歴を絞り込む"].waitForExistence(timeout: 3))
-        let familyScope = app.buttons["家族全員"]
-        XCTAssertTrue(familyScope.waitForExistence(timeout: 3))
-        familyScope.tap()
-
-        let applyButton = buttonContainingLabel("この条件で表示", in: app)
-        XCTAssertTrue(scrollToHittable(applyButton, in: app))
-        applyButton.tap()
-
-        XCTAssertTrue(
-            app.staticTexts["夕飯のときに昔の写真を見つけて、みんなで笑ったこと。"]
-                .waitForExistence(timeout: 5)
-        )
+        app.buttons["home-tab-family"].tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3))
+        app.buttons["home-tab-profile"].tap()
+        XCTAssertTrue(search.waitForExistence(timeout: 3))
+        XCTAssertEqual(search.value as? String, "no-matching-answer")
+        XCTAssertFalse(app.keyboards.firstMatch.waitForExistence(timeout: 1),
+                       "Returning to history must not focus its search field automatically")
+        XCTAssertTrue(app.staticTexts["条件に合う回答がありません"].waitForExistence(timeout: 3))
     }
 
     @MainActor
-    func testOwnerCanReachAnswerEditAndDeleteControls() throws {
+    func testHomeTabsReplaceComplexFiltersAndShowSelection() throws {
         let app = launchAuthenticatedDemo()
         openProfile(in: app)
+        XCTAssertFalse(buttonContainingLabel("絞り込み", in: app).exists)
+        let profileTab = app.buttons["home-tab-profile"]
+        let familyTab = app.buttons["home-tab-family"]
+        XCTAssertEqual(profileTab.value as? String, "選択中")
+        XCTAssertTrue(profileTab.isSelected)
+        XCTAssertFalse(familyTab.isSelected)
 
-        let editButton = app.buttons["edit-answer-demo-answer-history"]
-        XCTAssertTrue(editButton.waitForExistence(timeout: 5))
-        XCTAssertTrue(scrollAboveBottomNavigation(editButton, in: app))
-        editButton.tap()
-
-        XCTAssertTrue(app.staticTexts["回答を編集"].waitForExistence(timeout: 3))
-        XCTAssertTrue(buttonContainingLabel("変更を保存", in: app).exists)
-        let deleteButton = app.buttons["回答を削除"]
-        XCTAssertTrue(deleteButton.exists)
-        XCTAssertTrue(scrollAboveBottomNavigation(deleteButton, in: app))
-        deleteButton.tap()
-
-        XCTAssertTrue(app.staticTexts["この回答を削除しますか？"].waitForExistence(timeout: 3))
+        familyTab.tap()
+        XCTAssertTrue(app.staticTexts["夕飯のときに昔の写真を見つけて、みんなで笑ったこと。"].waitForExistence(timeout: 5))
+        XCTAssertEqual(familyTab.value as? String, "選択中")
+        XCTAssertTrue(familyTab.isSelected)
+        XCTAssertFalse(profileTab.isSelected)
+        XCTAssertFalse(app.textFields["history-search-field"].exists)
     }
 
     @MainActor
-    func testCommentOwnershipReplyAndReportActionsAreReachable() throws {
+    func testPublishedAnswersHaveNoEditOrDeleteActions() throws {
+        let app = launchAuthenticatedDemo()
+        openProfile(in: app)
+        XCTAssertTrue(app.staticTexts["忙しい朝に、そっとお茶を入れてくれたこと。"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["edit-answer-demo-answer-history"].exists)
+        XCTAssertFalse(buttonContainingLabel("この回答を編集", in: app).exists)
+        XCTAssertFalse(app.buttons["回答を削除"].exists)
+        let comments = app.buttons["answer-comments-demo-answer-history"]
+        XCTAssertTrue(scrollAboveBottomNavigation(comments, in: app))
+        comments.tap()
+        XCTAssertTrue(app.staticTexts["comments-screen-title"].waitForExistence(timeout: 3))
+    }
+
+    @MainActor
+    func testEdgeSwipeReturnsFromSettings() throws {
+        let app = launchAuthenticatedDemo()
+        openSettings(in: app)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.55))
+            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.55)))
+        XCTAssertTrue(app.textFields["history-search-field"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.textFields["settings-name-input"].exists)
+        XCTAssertEqual(app.buttons["home-tab-profile"].value as? String, "選択中")
+    }
+
+    @MainActor
+    func testDiagonalBackSwipeLocksVerticalScrollAndCancellationRestoresScrolling() throws {
+        let app = launchAuthenticatedDemo()
+        openSettings(in: app)
+        let name = app.textFields["settings-name-input"]
+        let originalY = name.frame.minY
+        let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: 4, dy: app.frame.height * 0.6))
+        start.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: 54, dy: app.frame.height * 0.6 - 140)))
+        XCTAssertTrue(name.exists, "A short horizontal movement cancels back navigation.")
+        XCTAssertEqual(name.frame.minY, originalY, accuracy: 2, "Vertical motion in an edge swipe must not scroll content.")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.75))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.4)))
+        XCTAssertLessThan(name.frame.minY, originalY - 10, "Normal vertical scrolling must work after a canceled back swipe.")
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: 4, dy: app.frame.height * 0.45))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: 145, dy: app.frame.height * 0.45 + 210)))
+        XCTAssertTrue(app.textFields["history-search-field"].waitForExistence(timeout: 5), "Back responds to horizontal travel even with larger vertical movement.")
+    }
+
+    @MainActor
+    func testEmailEnrollmentThenReturningLogin() throws {
+        let app = launchAuthenticatedDemo()
+        openSettings(in: app)
+        let account = app.buttons["account-privacy-button"]
+        XCTAssertTrue(scrollToHittable(account, in: app))
+        account.tap()
+        let enroll = app.buttons["email-enrollment-navigation-button"]
+        XCTAssertTrue(enroll.waitForExistence(timeout: 4))
+        XCTAssertFalse(app.buttons["phone-enrollment-submit"].exists)
+        XCTAssertTrue(scrollToHittable(enroll, in: app))
+        enroll.tap()
+        let email = app.textFields["email-address-input"]
+        XCTAssertTrue(email.waitForExistence(timeout: 4))
+        let currentEmail = email.value as? String ?? ""
+        // Enrollment now shows the saved address. Place the caret at its end
+        // before replacing it, rather than inserting into the existing value.
+        email.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        if currentEmail.contains("@") {
+            email.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: currentEmail.count))
+        }
+        email.typeText("family@example.com")
+        XCTAssertEqual(email.value as? String, "family@example.com")
+        let send = app.buttons["email-enrollment-submit"]
+        XCTAssertTrue(scrollToHittable(send, in: app))
+        XCTAssertTrue(send.isEnabled)
+        send.tap()
+        let code = app.textFields["email-verification-code-input"]
+        XCTAssertTrue(code.waitForExistence(timeout: 4))
+        code.tap()
+        code.typeText("123456")
+        app.buttons["dismiss-code-keyboard"].tap()
+        app.buttons["verify-email-code-button"].tap()
+        XCTAssertTrue(app.staticTexts["機種変更・データ"].waitForExistence(timeout: 5))
+        attachScreenshot(of: app, named: "verified-email-account")
+        app.buttons["lifecycle-back-button"].tap()
+        openOtherSettings(in: app)
+        let signOut = app.buttons["settings-sign-out-button"]
+        XCTAssertTrue(scrollToHittable(signOut, in: app))
+        signOut.tap()
+        let confirm = app.sheets.buttons["ログアウト"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3))
+        confirm.tap()
+        let returning = app.buttons["returning-user-login-button"]
+        XCTAssertTrue(returning.waitForExistence(timeout: 5))
+        XCTAssertTrue(scrollToHittable(returning, in: app))
+        returning.tap()
+        XCTAssertTrue(email.waitForExistence(timeout: 4))
+        email.tap()
+        email.typeText("family@example.com")
+        let login = app.buttons["email-login-submit"]
+        XCTAssertTrue(scrollToHittable(login, in: app))
+        login.tap()
+        XCTAssertTrue(code.waitForExistence(timeout: 4))
+        code.tap()
+        code.typeText("123456")
+        app.buttons["dismiss-code-keyboard"].tap()
+        app.buttons["verify-email-code-button"].tap()
+        XCTAssertTrue(app.buttons["home-tab-family"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testPullingHomeKeepsQuestionBannerFixedWithoutErrorOrSpinner() throws {
+        let app = launchAuthenticatedDemo()
+        let answer = app.buttons["回答する"]
+        XCTAssertTrue(answer.waitForExistence(timeout: 5))
+        let originalFrame = answer.frame
+        let startY = min(app.frame.height * 0.65, originalFrame.maxY + 150)
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: app.frame.midX, dy: startY))
+            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: app.frame.midX, dy: min(startY + 190, app.frame.height - 170))))
+        XCTAssertEqual(answer.frame.minY, originalFrame.minY, accuracy: 1)
+        XCTAssertEqual(answer.frame.height, originalFrame.height, accuracy: 1)
+        XCTAssertFalse(app.staticTexts["cancelled"].exists)
+        XCTAssertEqual(app.activityIndicators.count, 0)
+        XCTAssertFalse(app.buttons["home-refresh-button"].exists)
+        XCTAssertFalse(app.staticTexts["最新の回答を確認"].exists)
+        XCTAssertTrue(answer.isHittable)
+        XCTAssertEqual(app.activityIndicators.count, 0)
+        attachScreenshot(of: app, named: "home-fixed-banner-after-pull")
+    }
+
+    @MainActor
+    func testMissingPersonalMarkMustBeDrawnBeforeHomeAndCannotBeSkipped() throws {
+        let app = launchAuthenticatedDemo(additionalArguments: ["-tsutsuura-demo-missing-mark"])
+        let required = app.staticTexts["personal-mark-required-title"]
+        XCTAssertTrue(required.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["home-tab-family"].exists)
+        XCTAssertFalse(app.buttons["lifecycle-back-button"].exists)
+        XCTAssertFalse(app.buttons["personal-mark-heart"].exists)
+        XCTAssertFalse(app.buttons["personal-mark-initial"].exists)
+        XCTAssertFalse(app.buttons["personal-mark-save"].isEnabled)
+        swipeGuideBack(in: app)
+        XCTAssertTrue(required.exists, "Back gestures cannot bypass the required mark.")
+        XCTAssertFalse(app.buttons["home-tab-family"].exists)
+        completeRequiredPersonalMark(in: app)
+        XCTAssertTrue(app.buttons["home-tab-family"].waitForExistence(timeout: 5))
+        openSettings(in: app)
+        let edit = app.buttons["personal-mark-button"]
+        XCTAssertTrue(scrollToHittable(edit, in: app))
+        edit.tap()
+        XCTAssertTrue(app.buttons["lifecycle-back-button"].waitForExistence(timeout: 5))
+        XCTAssertFalse(required.exists, "An existing saved mark can be edited without repeating setup.")
+        XCTAssertEqual(app.staticTexts["personal-mark-current-kind"].label, "かいたしるしを使います")
+    }
+
+    @MainActor
+    func testPersonalMarkSupportsDrawingUndoAndSavedChoice() throws {
+        let app = launchAuthenticatedDemo()
+        openSettings(in: app)
+        let openMark = app.buttons["personal-mark-button"]
+        XCTAssertTrue(scrollToHittable(openMark, in: app))
+        openMark.tap()
+
+        let kind = app.staticTexts["personal-mark-current-kind"]
+        XCTAssertTrue(kind.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.sheets.count, 0, "Icon creation uses a navigation page.")
+        XCTAssertTrue(app.buttons["lifecycle-back-button"].exists)
+        let clear = app.buttons["personal-mark-clear"]
+        scrollAlongDrawingMargin(to: clear, in: app)
+        clear.tap()
+        XCTAssertEqual(kind.label, "指でしるしをかいてください")
+        XCTAssertFalse(app.buttons["personal-mark-save"].isEnabled)
+        let canvas = app.descendants(matching: .any).matching(identifier: "personal-mark-canvas").firstMatch
+        XCTAssertTrue(canvas.waitForExistence(timeout: 3))
+        scrollAlongDrawingMargin(to: canvas, in: app)
+        drawPersonalMark(on: canvas)
+        XCTAssertEqual(kind.label, "かいたしるしを使います")
+
+        let undo = app.buttons["personal-mark-undo"]
+        scrollAlongDrawingMargin(to: undo, in: app)
+        XCTAssertTrue(undo.isEnabled)
+        undo.tap()
+        XCTAssertEqual(kind.label, "指でしるしをかいてください")
+        XCTAssertFalse(app.buttons["personal-mark-save"].isEnabled)
+        scrollAlongDrawingMargin(to: canvas, in: app)
+        drawPersonalMark(on: canvas)
+        app.buttons["personal-mark-save"].tap()
+        XCTAssertTrue(openMark.waitForExistence(timeout: 5))
+        XCTAssertTrue(scrollToHittable(openMark, in: app))
+        openMark.tap()
+        XCTAssertTrue(kind.waitForExistence(timeout: 5))
+        XCTAssertEqual(kind.label, "かいたしるしを使います", "The saved mark must load when the editor opens again.")
+        attachScreenshot(of: app, named: "personal-mark-saved")
+
+        scrollAlongDrawingMargin(to: clear, in: app)
+        clear.tap()
+        XCTAssertFalse(app.buttons["personal-mark-save"].isEnabled, "An existing mark cannot be replaced with an empty canvas.")
+        app.buttons["lifecycle-back-button"].tap()
+        XCTAssertTrue(openMark.waitForExistence(timeout: 5))
+        XCTAssertTrue(scrollToHittable(openMark, in: app))
+        openMark.tap()
+        XCTAssertTrue(kind.waitForExistence(timeout: 5))
+        XCTAssertEqual(kind.label, "かいたしるしを使います", "Cancelling an empty edit preserves the saved drawing.")
+    }
+
+    @MainActor
+    func testFirstSetupCanPersonalizeAndReturnToLastGuideStep() throws {
+        let app = launchSignedOutDemo()
+        let createFamily = app.buttons["create-family-button"]
+        XCTAssertTrue(scrollToHittable(createFamily, in: app))
+        createFamily.tap()
+        let name = app.textFields["organizer-name-input"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        XCTAssertTrue(focusTextField(name, in: app))
+        name.typeText("まさこ")
+        app.buttons["dismiss-organizer-keyboard"].tap()
+        let continueSetup = app.buttons["organizer-continue-button"]
+        XCTAssertTrue(scrollToHittable(continueSetup, in: app))
+        continueSetup.tap()
+        completeRequiredPersonalMark(in: app)
+        let finishSetup = app.buttons["family-setup-finished-button"]
+        XCTAssertTrue(finishSetup.waitForExistence(timeout: 5))
+        XCTAssertTrue(scrollToHittable(finishSetup, in: app))
+        finishSetup.tap()
+
+        let title = app.staticTexts["essentials-title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertEqual(title.label, "一日ひとつ、家族に近況を")
+        let next = app.buttons["essentials-next-button"]
+        next.tap()
+        XCTAssertTrue(waitUntilLabelEquals("ひとことから、答えてみる", for: title, timeout: 3))
+        swipeGuideBack(in: app)
+        XCTAssertTrue(waitUntilLabelEquals("一日ひとつ、家族に近況を", for: title, timeout: 3))
+        XCTAssertFalse(app.buttons["home-tab-family"].exists, "An onboarding back gesture must remain in the guide until its first step.")
+        for _ in 0..<3 { next.tap() }
+        XCTAssertTrue(waitUntilLabelEquals("準備ができました", for: title, timeout: 3))
+        let personalize = app.buttons["essentials-personalize-button"]
+        XCTAssertTrue(scrollToHittable(personalize, in: app))
+        personalize.tap()
+        XCTAssertTrue(app.buttons["personal-mark-save"].waitForExistence(timeout: 5))
+        app.buttons["lifecycle-back-button"].tap()
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertEqual(title.label, "準備ができました", "Returning from editing a saved mark must preserve guide progress.")
+        attachScreenshot(of: app, named: "first-setup-ready-to-start")
+        next.tap()
+        XCTAssertTrue(app.buttons["home-tab-family"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testEssentialsReplayExplainsImmutableAnswersAndCanGoBack() throws {
+        let app = launchAuthenticatedDemo()
+        openSettings(in: app)
+        let help = app.buttons["help-button"]
+        XCTAssertTrue(scrollToHittable(help, in: app))
+        help.tap()
+        app.buttons["replay-essentials-button"].tap()
+        let title = app.staticTexts["essentials-title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertEqual(title.label, "一日ひとつ、家族に近況を")
+        let next = app.buttons["essentials-next-button"]
+        next.tap()
+        XCTAssertTrue(waitUntilLabelEquals("ひとことから、答えてみる", for: title, timeout: 3))
+        XCTAssertTrue(app.staticTexts["送る前に確認しましょう。送った回答は編集・削除できません。"].exists)
+        app.buttons["essentials-previous-button"].tap()
+        XCTAssertTrue(waitUntilLabelEquals("一日ひとつ、家族に近況を", for: title, timeout: 3))
+        for _ in 0..<3 { next.tap() }
+        XCTAssertTrue(waitUntilLabelEquals("準備ができました", for: title, timeout: 3))
+        XCTAssertTrue(app.staticTexts["名前の横のしるしは、あなたがかいた絵です。「設定」から、いつでもかき直せます。"].exists)
+        attachScreenshot(of: app, named: "essentials-last-step")
+        next.tap()
+        XCTAssertTrue(app.buttons["replay-essentials-button"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testFinalOnboardingOffersNotificationsAndCanStartWithoutPermission() throws {
+        let app = launchNotificationGuide(response: "authorized")
+        let optIn = app.buttons["essentials-notification-opt-in"]
+        XCTAssertTrue(scrollToHittable(optIn, in: app))
+        XCTAssertTrue(optIn.isEnabled)
+        XCTAssertFalse(app.staticTexts["essentials-notification-authorized"].exists,
+                       "Simply opening the guide must not request notification permission.")
+        attachScreenshot(of: app, named: "onboarding-notification-choice")
+        let finish = app.buttons["essentials-next-button"]
+        XCTAssertTrue(finish.isHittable, "Finishing must remain available without opting in.")
+        finish.tap()
+        XCTAssertTrue(app.buttons["replay-essentials-button"].waitForExistence(timeout: 5))
+        app.buttons["replay-essentials-button"].tap()
+        advanceToFinalGuidePage(in: app)
+        XCTAssertTrue(scrollToHittable(optIn, in: app), "Skipping must not record an authorization choice.")
+        optIn.tap()
+        let allowed = app.descendants(matching: .any).matching(identifier: "essentials-notification-authorized").firstMatch
+        XCTAssertTrue(allowed.waitForExistence(timeout: 5))
+        XCTAssertFalse(optIn.exists, "A granted permission must not prompt again.")
+        finish.tap()
+        XCTAssertTrue(app.buttons["replay-essentials-button"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testDecliningNotificationPermissionKeepsOnboardingUsable() throws {
+        let app = launchNotificationGuide(response: "denied")
+        let optIn = app.buttons["essentials-notification-opt-in"]
+        XCTAssertTrue(scrollToHittable(optIn, in: app))
+        optIn.tap()
+        let settings = app.buttons["essentials-notification-settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        XCTAssertFalse(optIn.exists, "A denied permission must not immediately prompt again.")
+        let finish = app.buttons["essentials-next-button"]
+        XCTAssertTrue(finish.isHittable)
+        finish.tap()
+        XCTAssertTrue(app.buttons["replay-essentials-button"].waitForExistence(timeout: 5))
+        app.buttons["replay-essentials-button"].tap()
+        advanceToFinalGuidePage(in: app)
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        XCTAssertFalse(optIn.exists)
+    }
+
+    @MainActor
+    private func launchNotificationGuide(response: String) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchEnvironment["UI_TESTING"] = "1"
+        app.launchEnvironment["TSUTSUURA_DEMO_MODE"] = "authenticated"
+        app.launchEnvironment["TSUTSUURA_TEST_PUSH_AUTHORIZATION"] = "notDetermined"
+        app.launchEnvironment["TSUTSUURA_TEST_PUSH_RESPONSE"] = response
+        app.launch()
+        openSettings(in: app)
+        let help = app.buttons["help-button"]
+        XCTAssertTrue(scrollToHittable(help, in: app))
+        help.tap()
+        app.buttons["replay-essentials-button"].tap()
+        advanceToFinalGuidePage(in: app)
+        return app
+    }
+
+    @MainActor
+    private func advanceToFinalGuidePage(in app: XCUIApplication) {
+        let title = app.staticTexts["essentials-title"]
+        let titles = ["一日ひとつ、家族に近況を", "ひとことから、答えてみる", "「家族」と「あなた」を選ぶ", "準備ができました"]
+        for index in 0..<3 {
+            XCTAssertTrue(waitUntilLabelEquals(titles[index], for: title, timeout: 5))
+            let next = app.buttons["essentials-next-button"]
+            XCTAssertTrue(waitUntilHittable(next, timeout: 3))
+            next.tap()
+            if !waitUntilLabelEquals(titles[index + 1], for: title, timeout: 3),
+               title.label == titles[index], next.isHittable { next.tap() }
+        }
+        XCTAssertTrue(waitUntilLabelEquals(titles[3], for: title, timeout: 5))
+    }
+
+    @MainActor
+    func testGuideReplayEdgeBackMovesToPreviousStepBeforeClosing() throws {
+        let app = launchAuthenticatedDemo()
+        openSettings(in: app)
+        let help = app.buttons["help-button"]
+        XCTAssertTrue(scrollToHittable(help, in: app))
+        help.tap()
+        app.buttons["replay-essentials-button"].tap()
+        let title = app.staticTexts["essentials-title"]
+        XCTAssertTrue(waitUntilLabelEquals("一日ひとつ、家族に近況を", for: title, timeout: 3))
+        let next = app.buttons["essentials-next-button"]
+        next.tap()
+        XCTAssertTrue(waitUntilLabelEquals("ひとことから、答えてみる", for: title, timeout: 3))
+        swipeGuideBack(in: app)
+        XCTAssertTrue(waitUntilLabelEquals("一日ひとつ、家族に近況を", for: title, timeout: 3))
+        XCTAssertFalse(app.buttons["replay-essentials-button"].exists, "Step2 edge-back must not dismiss the guide.")
+        next.tap()
+        next.tap()
+        XCTAssertTrue(waitUntilLabelEquals("「家族」と「あなた」を選ぶ", for: title, timeout: 3))
+        app.buttons["essentials-previous-button"].tap()
+        XCTAssertTrue(waitUntilLabelEquals("ひとことから、答えてみる", for: title, timeout: 3))
+        swipeGuideBack(in: app)
+        XCTAssertTrue(waitUntilLabelEquals("一日ひとつ、家族に近況を", for: title, timeout: 3))
+        swipeGuideBack(in: app)
+        XCTAssertTrue(app.buttons["replay-essentials-button"].waitForExistence(timeout: 3))
+    }
+
+    @MainActor
+    private func swipeGuideBack(in app: XCUIApplication) {
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        origin.withOffset(CGVector(dx: 4, dy: app.frame.height * 0.55))
+            .press(forDuration: 0.05, thenDragTo: origin.withOffset(
+                CGVector(dx: app.frame.width * 0.8, dy: app.frame.height * 0.55)
+            ))
+    }
+
+    @MainActor
+    func testCommentsHideEditAndDeleteWhileReplyAndReportRemainReachable() throws {
         let app = launchAuthenticatedDemo()
         let commentsButton = app.buttons["answer-comments-demo-answer-family"]
         XCTAssertTrue(commentsButton.waitForExistence(timeout: 5))
-        // Keep the action comfortably above the persistent bottom navigation.
-        // XCTest can report a partly covered control as hittable, so exercise
-        // the same short scroll a user would use to reveal the card actions.
-        XCTAssertTrue(scrollAboveBottomNavigation(commentsButton, in: app))
+        func revealCommentsButton() -> Bool {
+            for _ in 0..<12 {
+                let answerButton = app.buttons["回答する"]
+                let top = answerButton.exists ? answerButton.frame.maxY + 24 : app.frame.minY + 80
+                let bottom = min(app.buttons["home-tab-family"].frame.minY, app.buttons["home-tab-profile"].frame.minY) - 12
+                let frame = commentsButton.frame
+                if frame.minY >= top, frame.maxY <= bottom, commentsButton.isHittable { return true }
+                // The fixed question banner obscures content above the
+                // timeline. Reverse when a gesture moves the target under it.
+                let shift = frame.minY < top
+                    ? min(140, top - frame.minY + 12)
+                    : -min(140, max(24, frame.maxY - bottom + 12))
+                let origin = app.coordinate(withNormalizedOffset: .zero)
+                let start = CGVector(dx: app.frame.width * 0.95, dy: (top + bottom) / 2)
+                origin.withOffset(start).press(
+                    forDuration: 0.05,
+                    thenDragTo: origin.withOffset(CGVector(dx: start.dx, dy: start.dy + shift)),
+                    withVelocity: .slow,
+                    thenHoldForDuration: 0.25
+                )
+            }
+            return false
+        }
+        XCTAssertTrue(revealCommentsButton())
         commentsButton.tap()
 
         let commentsTitle = app.staticTexts["comments-screen-title"]
         if !commentsTitle.waitForExistence(timeout: 3),
            commentsButton.exists {
-            XCTAssertTrue(scrollAboveBottomNavigation(commentsButton, in: app))
+            XCTAssertTrue(revealCommentsButton())
             commentsButton.tap()
         }
         XCTAssertTrue(commentsTitle.waitForExistence(timeout: 3))
 
-        let editOwnComment = app.buttons["edit-comment-demo-comment-1"]
-        let deleteOwnComment = app.buttons["delete-comment-demo-comment-1"]
-        XCTAssertTrue(editOwnComment.waitForExistence(timeout: 5))
-        XCTAssertTrue(scrollToHittable(editOwnComment, in: app))
-        XCTAssertTrue(editOwnComment.isHittable)
-        XCTAssertTrue(deleteOwnComment.isHittable)
-
-        deleteOwnComment.tap()
-        let deleteAlert = app.alerts.firstMatch
-        XCTAssertTrue(deleteAlert.waitForExistence(timeout: 3))
-        XCTAssertTrue(deleteAlert.buttons["削除"].exists)
-        let cancelDeletion = deleteAlert.buttons["キャンセル"]
-        XCTAssertTrue(cancelDeletion.exists)
-        cancelDeletion.tap()
-
-        editOwnComment.tap()
-        XCTAssertTrue(app.staticTexts["コメントを編集"].waitForExistence(timeout: 3))
-        XCTAssertTrue(buttonContainingLabel("変更を保存", in: app).exists)
-        app.buttons["lifecycle-back-button"].tap()
-        XCTAssertTrue(commentsTitle.waitForExistence(timeout: 3))
+        // Wait for an existing comment by the current user before checking
+        // that ownership no longer exposes editing or deletion controls.
+        XCTAssertTrue(app.staticTexts["その写真、今度わたしにも見せて！"].waitForExistence(timeout: 5))
+        let editButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "edit-comment-"))
+        let deleteButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "delete-comment-"))
+        XCTAssertFalse(editButtons.firstMatch.exists)
+        XCTAssertFalse(deleteButtons.firstMatch.exists)
 
         app.swipeUp()
-        let reportButton = app.buttons["報告"].firstMatch
+        let reportButton = app.buttons["comment-safety-demo-comment-2"]
         let replyButton = app.buttons["返信"].firstMatch
         XCTAssertTrue(reportButton.waitForExistence(timeout: 3))
         XCTAssertTrue(replyButton.waitForExistence(timeout: 3))
@@ -1019,11 +1469,11 @@ final class tsutsuuraUITests: XCTestCase {
         XCTAssertLessThan(reportButton.frame.maxY, composerInput.frame.minY)
         XCTAssertLessThan(replyButton.frame.maxY, composerInput.frame.minY)
         reportButton.tap()
-        let reportAlert = app.alerts.firstMatch
-        XCTAssertTrue(reportAlert.waitForExistence(timeout: 3))
-        let confirmReport = reportAlert.buttons["不適切な内容として報告"]
-        XCTAssertTrue(confirmReport.waitForExistence(timeout: 3))
-        confirmReport.tap()
+        XCTAssertTrue(app.staticTexts["このコメントを報告する"].waitForExistence(timeout: 3))
+        // Leave the report page without hiding this comment, so the existing
+        // composer/reply regression can still exercise that comment's reply.
+        // ContentSafetyUITests separately verifies submission and removal.
+        app.buttons["lifecycle-back-button"].tap()
 
         XCTAssertTrue(scrollToHittable(replyButton, in: app))
         replyButton.tap()
@@ -1037,6 +1487,8 @@ final class tsutsuuraUITests: XCTestCase {
             .matching(NSPredicate(format: "label == %@", "返信"))
             .firstMatch
         XCTAssertTrue(renderedReplyMarker.exists)
+        XCTAssertFalse(editButtons.firstMatch.exists, "A newly posted reply must not expose an edit action either.")
+        XCTAssertFalse(deleteButtons.firstMatch.exists, "A newly posted reply must not expose a delete action either.")
     }
 
     @MainActor
@@ -1049,7 +1501,7 @@ final class tsutsuuraUITests: XCTestCase {
 
         let transcript = app.staticTexts["今日は家族と散歩をしました"]
         XCTAssertTrue(transcript.waitForExistence(timeout: 7))
-        let useAnswerButton = app.buttons["この回答"]
+        let useAnswerButton = app.buttons["voice-use-answer-button"]
         XCTAssertTrue(useAnswerButton.waitForExistence(timeout: 3))
         XCTAssertTrue(waitUntilEnabled(useAnswerButton, timeout: 3))
         useAnswerButton.tap()
@@ -1070,16 +1522,31 @@ final class tsutsuuraUITests: XCTestCase {
         app.launchEnvironment["TSUTSUURA_DEMO_MODE"] = "authenticated"
         app.launchArguments += [
             "-UIPreferredContentSizeCategoryName",
-            "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge",
+            UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,
         ]
         app.launch()
 
-        let familyTab = app.buttons["家族"]
-        let profileTab = app.buttons["あなた"]
+        let familyTab = app.buttons["home-tab-family"]
+        let profileTab = app.buttons["home-tab-profile"]
         XCTAssertTrue(familyTab.waitForExistence(timeout: 5))
         XCTAssertTrue(profileTab.exists)
-        XCTAssertTrue(familyTab.isHittable)
-        XCTAssertTrue(profileTab.isHittable)
+        XCTAssertGreaterThan(
+            familyTab.frame.height,
+            90,
+            "Largest accessibility text must visibly expand the navigation controls."
+        )
+        assertFullyVisible(familyTab, in: app)
+        assertFullyVisible(profileTab, in: app)
+        attachScreenshot(of: app, named: "home-accessibility-xxxl")
+
+        showFamilyProgressDetails(in: app)
+        let currentMember = app.descendants(matching: .any)["つつうら：未回答"]
+        XCTAssertTrue(currentMember.waitForExistence(timeout: 3))
+        XCTAssertTrue(scrollAboveBottomNavigation(currentMember, in: app, maximumSwipes: 10))
+        attachScreenshot(of: app, named: "family-battery-accessibility-xxxl")
+        let progressDetails = app.buttons["family-progress-details-button"]
+        XCTAssertTrue(scrollAboveBottomNavigation(progressDetails, in: app, maximumSwipes: 10))
+        progressDetails.tap()
 
         let answerQuestion = app.buttons["回答する"]
         XCTAssertTrue(answerQuestion.waitForExistence(timeout: 3))
@@ -1090,15 +1557,27 @@ final class tsutsuuraUITests: XCTestCase {
                 maximumSwipes: 10
             )
         )
+        assertFullyVisible(answerQuestion, in: app)
         answerQuestion.tap()
         XCTAssertTrue(app.buttons["声で回答"].waitForExistence(timeout: 3))
         let questionBack = app.buttons["戻る"].firstMatch
-        XCTAssertTrue(questionBack.isHittable)
+        assertFullyVisible(questionBack, in: app)
+        attachScreenshot(of: app, named: "question-accessibility-xxxl")
+        let voiceButton = app.buttons["声で回答"]
+        XCTAssertTrue(scrollFullyIntoView(voiceButton, in: app, maximumSwipes: 10))
+        assertFullyVisible(voiceButton, in: app)
+        XCTAssertTrue(scrollFullyIntoView(questionBack, in: app, maximumSwipes: 10))
         questionBack.tap()
 
+        let likeButton = app.buttons["いいね"].firstMatch
+        XCTAssertTrue(likeButton.waitForExistence(timeout: 3))
+        XCTAssertTrue(scrollAboveBottomNavigation(likeButton, in: app, maximumSwipes: 10))
+        assertFullyVisible(likeButton, in: app)
         let familyComments = app.buttons["answer-comments-demo-answer-family"]
         XCTAssertTrue(familyComments.waitForExistence(timeout: 3))
         XCTAssertTrue(scrollAboveBottomNavigation(familyComments, in: app))
+        assertFullyVisible(familyComments, in: app)
+        attachScreenshot(of: app, named: "answer-actions-accessibility-xxxl")
         familyComments.tap()
         XCTAssertTrue(app.staticTexts["comments-screen-title"].waitForExistence(timeout: 3))
         let commentsBack = app.buttons["戻る"].firstMatch
@@ -1109,7 +1588,11 @@ final class tsutsuuraUITests: XCTestCase {
         profileTab.tap()
         let settingsButton = app.buttons["設定"]
         XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
-        XCTAssertTrue(scrollToHittable(settingsButton, in: app))
+        // Screen bounds include the persistent tabs. Reveal the settings
+        // control above them before tapping, including at accessibility sizes.
+        XCTAssertTrue(scrollAboveBottomNavigation(settingsButton, in: app))
+        assertFullyVisible(settingsButton, in: app)
+        attachScreenshot(of: app, named: "profile-accessibility-xxxl")
         settingsButton.tap()
 
         let nameField = app.textFields["settings-name-input"]
@@ -1139,6 +1622,7 @@ final class tsutsuuraUITests: XCTestCase {
     func testDecorativeSymbolsDoNotExposeRawAccessibilityNames() throws {
         let app = launchAuthenticatedDemo()
         XCTAssertTrue(app.buttons["回答する"].waitForExistence(timeout: 5))
+        showFamilyProgressDetails(in: app)
 
         for rawName in [
             "Mark Read",
@@ -1190,6 +1674,89 @@ final class tsutsuuraUITests: XCTestCase {
         }
     }
 
+    /// The drawing surface deliberately owns finger drags. Scroll using its outside margin.
+    @MainActor
+    private func scrollAlongDrawingMargin(to element: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<12 {
+            let bottom = app.buttons["personal-mark-save"].frame.minY - 12
+            let top = app.frame.minY + 90
+            if element.isHittable && element.frame.maxY <= bottom && element.frame.minY >= top { return }
+            let shift = element.frame.minY < top
+                ? min(220, top - element.frame.minY + 16)
+                : -min(220, element.frame.maxY - bottom + 16)
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            let start = CGPoint(x: app.frame.width * 0.98, y: app.frame.height * 0.5)
+            origin.withOffset(CGVector(dx: start.x, dy: start.y))
+                .press(forDuration: 0.05,
+                       thenDragTo: origin.withOffset(CGVector(dx: start.x, dy: start.y + shift)),
+                       withVelocity: .slow, thenHoldForDuration: 0.25)
+        }
+        XCTFail("Could not reveal \(element.identifier) in drawing page: \(element.frame)")
+    }
+
+    @MainActor
+    private func drawPersonalMark(on canvas: XCUIElement) {
+        canvas.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.25))
+            .press(forDuration: 0.05, thenDragTo: canvas.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.65)))
+    }
+
+    @MainActor
+    private func completeRequiredPersonalMark(in app: XCUIApplication) {
+        let required = app.staticTexts["personal-mark-required-title"]
+        XCTAssertTrue(required.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["home-tab-family"].exists)
+        let save = app.buttons["personal-mark-save"]
+        XCTAssertFalse(save.isEnabled)
+        let canvas = app.descendants(matching: .any).matching(identifier: "personal-mark-canvas").firstMatch
+        XCTAssertTrue(canvas.waitForExistence(timeout: 5))
+        scrollAlongDrawingMargin(to: canvas, in: app)
+        drawPersonalMark(on: canvas)
+        XCTAssertTrue(save.isEnabled)
+        save.tap()
+        XCTAssertTrue(required.waitForNonExistence(timeout: 5))
+    }
+
+    @MainActor
+    private func finishEssentials(in app: XCUIApplication) {
+        if app.staticTexts["personal-mark-required-title"].exists {
+            completeRequiredPersonalMark(in: app)
+        }
+        let title = app.staticTexts["essentials-title"]
+        let next = app.buttons["essentials-next-button"]
+        let titles = ["一日ひとつ、家族に近況を", "ひとことから、答えてみる", "「家族」と「あなた」を選ぶ", "準備ができました"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        for index in 0..<3 {
+            XCTAssertTrue(waitUntilLabelEquals(titles[index], for: title, timeout: 3))
+            XCTAssertTrue(waitUntilHittable(next, timeout: 3))
+            next.tap()
+            // A route-entry animation can expose an accessible control before
+            // its hit target settles. Never advance based on a blind tap count.
+            if !waitUntilLabelEquals(titles[index + 1], for: title, timeout: 3),
+               title.label == titles[index], next.isHittable {
+                next.tap()
+            }
+            XCTAssertTrue(waitUntilLabelEquals(titles[index + 1], for: title, timeout: 3))
+        }
+        XCTAssertTrue(next.label.contains("つつうらをはじめる"))
+        next.tap()
+        XCTAssertTrue(app.buttons["home-tab-family"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    private func openOtherSettings(in app: XCUIApplication) {
+        let otherActions = app.buttons["ほかの操作"]
+        XCTAssertTrue(scrollToHittable(otherActions, in: app, maximumSwipes: 10))
+        otherActions.tap()
+    }
+
+    @MainActor
+    private func confirmAnswerSubmission(in app: XCUIApplication) {
+        let confirm = app.alerts.buttons["家族に送る"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.alerts.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "送った後は変更・削除できません。")).firstMatch.exists)
+        confirm.tap()
+    }
+
     @MainActor
     private func launchSignedOutDemo(
         additionalArguments: [String] = []
@@ -1197,6 +1764,7 @@ final class tsutsuuraUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["UI_TESTING"] = "1"
         app.launchEnvironment["TSUTSUURA_DEMO_MODE"] = "signedOut"
+        app.launchArguments += ["-essentials-v2-demo-user", "NO", "-essentials-v2-demo-managed-member-1", "NO"]
         app.launchArguments += additionalArguments
         app.launch()
         return app
@@ -1216,7 +1784,7 @@ final class tsutsuuraUITests: XCTestCase {
 
     @MainActor
     private func openProfile(in app: XCUIApplication) {
-        let profileButton = app.buttons["あなた"]
+        let profileButton = app.buttons["home-tab-profile"]
         XCTAssertTrue(profileButton.waitForExistence(timeout: 5))
         profileButton.tap()
         let historySearch = app.textFields["history-search-field"]
@@ -1225,6 +1793,14 @@ final class tsutsuuraUITests: XCTestCase {
             profileButton.tap()
         }
         XCTAssertTrue(historySearch.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    private func showFamilyProgressDetails(in app: XCUIApplication) {
+        let details = app.buttons["family-progress-details-button"]
+        XCTAssertTrue(details.waitForExistence(timeout: 5))
+        XCTAssertTrue(scrollAboveBottomNavigation(details, in: app, maximumSwipes: 10))
+        details.tap()
     }
 
     @MainActor
@@ -1304,6 +1880,7 @@ final class tsutsuuraUITests: XCTestCase {
     private func completeYoungerFamilySetup(in app: XCUIApplication) {
         let createFamilyButton = app.buttons["create-family-button"]
         XCTAssertTrue(createFamilyButton.waitForExistence(timeout: 3))
+        XCTAssertTrue(scrollToHittable(createFamilyButton, in: app))
         createFamilyButton.tap()
 
         let organizerField = app.textFields["organizer-name-input"]
@@ -1328,6 +1905,7 @@ final class tsutsuuraUITests: XCTestCase {
         XCTAssertTrue(continueButton.exists)
         XCTAssertTrue(scrollToHittable(continueButton, in: app))
         continueButton.tap()
+        completeRequiredPersonalMark(in: app)
 
         let addMemberButton = app.buttons["add-managed-member-button"]
         XCTAssertTrue(addMemberButton.waitForExistence(timeout: 5))
@@ -1358,6 +1936,63 @@ final class tsutsuuraUITests: XCTestCase {
             "pairing-share-code"
         ]
         XCTAssertTrue(pairingCode.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    private func attachScreenshot(of app: XCUIApplication, named name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    @MainActor
+    private func assertFullyVisible(
+        _ element: XCUIElement,
+        in app: XCUIApplication,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertTrue(element.isHittable, file: file, line: line)
+        XCTAssertFalse(element.frame.isEmpty, file: file, line: line)
+        XCTAssertTrue(
+            app.frame.insetBy(dx: -1, dy: -1).contains(element.frame),
+            "\(element.label) is clipped: \(element.frame) exceeds \(app.frame)",
+            file: file,
+            line: line
+        )
+    }
+
+    @MainActor
+    private func scrollFullyIntoView(
+        _ element: XCUIElement,
+        in app: XCUIApplication,
+        maximumSwipes: Int = 6
+    ) -> Bool {
+        guard scrollToHittable(element, in: app, maximumSwipes: maximumSwipes) else {
+            return false
+        }
+        for _ in 0..<maximumSwipes {
+            let bounds = app.frame
+            let frame = element.frame
+            if bounds.insetBy(dx: -1, dy: -1).contains(frame) {
+                return element.isHittable
+            }
+            // Hittability permits partly clipped controls. Reveal their full
+            // height with a short drag; horizontal overflow is a layout failure.
+            guard frame.minX >= bounds.minX - 1,
+                  frame.maxX <= bounds.maxX + 1 else { return false }
+            let direction: CGFloat = frame.minY < bounds.minY ? 1 : -1
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .press(
+                    forDuration: 0.05,
+                    thenDragTo: app.coordinate(
+                        withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5 + direction * 0.15)
+                    )
+                )
+        }
+        return element.isHittable
+            && app.frame.insetBy(dx: -1, dy: -1).contains(element.frame)
     }
 
     @MainActor
@@ -1412,8 +2047,12 @@ final class tsutsuuraUITests: XCTestCase {
         in app: XCUIApplication,
         maximumSwipes: Int = 6
     ) -> Bool {
-        let bottomNavigation = app.buttons["家族"]
-        guard bottomNavigation.exists else {
+        // Wrapped tab labels can make one control taller than the other.
+        // Use the highest visible edge so scrolling starts above both tabs.
+        let bottomNavigation = [app.buttons["home-tab-family"], app.buttons["home-tab-profile"]]
+            .filter { $0.exists && $0.frame.intersects(app.frame) }
+            .min { $0.frame.minY < $1.frame.minY }
+        guard let bottomNavigation else {
             return scrollToHittable(
                 element,
                 in: app,

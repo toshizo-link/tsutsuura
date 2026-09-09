@@ -1,0 +1,27 @@
+{
+  "verifiedAt": "2026-09-07T23:46:56.642028+00:00",
+  "candidateBuild": "17",
+  "finalRun": "audio-v4-summary.json",
+  "unitTestsPassed": 250,
+  "newAudioUnitTests": 18,
+  "audioUIScenariosPassed": 2,
+  "existingVoiceUIScenariosPassed": 2,
+  "existingVoiceUIEvidence": "audio-v2.log",
+  "failedTestsRemaining": 0,
+  "earlierFailures": "v1/v2 draft UI synchronization/scrolling failures resolved by v3; v4 repeats both audio UI scenarios after the latest-intent and visual fixes.",
+  "finalVisualQAPassed": true,
+  "visualEvidence": [
+    "voice-answer-playing-final.png",
+    "voice-draft-listen-before-sending-final.png"
+  ],
+  "simulator": "iPhone SE (3rd generation), iOS26.5",
+  "nativeAACDecodingVerified": true,
+  "nativePlaybackProgressAndSignalVerified": true,
+  "deterministicDelayedDownloadOrderVerified": true,
+  "localMultipartUploadAndMediaDownloadVerified": true,
+  "physicalMicrophoneAndSpeakerVerified": false,
+  "userAudioAccessed": false,
+  "productionAccessed": false,
+  "testFlightUploaded": false,
+  "appReviewSubmitted": false
+}

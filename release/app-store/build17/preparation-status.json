@@ -1,0 +1,44 @@
+{
+  "updatedAt": "2026-09-07T23:47:39.797705+00:00",
+  "candidateBuild": "17",
+  "sourceWorktree": "/tmp/tsutsuura-appstore-review-safety",
+  "sourceFrozen": true,
+  "backendFixtureSuitesPassed": 9,
+  "iosVerification": {
+    "unitTestsPassed": 250,
+    "safetyUIScenariosPassed": 4,
+    "voiceUIScenariosPassed": 4,
+    "visualContrastRetestsPassed": 2,
+    "failedTestsRemaining": 0,
+    "simulator": "iPhone SE3 iOS26.5",
+    "api": "DemoAppAPI for UI; fixture HTTP transport for units; local PHP HTTP contract and real audio round-trip suites separately",
+    "physicalDeviceTested": false,
+    "latestUnitAndAudioUIEvidence": "audio-fix/audio-v4-summary.json",
+    "earlierVoiceUIEvidence": "audio-fix/audio-v2.log",
+    "safetyUIEvidence": "ios-qa/"
+  },
+  "productionDeployed": false,
+  "cloudBuildDispatched": false,
+  "testFlightUploaded": false,
+  "appReviewReplySent": false,
+  "physicalRecording": "deferred by user",
+  "requiredInputs": [
+    "ConoHa authenticated session",
+    "Physical iPhone recording"
+  ],
+  "remainingReadinessChecks": [
+    "Production safety endpoints and preserved workers",
+    "Real email inbox flow",
+    "Human moderation operation and outstanding UGC safeguards",
+    "Physical iPhone microphone, speaker and Silent-mode audio playback"
+  ],
+  "sourceCommit": "3737080632d272ad0115ad7f3dc80d2118163946",
+  "sourceBranch": "codex/appstore-review-safety",
+  "sourceIntegrated": true,
+  "integratedFiles": 37,
+  "shippingInputsMatched": 52,
+  "deploymentPackagePrepared": true,
+  "audioPlaybackFix": "Implemented and tested: explicit recording finalization/decoding checks, playback session activation, truthful controls, listen-before-send preview, shared playback intent and session ownership. Not uploaded.",
+  "audioIntegratedFiles": 8,
+  "audioVerification": "audio-fix/verification.json"
+}

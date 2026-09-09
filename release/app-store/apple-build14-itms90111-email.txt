@@ -1,0 +1,18 @@
+SUBJECT: Action needed: The uploaded build for Tsutsuura has one or more issues.DATE: Saturday, September 5, 2026 at 17:12:45￼ 
+￼ 
+ 
+Hello,
+We noticed one or more issues with a recent submission for App Store review for the following app:
+Tsutsuura
+App Apple ID 6800383132
+Version 1.0
+Build 14
+Please correct the following issues and upload a new binary to App Store Connect.
+ITMS-90111: Unsupported SDK or Xcode version - App submissions must use the latest Xcode and SDK Release Candidates (RC). For details on currently supported versions, visit: https://developer.apple.com/news/releases. 
+Apple Developer Relations
+￼ 
+ 
+Contact UsApp Store ConnectOne Apple Park Way, Cupertino, CA 95014 
+
+Privacy PolicyTerms of Service 
+

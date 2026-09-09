@@ -1,0 +1,16 @@
+2. Purpose, audience and value
+Tsutsuura is a free Japanese-language app for private family communication, including relatives living apart and older adults. One daily question gives members a simple reason to share memories and everyday experiences. Large controls, optional voice input and family-assisted setup support less confident smartphone users. Answers, photos/audio, likes and comments stay within the family; there is no public discovery feed.
+
+3. Setup and main features
+No existing account, password, email or phone verification is required. Choose 新しく家族をつくる, enter organizer/family names, tap この名前で次へ, draw a mark in あなたのしるし, then このしるしを使う → 使い方を見てはじめる. Notification permission is optional.
+On home, tap 回答する for an available unanswered question, enter text, optionally add voice or up to four photos, and confirm sending. 家族 shows family answers; あなた shows your history/search. Tap photos for full-screen viewing or コメント to reply. For a second device, add a family member and generate a six-digit invitation; choose 家族の番号を入力 on that device. Codes expire after 10 minutes. No review credentials are needed for this self-serve flow.
+
+4. Services and tools
+This is a native Swift/SwiftUI app using Apple frameworks, including PhotosUI, Speech/AVFoundation and UserNotifications/APNs. Our PHP/SQLite API runs on ConoHa WING at https://toshizo.link/tsutsuura-api/api. Optional email recovery uses PHP mail; SMS is disabled. No third-party app SDK, advertising, payment or external social-login service is required. Xcode/GitHub Actions are development/build tools, not services users must join.
+
+5. Regional behavior
+The same features are offered in all available regions. The interface and questions are Japanese. Daily questions use Asia/Tokyo dates and appear between 09:00 and 19:00 Japan time; the app shows the publication time before answering becomes available. Notification quiet hours use the account's stored timezone. There are no region-specific feature modes.
+
+6. Regulated services and protected material
+The app provides no regulated financial, medical or gambling service and no third-party media catalogue. Family members supply their own responses and attachments. The bundled Kaisotai Next UP B font is unmodified and used under the author's published application-use terms: https://moji-waku.com/mj_work_license/.
+The phone icon derives from Google Material icons (Apache 2.0): https://github.com/google/material-design-icons/blob/master/LICENSE.

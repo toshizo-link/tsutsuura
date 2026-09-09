@@ -243,7 +243,8 @@ try {
     );
 
     $answerMedia = new AnswerMediaService($database, $crypto, $config);
-    $app = new AppService($database, $crypto, $config, $answerMedia);
+    $answerClock = static fn (): DateTimeImmutable => (new DateTimeImmutable('now', $config->timezone))->setTime(19, 30);
+    $app = new AppService($database, $crypto, $config, $answerMedia, null, $answerClock);
     $lifecycle = new LifecycleService(
         $database,
         $crypto,
@@ -255,14 +256,80 @@ try {
     same(1, count($family['members']), 'default family provisioning');
     $today = $app->todayQuestion($userId);
     truthy(isset($today['question']['prompt']), 'today question');
+    same([], $app->home($userId)['todayAnsweredUserIDs'], 'home progress starts empty');
     $answer = $app->submitTodayAnswer($userId, '今日はいい日でした。');
     same('今日はいい日でした。', $answer['body'], 'answer submission');
     same([], $answer['media'], 'text answer has empty media array');
+    same($answer, $app->submitTodayAnswer($userId, '今日はいい日でした。'), 'text retry returns original answer');
+    apiError(static fn () => $app->submitTodayAnswer($userId, '書き直し'), 409, 'answer_immutable', 'published text cannot be overwritten');
+
     same(
         $answer['id'],
         $app->answerById($userId, (string) $answer['id'])['id'],
         'answer detail lookup for current family',
     );
+    same([(string) $userId], $app->home($userId)['todayAnsweredUserIDs'], 'home progress includes own answer');
+
+    // Keep this large-family fixture isolated from the remaining lifecycle tests.
+    $pdo->beginTransaction();
+    try {
+        $pdo->exec("INSERT INTO families (name, invite_code) VALUES ('別の家族', 'progress-other-family')");
+        $progressOtherFamilyId = (int) $pdo->lastInsertId();
+        $pdo->exec("INSERT INTO questions (prompt, is_active) VALUES ('別の質問', 0)");
+        $progressOtherQuestionId = (int) $pdo->lastInsertId();
+        $progressUserInsert = $pdo->prepare('INSERT INTO users (display_name) VALUES (:name)');
+        $progressMembershipInsert = $pdo->prepare(
+            "INSERT INTO family_members (family_id, user_id, role) VALUES (:family, :user, 'member')"
+        );
+        $progressAnswerInsert = $pdo->prepare(
+            'INSERT INTO answers (family_id, question_id, user_id, answer_date, body)
+             VALUES (:family, :question, :user, :date, :body)'
+        );
+        $progressExpectedIds = [(string) $userId];
+        $progressYesterday = (new DateTimeImmutable($today['question']['date']))
+            ->modify('-1 day')->format('Y-m-d');
+        for ($index = 1; $index <= 28; $index++) {
+            $progressUserInsert->execute(['name' => '回答者' . $index]);
+            $progressMemberId = (int) $pdo->lastInsertId();
+            $progressFamilyId = $index === 28 ? $progressOtherFamilyId : $family['id'];
+            // 25: yesterday only; 26: different question; 27: former member;
+            // 28: another family's response. None contributes to this family.
+            if ($index !== 27) {
+                $progressMembershipInsert->execute([
+                    'family' => $progressFamilyId,
+                    'user' => $progressMemberId,
+                ]);
+            }
+            $progressAnswerInsert->execute([
+                'family' => $progressFamilyId,
+                'question' => $index === 26 ? $progressOtherQuestionId : $today['question']['id'],
+                'user' => $progressMemberId,
+                'date' => $index === 25 ? $progressYesterday : $today['question']['date'],
+                'body' => '家族の進み具合を確認する回答',
+            ]);
+            if ($index <= 24) {
+                $progressExpectedIds[] = (string) $progressMemberId;
+            }
+        }
+
+        $progressFirstPage = $app->home($userId);
+        same(20, count($progressFirstPage['feed']), 'home progress fixture exceeds first feed page');
+        truthy($progressFirstPage['nextCursor'] !== null, 'home progress fixture has another page');
+        same(
+            $progressExpectedIds,
+            $progressFirstPage['todayAnsweredUserIDs'],
+            'home progress includes all 25 current responders and excludes unrelated responses',
+        );
+        $progressLaterPage = $app->home($userId, $progressFirstPage['nextCursor']);
+        truthy($progressLaterPage['feed'] !== [], 'home progress later feed page has answers');
+        same(
+            $progressExpectedIds,
+            $progressLaterPage['todayAnsweredUserIDs'],
+            'home progress remains complete on later feed pages',
+        );
+    } finally {
+        $pdo->rollBack();
+    }
 
     $audioPath = sys_get_temp_dir() . '/tsutsuura-audio-' . bin2hex(random_bytes(8)) . '.m4a';
     $photoPath = sys_get_temp_dir() . '/tsutsuura-photo-' . bin2hex(random_bytes(8)) . '.png';
@@ -280,6 +347,8 @@ try {
         ),
     );
     file_put_contents($invalidPhotoPath, 'not an image');
+    // Reset the text-only test fixture before exercising a separate first upload.
+    $pdo->exec('DELETE FROM answers WHERE id = ' . (int) $answer['id']);
     $answer = $app->submitTodayAnswer(
         $userId,
         '',
@@ -310,68 +379,45 @@ try {
         'media_not_found',
         'invalid media capability token',
     );
-    $answer = $app->submitTodayAnswer($userId, '文字を更新しました。');
-    same(2, count($answer['media']), 'JSON update preserves answer media');
-    $answer = $app->updateAnswer($userId, $answer['id'], '所有者が本文を編集しました。');
-    same('所有者が本文を編集しました。', $answer['body'], 'answer owner edit');
-    $answer = $app->deleteAnswerMedia(
-        $userId,
-        $answer['id'],
-        $answer['media'][0]['id'],
+    $replayedMediaAnswer = $app->submitTodayAnswer(
+        $userId, '', UploadedFile::fromLocalFile($audioPath, "../voice\r\n.m4a"),
+        [UploadedFile::fromLocalFile($photoPath, '../../思い出.png')], '12345', true,
     );
-    same(1, count($answer['media']), 'individual answer media deletion');
-    same(false, is_file($download['path']), 'individual media physical cleanup');
-    $remainingMediaPath = (string) parse_url($answer['media'][0]['url'], PHP_URL_PATH);
-    truthy(
-        preg_match('#/v1/answer-media/([1-9][0-9]*)/([a-f0-9]{64})$#', $remainingMediaPath, $remainingMediaUrl) === 1,
-        'remaining media URL shape',
-    );
-    $remainingDownload = $answerMedia->download(
-        $userId,
-        $remainingMediaUrl[1],
-        $remainingMediaUrl[2],
-    );
-    $answer = $app->updateAnswer($userId, $answer['id'], '');
-    apiError(
-        static fn () => $app->deleteAnswerMedia(
-            $userId,
-            $answer['id'],
-            $answer['media'][0]['id'],
-        ),
-        409,
-        'answer_would_be_empty',
-        'last media cannot leave an empty answer',
-    );
-    $answer = $app->updateAnswer($userId, $answer['id'], '本文を戻しました。');
+    same($answer, $replayedMediaAnswer, 'identical media retry preserves answer and attachment IDs');
+    $originalAudioBytes = file_get_contents($audioPath);
+    file_put_contents($audioPath, substr($originalAudioBytes, 0, -1) . "\x01");
+    try {
+        apiError(static fn () => $app->submitTodayAnswer(
+            $userId, '', UploadedFile::fromLocalFile($audioPath, "../voice\r\n.m4a"),
+            [UploadedFile::fromLocalFile($photoPath, '../../思い出.png')], '12345', true,
+        ), 409, 'answer_immutable', 'same-size changed media bytes cannot masquerade as a retry');
+    } finally {
+        file_put_contents($audioPath, $originalAudioBytes);
+    }
+    same(2, count(glob($mediaDirectory . '/*/*') ?: []), 'retry and rejected upload leave no orphan files');
+
+    apiError(static fn () => $app->submitTodayAnswer($userId, '文字を更新しました。'), 409, 'answer_immutable', 'JSON cannot overwrite published media answer');
+    apiError(static fn () => $app->updateAnswer($userId, $answer['id'], '編集'), 409, 'answer_immutable', 'answer owner cannot edit');
+    apiError(static fn () => $app->deleteAnswer($userId, $answer['id']), 409, 'answer_immutable', 'answer owner cannot delete');
+    apiError(static fn () => $app->deleteAnswerMedia($userId, $answer['id'], $answer['media'][0]['id']), 409, 'answer_immutable', 'published attachment cannot be removed');
+    same(true, is_file($download['path']), 'rejected media deletion preserves physical file');
+    $remainingDownload = $download;
     $maximumComposedAnswer = str_repeat("e\u{0301}", 1_000);
-    $oversizedComposedAnswer = $maximumComposedAnswer . 'e';
-    same(
-        $maximumComposedAnswer,
-        $app->updateAnswer(
-            $userId,
-            $answer['id'],
-            $maximumComposedAnswer,
-        )['body'],
-        'answer accepts 2000 Unicode code points across composed glyphs',
-    );
-    apiError(
-        static fn () => $app->updateAnswer(
-            $userId,
-            $answer['id'],
-            $oversizedComposedAnswer,
-        ),
-        422,
-        'invalid_answer',
-        'answer rejects 2001 Unicode code points across composed glyphs',
-    );
-    $answer = $app->updateAnswer($userId, $answer['id'], '本文を戻しました。');
+    $unicodeUserId = (int) $users->findOrCreateByPhone('+819000000001')['id'];
+    apiError(static fn () => $app->submitTodayAnswer($unicodeUserId, $maximumComposedAnswer . 'e'), 422, 'invalid_answer', 'answer rejects 2001 Unicode code points');
+    same($maximumComposedAnswer, $app->submitTodayAnswer($unicodeUserId, $maximumComposedAnswer)['body'], 'answer accepts 2000 Unicode code points');
+    $lifecycle->deleteAccount($unicodeUserId);
+    $pdo->exec("INSERT INTO users (display_name) VALUES ('容量のテスト')");
+    $quotaUserId = (int) $pdo->lastInsertId();
+    $quotaMembership = $pdo->prepare("INSERT INTO family_members (family_id, user_id, role) VALUES (:family, :user, 'member')");
+    $quotaMembership->execute(['family' => $family['id'], 'user' => $quotaUserId]);
     putenv('ANSWER_MEDIA_FAMILY_QUOTA_BYTES=200');
     $quotaConfig = Config::fromEnvironment($base);
     $quotaMedia = new AnswerMediaService($database, $crypto, $quotaConfig);
-    $quotaApp = new AppService($database, $crypto, $quotaConfig, $quotaMedia);
+    $quotaApp = new AppService($database, $crypto, $quotaConfig, $quotaMedia, null, $answerClock);
     apiError(
         static fn () => $quotaApp->submitTodayAnswer(
-            $userId,
+            $quotaUserId,
             'quota test',
             UploadedFile::fromLocalFile($audioPath, 'voice.m4a'),
             [
@@ -385,7 +431,8 @@ try {
         'media_quota_exceeded',
         'family media quota',
     );
-    same(1, count($app->todayQuestion($userId)['answer']['media']), 'quota rejection preserves media');
+    same(2, count($app->todayQuestion($userId)['answer']['media']), 'quota rejection preserves media');
+    $pdo->exec('DELETE FROM users WHERE id = ' . $quotaUserId);
     putenv('ANSWER_MEDIA_FAMILY_QUOTA_BYTES=2147483648');
     apiError(
         static fn () => $app->submitTodayAnswer($userId, '', null, [], null, true),
@@ -562,11 +609,11 @@ try {
         'answer_not_found',
         'answer media deletion ownership',
     );
-    $app->deleteAnswer($filterUserId, (string) $firstFilterAnswerId);
+    apiError(static fn () => $app->deleteAnswer($filterUserId, (string) $firstFilterAnswerId), 409, 'answer_immutable', 'historical answer is immutable');
     same(
-        1,
+        2,
         count($app->history($userId, null, 20, ['authorId' => (string) $filterUserId])['items']),
-        'answer owner deletion',
+        'rejected owner deletion preserves history',
     );
     apiError(
         static fn () => $app->setLike($userId, $answer['id'], true),
@@ -801,7 +848,8 @@ try {
     );
     same('muted', $mutedDelivery['reason'], 'push honors future mute');
     same(1, count($pushProvider->deliveries), 'muted push does not invoke provider');
-    $scheduledAt = new DateTimeImmutable('2026-09-01T23:59:00+00:00');
+    $lifecycle->updateNotificationPreferences($userId, ['timezone' => 'Asia/Tokyo']);
+    $scheduledAt = new DateTimeImmutable('2026-09-01T19:00:00+09:00');
     $mutedReminderProvider = new DeterministicPushProvider();
     $mutedReminderScheduler = new QuestionReminderScheduler(
         $database,
@@ -849,7 +897,7 @@ try {
     );
     $lifecycle->updateNotificationPreferences($leaseUserId, [
         'questionReminderTime' => '23:58',
-        'timezone' => 'UTC',
+        'timezone' => 'Asia/Tokyo',
     ]);
     $staleReservation = $pdo->prepare(
         "INSERT INTO notification_reminder_dispatches
@@ -860,8 +908,8 @@ try {
         'user' => $leaseUserId,
         'date' => '2026-09-01',
         'time' => '23:58',
-        'created' => '2026-09-01 20:00:00',
-        'updated' => '2026-09-01 20:00:00',
+        'created' => '2026-09-01 08:00:00',
+        'updated' => '2026-09-01 08:00:00',
     ]);
     $leaseProvider = new DeterministicPushProvider();
     $leaseScheduler = new QuestionReminderScheduler(
@@ -1994,17 +2042,10 @@ try {
         $deletionMediaUrl[1],
         $deletionMediaUrl[2],
     );
-    $app->deleteAnswer($deletionUserId, $deletionAnswer['id']);
-    same(false, is_file($deletionDownload['path']), 'answer deletion physical media cleanup');
-
-    $accountDeletionAnswer = $app->submitTodayAnswer(
-        $deletionUserId,
-        'アカウント削除テスト',
-        null,
-        [UploadedFile::fromLocalFile($photoPath, 'delete-account.png')],
-        null,
-        true,
-    );
+    apiError(static fn () => $app->deleteAnswer($deletionUserId, $deletionAnswer['id']), 409, 'answer_immutable', 'deleting a submitted answer is rejected');
+    same(true, is_file($deletionDownload['path']), 'immutable answer keeps physical media');
+    // Account deletion below remains available and must still clean private media.
+    $accountDeletionAnswer = $deletionAnswer;
     $accountMediaPath = (string) parse_url($accountDeletionAnswer['media'][0]['url'], PHP_URL_PATH);
     truthy(
         preg_match('#/v1/answer-media/([1-9][0-9]*)/([a-f0-9]{64})$#', $accountMediaPath, $accountMediaUrl) === 1,
@@ -2203,9 +2244,9 @@ try {
     touch($orphanPath, time() - 7200);
     same(1, $answerMedia->cleanupOrphanedFiles(), 'orphan media cleanup');
 
-    $answer = $app->submitTodayAnswer($userId, '添付を削除しました。', null, [], null, true);
-    same([], $answer['media'], 'multipart replacement clears media');
-    same(false, is_file($remainingDownload['path']), 'replaced media file cleanup');
+    apiError(static fn () => $app->submitTodayAnswer($userId, '添付を削除しました。', null, [], null, true), 409, 'answer_immutable', 'multipart cannot remove published media');
+    same(2, count($answer['media']), 'immutable answer keeps attachments');
+    same(true, is_file($remainingDownload['path']), 'rejected replacement keeps private file');
 
     // Make the child cleanup process perform its write only after all service
     // mutations are complete. A fresh read connection then verifies the

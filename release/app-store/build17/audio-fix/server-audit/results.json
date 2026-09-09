@@ -1,0 +1,60 @@
+{
+  "productionAccessed": false,
+  "sourceModified": false,
+  "fixtures": [
+    {
+      "name": "audible-apple.m4a",
+      "codec": "aac",
+      "sampleRate": 48000,
+      "channels": 1,
+      "durationSeconds": 4.0,
+      "rmsDBFS": -10.391878348796968,
+      "peakDBFS": -7.181650696523928,
+      "bytes": 20947,
+      "sha256": "0cf88c927c29a1b8e9eb032a891203c9644a57b94f3468718084d2faa641f358",
+      "multipartAccepted": true,
+      "storedAndFullDownloadByteIdentical": true,
+      "rangeReconstructionByteIdentical": true,
+      "rangeCount": 22,
+      "edgeRanges": [
+        "bytes=-512",
+        "bytes=1024-",
+        "bytes=0-1"
+      ],
+      "headCorrect": true,
+      "unauthenticatedRejected": true,
+      "unsatisfiableRangeRejected": true,
+      "appleDecoderSucceeded": true
+    },
+    {
+      "name": "audible-adts.aac",
+      "codec": "aac",
+      "sampleRate": 48000,
+      "channels": 1,
+      "durationSeconds": 4.053333333333334,
+      "rmsDBFS": -10.449401408393795,
+      "peakDBFS": -7.181650696523928,
+      "bytes": 18181,
+      "sha256": "121a214a254d8b2de96c073865f4fd67e0eb6e1872e56a4d91e872c832753bb3",
+      "multipartAccepted": true,
+      "storedAndFullDownloadByteIdentical": true,
+      "rangeReconstructionByteIdentical": true,
+      "rangeCount": 19,
+      "edgeRanges": [
+        "bytes=-512",
+        "bytes=1024-",
+        "bytes=0-1"
+      ],
+      "headCorrect": true,
+      "unauthenticatedRejected": true,
+      "unsatisfiableRangeRejected": true,
+      "appleDecoderSucceeded": true
+    }
+  ],
+  "serverFiles": {
+    "src/App/AnswerMediaService.php": "4e5a876127477b19ef76e9a024d1abd8ae003149b2f30b88bfd5f48d70e94bc6",
+    "src/Http/Response.php": "030181db7af6ac326169a8cce67d7cc88b08956fb5d72b52ca841897d0fca592",
+    "public/index.php": "4dd51512160f82e1f71d1b2b6abdd15be7dd56593235055e70f0c3f76ee5975a"
+  },
+  "status": "passed"
+}

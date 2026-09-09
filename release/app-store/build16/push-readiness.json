@@ -1,0 +1,179 @@
+{
+  "recordedAt": "2026-09-06T01:02:30.431926+00:00",
+  "status": "live APNs configured; controlled production push accepted and received on physical iPhone; tap opened today question; both minute workers enabled and execution verified",
+  "build": "16",
+  "releaseStatus": "Apple processing Complete; internal TestFlight Testing and installed build 16 verified; App Store build 16 submitted and Waiting for Review.",
+  "liveDiagnosticsAt": "2026-09-06T00:55:01+00:00",
+  "host": {
+    "phpVersion": "8.4.21",
+    "http2Available": true,
+    "opensslAvailable": true,
+    "configurationValid": true,
+    "verifiedAt": "2026-09-06T00:55:01+00:00"
+  },
+  "apns": {
+    "driver": "apns",
+    "configured": true,
+    "intendedTopic": "toshizo.link.tsutsuura",
+    "intendedKeyEnvironment": "production",
+    "activationBlocker": null,
+    "topic": "toshizo.link.tsutsuura",
+    "keyEnvironment": "production",
+    "keyId": "CNFX5275SP",
+    "configurationEvidence": "apns-configuration-installed.log",
+    "keyScopeEvidence": "apns-key-created.txt",
+    "configuredAt": "2026-09-06T00:48:01+00:00",
+    "configurationMarkerEvidence": "server-apns-configuration.json",
+    "rollbackDirectory": "/home/c8629971/apps/tsutsuura/storage/push-config-backups/20260906T004801Z-581d09a2"
+  },
+  "schedulerDeployment": {
+    "status": "installed",
+    "installedAt": "2026-09-05T22:02:01+00:00",
+    "sha256": "0286f520f384ebe3df9fcdec69e488966bd20a4060f641969899eabdb0374409",
+    "backupDirectory": "/home/c8629971/apps/tsutsuura/storage/push-code-backups/20260905T220201Z-f1cbc83a",
+    "environmentDatabaseMediaUnmodified": true,
+    "pushSent": false,
+    "evidence": "server-scheduler-deployment.json"
+  },
+  "registeredTokensByEnvironment": [
+    {
+      "environment": "production",
+      "token_count": 1,
+      "user_count": 1
+    }
+  ],
+  "activeFamilyRecipients": [
+    {
+      "user_id": 1,
+      "display_name": "たかみ",
+      "environment": "production",
+      "token_count": 1
+    }
+  ],
+  "workers": [
+    {
+      "kind": "event",
+      "name": "Tsutsuura family activity push",
+      "configured": true,
+      "enabled": true,
+      "schedule": "every minute",
+      "command": "/opt/alt/php84/usr/bin/php /home/c8629971/apps/tsutsuura/current/bin/send-event-notifications.php --limit=200 > /home/c8629971/apps/tsutsuura/storage/event-push.log 2>&1",
+      "commandBytes": 169,
+      "evidence": "event-worker-enabled.txt",
+      "preparedEvidence": "event-worker-prepared.txt",
+      "executionConfirmed": true,
+      "executionEvidence": "live-event-worker.log",
+      "lastObservedLogModifiedLocal": "2026-09-05T20:52:00-04:00",
+      "logModifiedTimePrecision": "minute, observed in ConoHa file manager",
+      "executionSummary": {
+        "claimed": 0,
+        "delivered": 0,
+        "skipped": 0,
+        "retried": 0,
+        "failed": 0,
+        "providerDelivered": 0,
+        "providerFailed": 0
+      }
+    },
+    {
+      "kind": "question",
+      "name": "Tsutsuura daily question push",
+      "configured": true,
+      "enabled": true,
+      "schedule": "every minute",
+      "command": "/opt/alt/php84/usr/bin/php /home/c8629971/apps/tsutsuura/current/bin/send-question-reminders.php > /home/c8629971/apps/tsutsuura/storage/question-push.log 2>&1",
+      "commandBytes": 159,
+      "evidence": "question-worker-enabled.txt",
+      "preparedEvidence": "question-worker-prepared.txt",
+      "executionConfirmed": true,
+      "executionEvidence": "live-question-worker.log",
+      "lastObservedLogModifiedLocal": "2026-09-05T20:52:00-04:00",
+      "logModifiedTimePrecision": "minute, observed in ConoHa file manager",
+      "executionSummary": {
+        "eligible": 1,
+        "due": 0,
+        "reserved": 0,
+        "delivered": 0,
+        "failed": 0,
+        "deferred": 0
+      }
+    }
+  ],
+  "outboxStatusCounts": [],
+  "recentOutboxStatus": [],
+  "recentQuestionDispatches": [],
+  "providerAcceptanceTested": true,
+  "physicalDeviceDeliveryTested": true,
+  "localServerValidation": {
+    "result": "passed",
+    "runtime": "PHP 8.5.8 CLI, SQLite test fixtures; PHP minimum 8.2",
+    "evidence": "server-validation/server-verification.json",
+    "remainingLimitation": "Question reminders have one reservation per account/day. A partially successful dispatch is not retried, to avoid notifying accepted devices twice. Event notifications retry per device."
+  },
+  "remainingChecks": [],
+  "evidenceSHA256": {
+    "server-push-diagnostics-before-activation.json": "5eb8b34d942398a8aea6e4d85aef20ca6f58b94f2240f90b76bdf86f3447c642",
+    "server-scheduler-deployment.json": "6bc4b7e43cefe6dc7bceb6bcbb058afc025fd58d1e02159c3668e09235d1c869",
+    "event-worker-prepared.txt": "f0bf210f278e688744635d1a6f7815710dc02caa4c25cac4d5b162f1a7e2c3d2",
+    "question-worker-prepared.txt": "c33619fc4d18e3bf91cbbd577dfc7356563a3bd148c43f5910d36b0baaf31b6b",
+    "server-validation/server-verification-original.json": "eb3acb2e0a1f1875cf82d0ae7d1cefe1d6e6dec8a53a48dfa879773788b9ef34",
+    "server-validation/server-verification.json": "97cab27743ddf6c77f66db3467ee601a63bad1f7d7da7cc765e4d50b9ec425ee",
+    "server-validation/tsutsuura-push16-question-schedule.log": "a8c87edcc70959ed06cf6ff0db0bc01cdfdb7ce094e412cace5154b6214d1c53",
+    "server-validation/tsutsuura-push16-event-notifications.log": "742078bf9906c925bf68bbfd675a14e07dcfbca67abbd2ceb8ab5181babdd1e5",
+    "server-validation/tsutsuura-push16-smoke.log": "8967208f0371a1e0c94ccf49d352c4e0f046b44c33cfdc91b18b7f69fe4ec1e6",
+    "apns-configuration-installed.log": "f6038d0817dddd26897a99e95453d9fd43264c985539d6cae69236dfad59638d",
+    "apns-key-created.txt": "8171cadb8fa45fc914c3cc98637bde20489e27a41e4ce572a8f7d999f35309ca",
+    "owner-push-readiness.json": "c8efe369b3618c8d1ed6fd7564c22daf2931e8d67d9662183c3cbd82650ddc26",
+    "owner-production-push-result.json": "8e5697d770a3f599a164e56ceb791eff97255cbeaaa7e09c64296f75ba787551",
+    "physical-device-push-confirmation.json": "4979553b8d8f5f6030ee7e8a52f3ce676b8b794276e42454e69d1b4d72688ddd",
+    "event-worker-enabled.txt": "a80ad4d651dec7aa273a07049a5bc65875d2c7f793cff43ccf006625c0937528",
+    "question-worker-enabled.txt": "dd422dd8aca303e9746e406dd4e4fa43bf91e9395daf411ed00234d23fc63b67",
+    "live-event-worker.log": "7cb587b44fe1b795653d05a427a4bb7b78e00620ba4ece3e5a3a65e89db73561",
+    "live-question-worker.log": "db12b04bfeca76381833f72f1ede33c611240b2a6f56022b32643f63d55472b3",
+    "server-apns-configuration.json": "d5dc261b086ec9daf25c19e9e9e4d2617c5c5d8c4b8202daf2fcdd592a99bf64",
+    "server-push-diagnostics-after-activation.json": "35cb5e7fae0b2af575d7568b86dff625ffcb607d699d676cd2e0710732025137",
+    "one-off-job-stopped-after-test.txt": "57707467ad0a6c0d8b8c866cccb89e077d67d4201a484fdb79c0593551ece4ce",
+    "appstore-build16-waiting-for-review.txt": "f16bfb35fd9b073e49a95b8725ac7de50e4d2f39fe16c0d20e1dd85864a59241",
+    "testflight-internal-builds-final.txt": "ccbedebea4db8fb63ac2eb2f568befd106ea111cdedf4fc90c6953bf15127e38"
+  },
+  "notificationTapRoutingTested": true,
+  "controlledTest": {
+    "category": "familyActivity",
+    "destination": "today_question",
+    "eligibleAt": "2026-09-06T00:50:02+00:00",
+    "timezone": "America/Toronto",
+    "familyActivityEnabled": true,
+    "mutedNow": false,
+    "quietNow": false,
+    "acceptedAt": "2026-09-06T00:51:01+00:00",
+    "registeredDevices": 1,
+    "providerCalls": 1,
+    "acceptedByAPNs": 1,
+    "failed": 0,
+    "automaticRetryAllowed": false,
+    "providerEvidence": "owner-production-push-result.json",
+    "physicalDeviceEvidence": "physical-device-push-confirmation.json",
+    "physicalDeviceConfirmationSource": "user confirmation in this task",
+    "physicalDeviceBuild": "16",
+    "received": true,
+    "tapOpenedTodayQuestion": true
+  },
+  "coverageLimits": [
+    "The physical-device confirmation covers one controlled production familyActivity notification routed to today_question. Separate organic question/answer/like/comment notification presentations have not been observed on the device; local server tests cover those scheduling/event paths.",
+    "The observed event worker had no queued jobs and the question worker had no due question. Successful idle execution does not independently prove category-specific device delivery."
+  ],
+  "historicalPreActivationEvidence": "server-push-diagnostics-before-activation.json",
+  "configurationMarkerNote": "The raw configuration marker was written at 00:48:01 UTC before the 00:51:01 UTC controlled push. Its tested=false fields are historical and are superseded by the provider/device evidence; the raw file is preserved unchanged.",
+  "liveDiagnosticsEvidence": "server-push-diagnostics-after-activation.json",
+  "diagnosticScopeNote": "The final read-only diagnostic confirms configuration, runtime, registrations and database status at 00:55:01 UTC. Its providerAcceptanceTested=false, deviceDeliveryTested=false and cronScheduleInspected=false describe what that diagnostic command does not test; the independent controlled provider result, user device confirmation, enabled-job settings and execution logs remain authoritative for those outcomes.",
+  "oneOffJob": {
+    "name": "Tsutsuura push setup preflight",
+    "enabled": false,
+    "stoppedAfterTestAndFinalDiagnostics": true,
+    "evidence": "one-off-job-stopped-after-test.txt",
+    "controlledAttemptRemainsNonRetryable": true
+  },
+  "reviewSubmissionMade": true,
+  "submissionID": "8453cec6-b34b-41f0-a82b-cd13132155de",
+  "submissionEvidence": "appstore-build16-waiting-for-review.txt"
+}

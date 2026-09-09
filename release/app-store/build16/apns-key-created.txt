@@ -1,0 +1,5 @@
+Verified Apple Developer keys list 2026-09-06T00:45:39.035Z
+CNFX5275SP | APNs | Tsutsuura Push | 1 Topic | Production
+Team: 34NS8XN5F9
+Topic selected at creation: toshizo.link.tsutsuura
+User explicitly authorized creation and private installation. Private key is outside repository and release evidence.

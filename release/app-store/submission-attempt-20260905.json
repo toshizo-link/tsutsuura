@@ -1,0 +1,23 @@
+{
+  "capturedAt": "2026-09-05T20:25:13.744Z",
+  "appId": "6800383132",
+  "version": "1.0",
+  "submissionAuthorized": true,
+  "freePriceSaved": true,
+  "worldwideAvailabilitySaved": 175,
+  "manualRelease": true,
+  "privacyLabelsPublished": true,
+  "privacyCategoryCount": 9,
+  "supportURL": "https://toshizo.link/#contact",
+  "marketingURL": "https://toshizo.link/tsutsura-detail.html?from=apps",
+  "contentRights": "HAS_RIGHTS",
+  "selectedBuild": "13",
+  "preparedBuild": "14",
+  "reviewSubmissionMade": false,
+  "validation": "\n  - paragraph: \"The items below are required to start the review process:\"\n  - list:\n    - listitem: You must provide copyright information for the app you are adding.\n    - text: You must enter a Privacy Policy URL in\n    - link \"App Privacy\":\n      - /url: ../../privacy\n    - text: .\n  - list:\n    - listitem: You have one or more errors on this page.\n    - listitem: Copyright - This field is required\n    - listitem: First name - This field is required\n    - listitem: Last name - This field is required\n    - listitem: Email - This field is required\n    - listitem: Phone number - This field is required\n    - listitem: Phone number - This field is invalid. Please ensure your phone number is formatted correctly, including a \"+\" in front of the country code.\n  - paragraph:\n    - button \"Hide Details\" [active]\n  - paragraph: ",
+  "pending": [
+    "public privacy-policy page and URL",
+    "copyright/operator name",
+    "complete review contact"
+  ]
+}

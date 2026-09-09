@@ -1,0 +1,15 @@
+# Build 17 candidate — App Review preparation
+
+This candidate adds answer/photo/audio reporting, persistent member blocking and unblocking, protected-content access rules, an operator moderation queue, bundled third-party notices, and fixes for recorded-voice saving/playback with a listen-before-send preview. It is not uploaded or submitted.
+
+The exact shipping iOS baseline is build 16 commit `46395223386f9ca11be87dd2de4d4a3f2ca98396`. The server baseline was imported separately from the current deployed source; its manifest is preserved at `backend-deployment/tsutsuura-safety-20260907/server/deployment/safety-baseline-manifest.json`. Do not replace the server with the older server tree from the build 16 commit.
+
+The tested source is committed on `codex/appstore-review-safety` and integrated into the original workspace: 37 files copied with zero baseline conflicts and backups under `integration/original-files/`. The audio follow-up copied eight scoped files into the clean candidate with baseline guards. All 52 shipping app inputs now match the candidate. `preparation-status.json` and `source-manifest.json` record the exact revision and hashes.
+
+Validation: the final audio run passed all 250 unit tests and both audio interface scenarios on iPhone SE (3rd generation), iOS 26.5. Existing voice-success and permission-denial UI scenarios passed separately. The prior safety run passed four interface scenarios. A final contrast correction passed the affected block/unblock scenario again and was visually checked. `ios-qa/` contains the safety logs, result summaries and screenshots; `audio-fix/` preserves the audio results, final screenshots, synthetic server round-trip and retained-writer finalization reproduction. The UI scenarios run the actual app with a demo API; `backend-qa/` records nine separately passing PHP test/lint suites, including local HTTP contract tests. These checks do not prove production deployment, real email delivery, physical-device behavior, or haptics.
+
+Apple's information request and saved, unsent written reply are documented in `../build16/information-request-20260907/`. The physical-iPhone recording is deferred at the user's request. ConoHa authentication is also pending. Do not send the App Review reply or resubmit until the required recording and remaining validation are complete.
+
+`backend-deployment/` contains the verified release ZIP, a configuration/data-preserving deployment procedure, a guarded rollback, and the disposable-account smoke procedure. It has not been deployed. `build-tools/` prepares an unsigned archive on stable Apple tools, verifies its source and binary provenance, and signs locally. Apple credentials stay off the cloud runner. The tools have been prepared; no candidate archive has yet been dispatched.
+
+The new report queue does not by itself establish complete moderation operations. `server/deployment/content-safety.md` documents the remaining filtering, profile-content reporting, alerts, human review, and account-suspension gaps. No claim of full App Review compliance is made.

@@ -1,0 +1,71 @@
+{
+  "reviewedAt": "2026-09-07T18:43:50.287056+00:00",
+  "scope": "Independent read-only targeted safety source review; not a source freeze or execution result",
+  "root": "/tmp/tsutsuura-appstore-review-safety",
+  "findings": [
+    {
+      "issue": "Authoritative hidden IDs accumulated by union and stayed hidden after unblock",
+      "result": "Fixed in reviewed source: authoritative snapshot replacement; unblock waits for refreshed snapshot; mutual opposite block remains respected"
+    },
+    {
+      "issue": "Cleanup could remove dismissed comment report and undo reporter hide choice",
+      "result": "Fixed in reviewed source: retained visibility tombstones until content/account FK deletion"
+    },
+    {
+      "issue": "Moderator-hidden own answer disappeared from payload and invited impossible resubmission",
+      "result": "Fixed in reviewed source: hasAnswered/answerHidden payload and iOS canAnswer/UI state"
+    },
+    {
+      "issue": "Own hidden answer cached in home.myAnswer and question copies",
+      "result": "Fixed in reviewed source: all own/current/pending question answer copies sanitized, media invalidated"
+    },
+    {
+      "issue": "Queued submitAnswer task can run after composer becomes non-answerable",
+      "result": "Fixed in reviewed source: submitAnswer checks canAnswer before any API call"
+    }
+  ],
+  "sourceChecks": [
+    "Feed/history/direct-answer/comment/media paths share authenticated family/block/report/moderation policy",
+    "Reports and block choices survive session restart in server storage; fresh iOS store has no persisted feed; HTTP JSON/media no-store headers avoid stale disk feed",
+    "Queued notifications checked at enqueue, worker and payload-linked direct delivery; eager cancellation clears active child leases and old events cannot revive on unblock",
+    "Moderator removal records explicit private CLI operator/note; already accepted or in-flight APNs cannot be recalled",
+    "Authoritative state changes invalidate in-memory photo/audio caches and stale async content responses are guarded by authentication generation/safety revision",
+    "Bundled notices are source-controlled app resources; required byte checks prepared for build17 cloud archive"
+  ],
+  "executionEvidenceScope": {
+    "backend": "Agent runs loopback HTTP+SQLite fixtures and deterministic push provider; this is not live backend/APNs proof",
+    "iOS": "Root runs AppStore/HTTPTransport mock tests and simulator tests; this is not physical-device recording",
+    "reviewerReranSuites": false
+  },
+  "remainingOperationalGaps": [
+    "Deploy matching schema011 safety backend before next iOS build is distributed",
+    "Real device safety walkthrough/recording remains deferred",
+    "Real email enrollment and returning-login inbox proof remains unvalidated",
+    "Manual operator report monitoring/response process must actually be operated; CLI availability does not prove monitoring or a response SLA",
+    "No automatic semantic text/image/audio content classifier or profile/mark reporting inferred; no full App Review guideline compliance claim"
+  ],
+  "sourcesObservedSHA256": {
+    "server/src/App/ContentSafety.php": "14891c5a7abbac0ce77f52fe5d88ec25c9257cdfb8c44488091b983b794f6a67",
+    "server/src/App/AppService.php": "d7d0369a3d8fc46f0b3b0a03499778fb3c3a7afce1a34d92fd4908ec9c93bf65",
+    "server/src/App/AnswerMediaService.php": "4e5a876127477b19ef76e9a024d1abd8ae003149b2f30b88bfd5f48d70e94bc6",
+    "server/src/App/ModerationService.php": "1932edaa1d3909f9f40e504074a843e3e08df12ba0c2e2d7516da69f7ffc2395",
+    "server/src/Push/EventNotificationService.php": "d2adb7dd8aa77e2b18112f319ca1c8d7a9268a3bab3804ba085ab1394b93ba8a",
+    "server/src/Push/EventNotificationWorker.php": "7f396490bac4a6cc8d4d53396ce8339661f701217691eaa378cc68fac6894e8a",
+    "server/src/Push/PushDeliveryService.php": "73660c1fcb002be559071b12b2c8bb4148b3210d671a13ad91c1111e9cd742dc",
+    "server/src/Http/Request.php": "a5a473b3f106f5a04ad782f555edf88558e2b392fd32da1141b612b7d56a2286",
+    "server/public/index.php": "4dd51512160f82e1f71d1b2b6abdd15be7dd56593235055e70f0c3f76ee5975a",
+    "server/bin/cleanup.php": "282993859948d0693dd81f243f50c9cc1ab7505bf7b254d94cdef08d0b76b0b4",
+    "server/bin/content-safety-test.php": "4d06b4aa5a02f34f59bc6996b9f7a8d621d0847767874b1bf06eb0ce95f2bd8c",
+    "tsutsuura/tsutsuura/ContentSafety.swift": "44a87f2f374c0489ee03020492a3d6c34ab0936e95976aee3c7063e7a56784fd",
+    "tsutsuura/tsutsuura/AppStore.swift": "3ea8779ca8c5214dd40bc535b7110b1ac3d1e9bd7755416a52b0aff4b72c4ac6",
+    "tsutsuura/tsutsuura/AppModels.swift": "a6b44f14ecfedfc3d4bc020dd6a72c61d777f3402c3273f3a625b1ead88cf5dd",
+    "tsutsuura/tsutsuura/AnswerMediaViews.swift": "75c822311200e8f7ee8a5a343722c7eeaba6089abe8dcb527b5ae48fbf30825e",
+    "tsutsuura/tsutsuura/TsutsuuraScreens.swift": "823ea91bbff00cd017ae21aa61f8f02cde867717950fd7928c915d900efe4361",
+    "tsutsuura/tsutsuuraTests/ContentSafetyTests.swift": "d368411394ae8dc9f4f3ac1ba20dee50e482a52b496270cef982916a11014bb0"
+  },
+  "walkthrough": {
+    "path": "/tmp/tsutsuura-physical-review-walkthrough-20260907.md",
+    "sha256": "0369e78aa59694b845c6915f8732816c3f2e5ce9b19f40f7b1b73674b2638940"
+  },
+  "unresolvedSourceFindings": []
+}

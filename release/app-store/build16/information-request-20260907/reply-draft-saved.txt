@@ -1,0 +1,119 @@
+Browser tab: 734044812, Title: "App Store Connect", URL: "https://appstoreconnect.apple.com/apps/6800383132/distribution/reviewsubmissions/details/8453cec6-b34b-41f0-a82b-cd13132155de".
+1 AXWebArea App Store Connect, URL: appstoreconnect.apple.com/apps/6800383132/distribution/reviewsubmissions/details/8453cec6-b34b-41f0-a82b-cd13132155de
+	2 container
+		3 container App Store Connect
+			4 container
+				5 heading App Store Connect, Value: 1
+					6 link Description: App Store Connect, Value: appstoreconnect.apple.com/, ID: logo
+				7 container Global
+					8 content list
+						9 link Description: Apps, Value: appstoreconnect.apple.com/apps
+						10 link Description: Trends, Value: appstoreconnect.apple.com/trends
+						11 link Description: Reports, Value: appstoreconnect.apple.com/itc/payments_and_financial_reports
+						12 link Description: Business, Value: appstoreconnect.apple.com/business
+						13 link Description: Users and Access, Value: appstoreconnect.apple.com/access/users
+				14 button Takami Marsh Takami Marsh Account name menu
+					15 text Takami Marsh
+					16 text Takami Marsh
+					17 image
+		18 container
+			19 pop up button (collapsed) Description: Apps menu, Tsutsuura, selected, Secondary Actions: Expand
+				20 container
+					21 image Tsutsuura
+					22 text Tsutsuura
+				23 image
+			24 container Apps
+				25 content list
+					26 link Description: Distribution, Value: appstoreconnect.apple.com/apps/6800383132/distribution
+					27 link Description: Analytics, Value: appstoreconnect.apple.com/apps/6800383132/analytics
+					28 link Description: TestFlight, Value: appstoreconnect.apple.com/teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/testflight
+					29 link Description: Xcode Cloud, Value: appstoreconnect.apple.com/teams/a7b960d3-6b7b-4564-a8ef-5bb78bb31875/apps/6800383132/ci
+		30 container
+			31 container
+				32 link Description: App Review, Value: appstoreconnect.apple.com/apps/6800383132/distribution/reviewsubmissions
+				33 heading iOS Submission, Value: 2
+					34 text iOS Submission
+				35 button (disabled) Resubmit to App Review
+				36 image
+				37 text Unresolved Issues
+				38 image
+				39 text Your app version was rejected and no other items submitted can be accepted or approved. You can make edits to your app version below.
+				40 heading Items Submitted (1), Value: 3
+					41 text Items Submitted (1)
+				42 text You can review and make edits to your items below, or communicate with Apple. Accepted items won't be available for release until all items with issues are resubmitted and accepted. You can also remove those items and resubmit them later.
+				43 table
+					44 row
+						45 cell
+							46 text ITEM
+						47 cell
+							48 text TYPE
+						49 cell
+							50 text REVIEW STATUS
+						51 cell
+							52 text ACTION
+					53 row ODQ1M2NlYzYtYjM0Yi00MWYwLWE4MmItY2QxMzEzMjE1NWRlfDZ8ODg5NjE0Njc2
+						54 cell
+							55 image App Icon
+							56 text iOS App 1.0
+							57 link Description: 1.0 (16), Value: appstoreconnect.apple.com/apps/6800383132/testflight/ios/15afdb84-1da5-433d-8a27-9f7ca1a5d649/metadata
+						58 cell
+							59 text App Version
+						60 cell
+							61 text Rejected
+							62 text 2.1.0 Performance: App Completeness
+						63 cell
+							64 link Description: Edit, Value: appstoreconnect.apple.com/apps/6800383132/distribution/ios/version/inflight
+						65 cell
+							66 button Delete
+				67 heading Messages (1), Value: 3
+					68 text Messages (1)
+				69 button (collapsed) AppleYesterday 8:17 PM, ID: accordion-toggle-0.37300866484923256-7, Secondary Actions: Expand
+					70 heading AppleYesterday 8:17 PM, Value: 6
+						71 text Apple Yesterday 8:17 PM
+				72 button (expanded) Takami MarshToday 2:21 PM, ID: accordion-toggle-0.37300866484923256-9, Secondary Actions: Collapse
+					73 heading Takami MarshToday 2:21 PM, Value: 6
+						74 text Takami Marsh Today 2:21 PM
+				75 container Takami MarshToday 2:21 PM, ID: accordion-section-0.37300866484923256-9
+					76 text Thank you for reviewing Tsutsuura 1.0 (16). The written information is below. The requested physical-device recording is being prepared and is not attached yet. We will provide it after testing the updated reporting and blocking flows on a physical iPhone. We are not requesting review to resume with this draft.
+
+1. Recording and account flows
+Physical-device recording pending. Registration is described below. For login, first register an email in あなた → 設定 → 機種変更・データの保存 → メールを登録する. On another installation, choose メールでログイン and enter the six-digit emailed code. There is no fixed review password or universal code.
+Deletion: あなた → 設定 → 機種変更・データの保存 → アカウントの削除 → アカウントを削除 → 完全に削除. An organizer with other members must first transfer ownership. Use a disposable account. There are no paid features or in-app purchases.
+Build 16 reports other members' comments. General user blocking and reporting answers/attachments are being added for the next build; they are not present in build 16.
+
+2. Purpose, audience and value
+Tsutsuura is a free Japanese-language app for private family communication, including relatives living apart and older adults. One daily question gives members a simple reason to share memories and everyday experiences. Large controls, optional voice input and family-assisted setup support less confident smartphone users. Answers, photos/audio, likes and comments stay within the family; there is no public discovery feed.
+
+3. Setup and main features
+No existing account, password, email or phone verification is required. Choose 新しく家族をつくる, enter organizer/family names, tap この名前で次へ, draw a mark in あなたのしるし, then このしるしを使う → 使い方を見てはじめる. Notification permission is optional.
+On home, tap 回答する for an available unanswered question, enter text, optionally add voice or up to four photos, and confirm sending. 家族 shows family answers; あなた shows your history/search. Tap photos for full-screen viewing or コメント to reply. For a second device, add a family member and generate a six-digit invitation; choose 家族の番号を入力 on that device. Codes expire after 10 minutes. No review credentials are needed for this self-serve flow.
+
+4. Services and tools
+This is a native Swift/SwiftUI app using Apple frameworks, including PhotosUI, Speech/AVFoundation and UserNotifications/APNs. Our PHP/SQLite API runs on ConoHa WING at https://toshizo.link/tsutsuura-api/api. Optional email recovery uses PHP mail; SMS is disabled. No third-party app SDK, advertising, payment or external social-login service is required. Xcode/GitHub Actions are development/build tools, not services users must join.
+
+5. Regional behavior
+The same features are offered in all available regions. The interface and questions are Japanese. Daily questions use Asia/Tokyo dates and appear between 09:00 and 19:00 Japan time; the app shows the publication time before answering becomes available. Notification quiet hours use the account's stored timezone. There are no region-specific feature modes.
+
+6. Regulated services and protected material
+The app provides no regulated financial, medical or gambling service and no third-party media catalogue. Family members supply their own responses and attachments. The bundled Kaisotai Next UP B font is unmodified and used under the author's published application-use terms: https://moji-waku.com/mj_work_license/.
+The phone icon derives from Google Material icons (Apache 2.0): https://github.com/google/material-design-icons/blob/master/LICENSE.
+
+					77 content list
+						78 button Continue Draft
+						79 button Delete Draft
+				80 text Date Submitted Sep 5, 2026 at 8:57 PM Submission ID 8453cec6-b34b-41f0-a82b-cd13132155de Submitted By Takami Marsh Last Updated By Apple
+				81 button Cancel Submission
+		82 content list
+			83 link Description: App Store Connect, Value: appstoreconnect.apple.com/apps
+		84 content list
+			85 container
+				86 text Copyright © 2026 Apple Inc. All rights reserved. |
+			87 container
+				88 link Description: Terms of Service, Value: appstoreconnect.apple.com/WebObjects/iTunesConnect.woa/wa/termsOfService
+				89 text |
+			90 container
+				91 link Description: Privacy Policy, Value: apple.com/legal/privacy
+				92 text |
+			93 link Description: Contact Us, Value: appstoreconnect.apple.com/contact-us
+
+The focused UI element is 1 AXWebArea App Store Connect, URL: appstoreconnect.apple.com/apps/6800383132/distribution/reviewsubmissions/details/8453cec6-b34b-41f0-a82b-cd13132155de

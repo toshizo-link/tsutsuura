@@ -1,0 +1,18 @@
+{
+  "verifiedAt": "2026-09-05T20:57:40.931291+00:00",
+  "url": "https://toshizo.link/tsutsuura-privacy.html",
+  "remotePath": "/home/c8629971/public_html/toshizo.link/tsutsuura-privacy.html",
+  "source": "release/app-store/public-pages/privacy.html",
+  "status": 200,
+  "contentType": "text/html; charset=UTF-8",
+  "sourceSHA256": "b1a532bf70a24cc241b06a445a138e8d64199d2abc678931dd78adfa599fd82f",
+  "publicResponseSHA256": "75910e127753d3a54b0da56b9327dd3b95a6fe07dbacad61120e525ef9133437",
+  "bytesMatch": false,
+  "normalizedMarkupAndTextMatch": true,
+  "responseTransformation": "Host WEXAL adds an HTML comment and removes formatting whitespace; parsed HTML structure, attributes, and text match source.",
+  "operatorPresent": true,
+  "contactPresent": true,
+  "placeholdersAbsent": true,
+  "deploymentMethod": "ConoHa signed-in file manager native single-file upload",
+  "websiteOtherFilesModified": false
+}

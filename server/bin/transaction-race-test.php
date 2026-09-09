@@ -18,6 +18,20 @@ require dirname(__DIR__) . '/src/Autoload.php';
 date_default_timezone_set('UTC');
 $base = dirname(__DIR__);
 $mode = $argv[1] ?? null;
+if ($mode === '--timezone-child') {
+    childResult(static function () use ($base, $argv): array {
+        return lifecycle($base)->updateDeviceTimezone(positiveId($argv[2] ?? null), [
+            'timeZoneIdentifier' => 'America/Toronto',
+        ]);
+    });
+}
+if ($mode === '--preferences-child') {
+    childResult(static function () use ($base, $argv): array {
+        return lifecycle($base)->updateNotificationPreferences(positiveId($argv[2] ?? null), [
+            'commentsEnabled' => true,
+        ]);
+    });
+}
 if ($mode === '--transfer-child') {
     childResult(static function () use ($base, $argv): array {
         $ownerId = positiveId($argv[2] ?? null);
@@ -140,6 +154,34 @@ try {
     );
 
     $lifecycle = lifecycle($base);
+    $blocker = sqliteConnection($databasePath);
+    $blocker->exec("BEGIN IMMEDIATE;
+        INSERT INTO notification_preferences
+            (user_id, comments_enabled, likes_enabled, family_activity_enabled, question_reminders_enabled,
+             question_reminder_time, timezone, quiet_start, quiet_end, mute_until)
+        VALUES (4, 0, 0, 0, 0, '18:45', 'Asia/Tokyo', '21:00', '08:00', '2099-01-01 00:00:00')");
+    $timezoneChild = startChild(['--timezone-child', '4']);
+    assertBlocked($timezoneChild, 'device timezone waits for preference transaction');
+    $blocker->commit();
+    $timezoneResult = finishChild($timezoneChild);
+    same('success', $timezoneResult['kind'] ?? null, 'timezone preference race outcome');
+    $savedPreferences = $lifecycle->notificationPreferences(4);
+    same('America/Toronto', $savedPreferences['timezone'], 'timezone sync applies after concurrent preference insertion');
+    foreach (['commentsEnabled', 'likesEnabled', 'familyActivityEnabled', 'questionRemindersEnabled'] as $field) {
+        same(false, $savedPreferences[$field], 'timezone sync preserves concurrently saved ' . $field);
+    }
+    same('18:45', $savedPreferences['questionReminderTime'], 'timezone sync preserves custom reminder time');
+    same('21:00', $savedPreferences['quietStart'], 'timezone sync preserves quiet hours');
+    same('2099-01-01T00:00:00Z', $savedPreferences['muteUntil'], 'timezone sync preserves mute deadline');
+    $blocker->exec("BEGIN IMMEDIATE; UPDATE notification_preferences SET timezone = 'Europe/Berlin' WHERE user_id = 4");
+    $preferencesChild = startChild(['--preferences-child', '4']);
+    assertBlocked($preferencesChild, 'preference edit waits for device timezone transaction');
+    $blocker->commit();
+    $blocker = null;
+    same('success', finishChild($preferencesChild)['kind'] ?? null, 'reverse timezone preference race outcome');
+    $savedPreferences = $lifecycle->notificationPreferences(4);
+    same('Europe/Berlin', $savedPreferences['timezone'], 'later partial preference edit preserves synced timezone');
+    same(true, $savedPreferences['commentsEnabled'], 'later preference edit applies its intended toggle');
     $recovery = $lifecycle->createRecoveryCode(2);
 
     // Hold the SQLite writer lock while applying the state transition that a

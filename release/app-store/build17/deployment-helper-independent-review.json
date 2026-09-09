@@ -1,0 +1,24 @@
+{
+  "reviewedAt": "2026-09-07T18:59:38.675979+00:00",
+  "scope": "Read-only preservation/rollback source review; no production execution",
+  "helper": "/tmp/tsutsuura-review-safety-deploy/tsutsuura-safety-20260907/deploy-safety.php",
+  "helperSHA256": "c7a3d2bd32a27160fe32d213204b04088a333663c9155afb84ea69b2508c3cf7",
+  "resolvedFindings": [
+    "Rollback validates current/index ownership before any write",
+    "Rollback maintenance/drain phase precedes final safety-row check",
+    "Dangling release-target/backup symlinks rejected; mkdir checked"
+  ],
+  "otherCheckedBehavior": [
+    "Only additive migration011 executed; existing data counts/integrity checked",
+    "Consistent private SQLite backup via VACUUM INTO; rollback never rewinds database",
+    "Shared .env/storage/media and public ancillary file hashes preserved",
+    "Payload manifest/file hashes and recorded deployed runtime checked before activation",
+    "Failed completion closes only the exact active code owned by this operation"
+  ],
+  "unresolvedActionableSourceFindings": [],
+  "fixtureEvidence": "/tmp/tsutsuura-review-safety-deploy/deployment-fixture-results.json",
+  "fixtureScope": "Local-only with EXPECTED_HOME/Linux process probe/time substitutions; final rerun after last catch change is owned by backend agent",
+  "productionDeployed": false,
+  "realWorkerOrHTTPDrainVerified": false,
+  "networkEmailAPNsCalledByReviewer": false
+}

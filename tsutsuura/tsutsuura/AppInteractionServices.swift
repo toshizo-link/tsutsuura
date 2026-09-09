@@ -11,7 +11,7 @@ import UIKit
 /// session store. Keeping this parser pure makes Universal Link and QR behavior
 /// deterministic in unit tests without requiring a signed device build.
 enum PairingLinkParser {
-    static let productionHost = "kttprojects.conohawing.com"
+    static let productionHost = "toshizo.link"
     static let productionPathPrefix = ["tsutsuura-api", "api", "invite"]
 
     static func token(from url: URL) -> String? {
